@@ -99,7 +99,7 @@ function ControlledDrugLogbook() {
 
   return (
     <main className="page">
-      <h1>Controlled Drug Digital Logbook 🛡️</h1>
+      <h1>Controlled Drug Digital Logbook </h1>
 
       <div className="prototype-warning">
         <strong>Prototype Notice:</strong> This application is a prototype/demo
@@ -209,7 +209,7 @@ function ControlledDrugLogbook() {
         </div>
 
         <div className="form-section">
-          <h2>✅ Checker Details</h2>
+          <h2>Checker Details</h2>
 
           <label>
             Checker ID
