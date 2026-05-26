@@ -292,3 +292,80 @@ th {
     font-size: 30px;
   }
 }
+.add-drug-panel {
+  margin-bottom: 25px;
+  padding: 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.add-drug-panel h2 {
+  margin-bottom: 15px;
+}
+
+.add-drug-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.add-drug-grid input,
+.add-drug-grid select {
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+}
+
+.add-drug-btn {
+  background: #1565c0;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.add-drug-box {
+  margin: 24px 0;
+  padding: 20px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+
+.add-drug-box h2 {
+  margin-bottom: 16px;
+  color: #1e3a8a;
+}
+
+.add-drug-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.add-drug-grid input,
+.add-drug-grid button {
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.add-drug-grid input {
+  border: 1px solid #cbd5e1;
+}
+
+.add-drug-grid button {
+  border: none;
+  background: #1565c0;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 800px) {
+  .add-drug-grid {
+    grid-template-columns: 1fr;
+  }
+}

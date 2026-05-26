@@ -7,6 +7,13 @@ function ControlledDrugLogbook() {
   const [inventory, setInventory] = useState(drugsData);
   const [entries, setEntries] = useState([]);
 
+  const [newDrug, setNewDrug] = useState({
+    name: "",
+    size: "",
+    concentration: "",
+    quantity: "",
+  });
+
   const [formData, setFormData] = useState({
     patientName: "",
     hospitalNumber: "",
@@ -37,6 +44,36 @@ function ControlledDrugLogbook() {
   function handleChange(event) {
     const { name, value } = event.target;
     setFormData({ ...formData, [name]: value });
+  }
+
+  function handleNewDrugChange(event) {
+    const { name, value } = event.target;
+    setNewDrug({ ...newDrug, [name]: value });
+  }
+
+  function addDrug() {
+    if (!newDrug.name || !newDrug.size || !newDrug.concentration || !newDrug.quantity) {
+      alert("Please complete all drug fields");
+      return;
+    }
+
+    setInventory([
+      ...inventory,
+      {
+        id: Date.now(),
+        name: newDrug.name,
+        size: newDrug.size,
+        concentration: newDrug.concentration,
+        quantity: Number(newDrug.quantity),
+      },
+    ]);
+
+    setNewDrug({
+      name: "",
+      size: "",
+      concentration: "",
+      quantity: "",
+    });
   }
 
   function handleSubmit(event) {
@@ -97,15 +134,69 @@ function ControlledDrugLogbook() {
     setEntries(entries.filter((_, index) => index !== indexToDelete));
   }
 
+  function getDrugClass(name) {
+    const drugName = name.toLowerCase();
+
+    if (drugName.includes("midazolam")) return "midazolam-card";
+    if (drugName.includes("preservative")) return "pf-morphine-card";
+    if (drugName.includes("cocaine")) return "cocaine-card";
+    if (drugName.includes("ketamine")) return "ketamine-card";
+    if (drugName.includes("alfentanil")) return "alfentanil-card";
+    if (drugName.includes("oxycodone")) return "oxycodone-card";
+    if (drugName.includes("morphine")) return "morphine-card";
+    if (drugName.includes("remifentanil")) return "remifentanil-card";
+
+    return "fentanyl-card";
+  }
+
   return (
     <main className="page">
-      <h1>Controlled Drug Digital Logbook </h1>
+      <h1>Controlled Drug Digital Logbook</h1>
 
       <div className="prototype-warning">
-        <strong>Prototype Notice:</strong> This application is a prototype/demo
-        only. Real clinical use requires approval from the relevant NHS or
-        private trust and must comply with their data handling, governance,
-        security and patient confidentiality policies.
+        <strong>Prototype Notice:</strong> This application is a prototype/demo only.
+        Real clinical use requires approval from the relevant NHS or private trust and
+        must comply with their data handling, governance, security and patient
+        confidentiality policies.
+      </div>
+
+      <div className="add-drug-box">
+        <h2>➕ Add New Drug</h2>
+
+        <div className="add-drug-grid">
+          <input
+            name="name"
+            placeholder="Drug name"
+            value={newDrug.name}
+            onChange={handleNewDrugChange}
+          />
+
+          <input
+            name="size"
+            placeholder="Size"
+            value={newDrug.size}
+            onChange={handleNewDrugChange}
+          />
+
+          <input
+            name="concentration"
+            placeholder="Concentration"
+            value={newDrug.concentration}
+            onChange={handleNewDrugChange}
+          />
+
+          <input
+            type="number"
+            name="quantity"
+            placeholder="Quantity"
+            value={newDrug.quantity}
+            onChange={handleNewDrugChange}
+          />
+
+          <button type="button" onClick={addDrug}>
+            Add Drug
+          </button>
+        </div>
       </div>
 
       <form className="drug-form" onSubmit={handleSubmit}>
@@ -146,7 +237,7 @@ function ControlledDrugLogbook() {
               <option value="">Select a drug</option>
               {inventory.map((drug, index) => (
                 <option key={index} value={drug.name}>
-                  {drug.name} — {drug.quantity} remaining
+                  {drug.name} - {drug.quantity} remaining
                 </option>
               ))}
             </select>
@@ -284,7 +375,7 @@ function ControlledDrugLogbook() {
         ))}
       </section>
 
-      <h2 className="section-title">☰ Patient Drug Entries</h2>
+      <h2 className="section-title">Patient Drug Entries</h2>
 
       <div className="table-wrapper">
         <table>
@@ -343,26 +434,11 @@ function ControlledDrugLogbook() {
             ))}
           </tbody>
         </table>
-
-        <p className="auth-note">🔒 Authorised delete ID required: 112233</p>
       </div>
+
+      <p className="auth-note">🔐 Authorised delete ID required: 112233</p>
     </main>
   );
-}
-
-function getDrugClass(name) {
-  const drugName = name.toLowerCase();
-
-  if (drugName.includes("midazolam")) return "midazolam-card";
-  if (drugName.includes("preservative")) return "pf-morphine-card";
-  if (drugName.includes("cocaine")) return "cocaine-card";
-  if (drugName.includes("ketamine")) return "ketamine-card";
-  if (drugName.includes("alfentanil")) return "alfentanil-card";
-  if (drugName.includes("oxycodone")) return "oxycodone-card";
-  if (drugName.includes("morphine")) return "morphine-card";
-  if (drugName.includes("remifentanil")) return "remifentanil-card";
-
-  return "fentanyl-card";
 }
 
 export default ControlledDrugLogbook;
