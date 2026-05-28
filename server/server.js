@@ -1,51 +1,72 @@
-import express from 'express'
-import cors from 'cors'
+import express from "express";
+import cors from "cors";
+import drugs from "./drugData.js";
 
-const app = express()
-const PORT = 8000
+const app = express();
 
-app.use(cors())
-app.use(express.json())
+app.use(cors());
+app.use(express.json());
 
-let drugs = [
-  { id: 1, name: 'Fentanyl', size: '10 mL', concentration: '50 mcg/mL', quantity: 20 },
-  { id: 2, name: 'Fentanyl', size: '2 mL', concentration: '50 mcg/mL', quantity: 20 },
-  { id: 3, name: 'Morphine', size: '10 mL', concentration: '10 mg/mL', quantity: 20 },
-  { id: 4, name: 'Remifentanil', size: '2 mg vial', concentration: '1 mg/mL after reconstitution', quantity: 20 },
-  { id: 5, name: 'Oxycodone', size: '5 mL', concentration: '10 mg/mL', quantity: 10 },
-  { id: 6, name: 'Midazolam', size: '5 mL', concentration: '2 mg/mL', quantity: 10 },
-  { id: 7, name: 'Alfentanil', size: '2 mL', concentration: '500 mcg/mL', quantity: 10 },
-  { id: 8, name: 'Preservative Free Morphine', size: '1 mL', concentration: '10 mg/mL', quantity: 10 }
-]
+app.get("/drugs", (req, res) => {
+  res.json(drugs);
+});
 
-app.get('/', (req, res) => {
-  res.send('Drug Logbook API is running')
-})
+app.get("/drugs/:id", (req, res) => {
+  const drug = drugs.find((d) => d.id === Number(req.params.id));
 
-app.get('/api/drugs', (req, res) => {
-  res.json(drugs)
-})
+  if (!drug) {
+    return res.status(404).json({ message: "Drug not found" });
+  }
 
-app.post('/api/drugs', (req, res) => {
+  res.json(drug);
+});
+
+app.post("/drugs", (req, res) => {
   const newDrug = {
     id: drugs.length + 1,
     name: req.body.name,
-    size: req.body.size,
-    concentration: req.body.concentration,
-    quantity: Number(req.body.quantity)
+    class: req.body.class,
+    stock: Number(req.body.stock),
+    unit: req.body.unit,
+  };
+
+  drugs.push(newDrug);
+
+  res.status(201).json(newDrug);
+});
+
+app.put("/drugs/:id", (req, res) => {
+  const drug = drugs.find((d) => d.id === Number(req.params.id));
+
+  if (!drug) {
+    return res.status(404).json({ message: "Drug not found" });
   }
 
-  drugs.push(newDrug)
+  drug.name = req.body.name || drug.name;
+  drug.class = req.body.class || drug.class;
+  drug.stock = req.body.stock !== undefined ? Number(req.body.stock) : drug.stock;
+  drug.unit = req.body.unit || drug.unit;
 
-  res.status(201).json(newDrug)
-})
+  res.json(drug);
+});
 
-app.delete('/api/drugs/:id', (req, res) => {
-  drugs = drugs.filter(drug => drug.id !== Number(req.params.id))
+app.delete("/drugs/:id", (req, res) => {
+  const index = drugs.findIndex((d) => d.id === Number(req.params.id));
 
-  res.json({ message: 'Drug deleted successfully' })
-})
+  if (index === -1) {
+    return res.status(404).json({ message: "Drug not found" });
+  }
+
+  const deletedDrug = drugs.splice(index, 1);
+
+  res.json({
+    message: "Drug deleted",
+    deletedDrug,
+  });
+});
+
+const PORT = 8000;
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`)
-})
+  console.log(`Server running on port ${PORT}`);
+});
