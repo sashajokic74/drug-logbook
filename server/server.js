@@ -53,7 +53,7 @@ app.delete("/drugs/:id", (req, res) => {
   return res.status(204).end();
 });
 
-const PORT = 5000;
+const PORT = 8000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

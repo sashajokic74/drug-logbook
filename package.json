@@ -1,30 +1,22 @@
 {
   "name": "drug-logbook",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
+  "version": "1.0.0",
+  "description": "A drug log inventory",
+  "main": "index.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sashajokic74/drug-logbook.git"
+  },
+  "author": "Sasa Jokic",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sashajokic74/drug-logbook/issues"
+  },
+  "homepage": "https://github.com/sashajokic74/drug-logbook#readme",
   "dependencies": {
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^10.3.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.6.0",
-    "vite": "^8.0.12",
-    "vite-plugin-pwa": "^1.3.0"
+    "express": "^5.2.1"
   }
 }
