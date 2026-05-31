@@ -76,6 +76,59 @@ function ControlledDrugLogbook() {
     });
   }
 
+  function editDrug(drugId) {
+    const drugToEdit = inventory.find((drug) => drug.id === drugId);
+    if (!drugToEdit) return;
+
+    const updatedName = prompt("Edit drug name:", drugToEdit.name);
+    if (updatedName === null) return;
+
+    const updatedSize = prompt("Edit size:", drugToEdit.size);
+    if (updatedSize === null) return;
+
+    const updatedConcentration = prompt(
+      "Edit concentration:",
+      drugToEdit.concentration
+    );
+    if (updatedConcentration === null) return;
+
+    const updatedQuantity = prompt("Edit quantity:", drugToEdit.quantity);
+    if (updatedQuantity === null) return;
+
+    if (!updatedName || !updatedSize || !updatedConcentration || !updatedQuantity) {
+      alert("All drug fields are required");
+      return;
+    }
+
+    setInventory(
+      inventory.map((drug) =>
+        drug.id === drugId
+          ? {
+              ...drug,
+              name: updatedName,
+              size: updatedSize,
+              concentration: updatedConcentration,
+              quantity: Number(updatedQuantity),
+            }
+          : drug
+      )
+    );
+  }
+
+  function deleteDrug(drugId) {
+    const enteredId = prompt("Enter authorised staff ID to delete drug:");
+
+    if (enteredId !== AUTHORISED_DELETE_ID) {
+      alert("Not authorised");
+      return;
+    }
+
+    const confirmDelete = window.confirm("Are you sure you want to delete this drug?");
+    if (!confirmDelete) return;
+
+    setInventory(inventory.filter((drug) => drug.id !== drugId));
+  }
+
   function handleSubmit(event) {
     event.preventDefault();
 
@@ -164,76 +217,27 @@ function ControlledDrugLogbook() {
         <h2>➕ Add New Drug</h2>
 
         <div className="add-drug-grid">
-          <input
-            name="name"
-            placeholder="Drug name"
-            value={newDrug.name}
-            onChange={handleNewDrugChange}
-          />
+          <input name="name" placeholder="Drug name" value={newDrug.name} onChange={handleNewDrugChange} />
+          <input name="size" placeholder="Size" value={newDrug.size} onChange={handleNewDrugChange} />
+          <input name="concentration" placeholder="Concentration" value={newDrug.concentration} onChange={handleNewDrugChange} />
+          <input type="number" name="quantity" placeholder="Quantity" value={newDrug.quantity} onChange={handleNewDrugChange} />
 
-          <input
-            name="size"
-            placeholder="Size"
-            value={newDrug.size}
-            onChange={handleNewDrugChange}
-          />
-
-          <input
-            name="concentration"
-            placeholder="Concentration"
-            value={newDrug.concentration}
-            onChange={handleNewDrugChange}
-          />
-
-          <input
-            type="number"
-            name="quantity"
-            placeholder="Quantity"
-            value={newDrug.quantity}
-            onChange={handleNewDrugChange}
-          />
-
-          <button type="button" onClick={addDrug}>
-            Add Drug
-          </button>
+          <button type="button" onClick={addDrug}>Add Drug</button>
         </div>
       </div>
 
       <form className="drug-form" onSubmit={handleSubmit}>
         <div className="form-section">
           <h2>👥 Patient Details</h2>
-
-          <label>
-            Patient Name
-            <input
-              name="patientName"
-              value={formData.patientName}
-              onChange={handleChange}
-              placeholder="Enter patient name"
-            />
-          </label>
-
-          <label>
-            Hospital / NHS Number
-            <input
-              name="hospitalNumber"
-              value={formData.hospitalNumber}
-              onChange={handleChange}
-              placeholder="Enter NHS number"
-            />
-          </label>
+          <label>Patient Name<input name="patientName" value={formData.patientName} onChange={handleChange} placeholder="Enter patient name" /></label>
+          <label>Hospital / NHS Number<input name="hospitalNumber" value={formData.hospitalNumber} onChange={handleChange} placeholder="Enter NHS number" /></label>
         </div>
 
         <div className="form-section">
           <h2>💊 Drug Details</h2>
-
           <label>
             Select Drug
-            <select
-              name="drugName"
-              value={formData.drugName}
-              onChange={handleChange}
-            >
+            <select name="drugName" value={formData.drugName} onChange={handleChange}>
               <option value="">Select a drug</option>
               {inventory.map((drug, index) => (
                 <option key={index} value={drug.name}>
@@ -242,95 +246,22 @@ function ControlledDrugLogbook() {
               ))}
             </select>
           </label>
-
-          <label>
-            Dose Given
-            <input
-              name="doseGiven"
-              value={formData.doseGiven}
-              onChange={handleChange}
-              placeholder="e.g. 50 mcg"
-            />
-          </label>
-
-          <label>
-            Quantity Used
-            <input
-              type="number"
-              name="quantityUsed"
-              value={formData.quantityUsed}
-              onChange={handleChange}
-              placeholder="Enter quantity used"
-            />
-          </label>
+          <label>Dose Given<input name="doseGiven" value={formData.doseGiven} onChange={handleChange} placeholder="e.g. 50 mcg" /></label>
+          <label>Quantity Used<input type="number" name="quantityUsed" value={formData.quantityUsed} onChange={handleChange} placeholder="Enter quantity used" /></label>
         </div>
 
         <div className="form-section">
           <h2>👤 Staff Details</h2>
-
-          <label>
-            Staff ID
-            <input
-              name="staffId"
-              value={formData.staffId}
-              onChange={handleChange}
-              placeholder="Enter staff ID"
-            />
-          </label>
-
-          <label>
-            Staff Name
-            <input
-              name="staffName"
-              value={formData.staffName}
-              onChange={handleChange}
-              placeholder="Enter staff name"
-            />
-          </label>
-
-          <label>
-            Staff Digital Signature
-            <input
-              name="staffSignature"
-              value={formData.staffSignature}
-              onChange={handleChange}
-              placeholder="Staff signature"
-            />
-          </label>
+          <label>Staff ID<input name="staffId" value={formData.staffId} onChange={handleChange} placeholder="Enter staff ID" /></label>
+          <label>Staff Name<input name="staffName" value={formData.staffName} onChange={handleChange} placeholder="Enter staff name" /></label>
+          <label>Staff Digital Signature<input name="staffSignature" value={formData.staffSignature} onChange={handleChange} placeholder="Staff signature" /></label>
         </div>
 
         <div className="form-section">
           <h2>Checker Details</h2>
-
-          <label>
-            Checker ID
-            <input
-              name="checkerId"
-              value={formData.checkerId}
-              onChange={handleChange}
-              placeholder="Enter checker ID"
-            />
-          </label>
-
-          <label>
-            Checker Name
-            <input
-              name="checkerName"
-              value={formData.checkerName}
-              onChange={handleChange}
-              placeholder="Enter checker name"
-            />
-          </label>
-
-          <label>
-            Checker Digital Signature
-            <input
-              name="checkerSignature"
-              value={formData.checkerSignature}
-              onChange={handleChange}
-              placeholder="Checker signature"
-            />
-          </label>
+          <label>Checker ID<input name="checkerId" value={formData.checkerId} onChange={handleChange} placeholder="Enter checker ID" /></label>
+          <label>Checker Name<input name="checkerName" value={formData.checkerName} onChange={handleChange} placeholder="Enter checker name" /></label>
+          <label>Checker Digital Signature<input name="checkerSignature" value={formData.checkerSignature} onChange={handleChange} placeholder="Checker signature" /></label>
         </div>
 
         <button type="submit">💾 Save Entry</button>
@@ -352,23 +283,19 @@ function ControlledDrugLogbook() {
               <div className="flip-card-back">
                 <h3>{drug.name}</h3>
 
-                <p>
-                  <strong>Size</strong>
-                  <br />
-                  {drug.size}
-                </p>
+                <p><strong>Size</strong><br />{drug.size}</p>
+                <p><strong>Concentration</strong><br />{drug.concentration}</p>
+                <p><strong>Available Quantity</strong><br />{drug.quantity}</p>
 
-                <p>
-                  <strong>Concentration</strong>
-                  <br />
-                  {drug.concentration}
-                </p>
+                <div className="drug-card-actions">
+                  <button type="button" className="edit-btn" onClick={() => editDrug(drug.id)}>
+                    Edit
+                  </button>
 
-                <p>
-                  <strong>Available Quantity</strong>
-                  <br />
-                  {drug.quantity}
-                </p>
+                  <button type="button" className="delete-btn" onClick={() => deleteDrug(drug.id)}>
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -404,32 +331,11 @@ function ControlledDrugLogbook() {
                 <td>{entry.drugName}</td>
                 <td>{entry.doseGiven}</td>
                 <td>{entry.quantityUsed}</td>
-                <td>
-                  <span className="balance-pill">{entry.balance}</span>
-                </td>
-                <td>
-                  {entry.staffName}
-                  <br />
-                  ({entry.staffId})
-                </td>
-                <td>
-                  {entry.checkerName}
-                  <br />
-                  ({entry.checkerId})
-                </td>
-                <td>
-                  Staff: {entry.staffSignature}
-                  <br />
-                  Checker: {entry.checkerSignature}
-                </td>
-                <td>
-                  <button
-                    className="delete-btn"
-                    onClick={() => deleteEntry(index)}
-                  >
-                    Delete
-                  </button>
-                </td>
+                <td><span className="balance-pill">{entry.balance}</span></td>
+                <td>{entry.staffName}<br />({entry.staffId})</td>
+                <td>{entry.checkerName}<br />({entry.checkerId})</td>
+                <td>Staff: {entry.staffSignature}<br />Checker: {entry.checkerSignature}</td>
+                <td><button className="delete-btn" onClick={() => deleteEntry(index)}>Delete</button></td>
               </tr>
             ))}
           </tbody>
