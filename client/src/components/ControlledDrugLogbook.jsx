@@ -32,7 +32,7 @@ function ControlledDrugLogbook() {
   function normaliseDrug(drug) {
     return {
       id: drug.id,
-      name: drug.name,
+      name: drug.name || "",
       size: drug.size || "",
       concentration: drug.concentration || "",
       quantity: Number(drug.quantity || 0),
@@ -84,9 +84,9 @@ function ControlledDrugLogbook() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: newDrug.name,
-        size: newDrug.size,
-        concentration: newDrug.concentration,
+        name: newDrug.name.trim(),
+        size: newDrug.size.trim(),
+        concentration: newDrug.concentration.trim(),
         quantity: Number(newDrug.quantity),
       }),
     });
@@ -121,10 +121,11 @@ function ControlledDrugLogbook() {
     if (updatedQuantity === null) return;
 
     if (
-      !updatedName ||
-      !updatedSize ||
-      !updatedConcentration ||
-      !updatedQuantity
+      !updatedName.trim() ||
+      !updatedSize.trim() ||
+      !updatedConcentration.trim() ||
+      updatedQuantity === "" ||
+      Number.isNaN(Number(updatedQuantity))
     ) {
       alert("All drug fields are required");
       return;
@@ -136,9 +137,9 @@ function ControlledDrugLogbook() {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        name: updatedName,
-        size: updatedSize,
-        concentration: updatedConcentration,
+        name: updatedName.trim(),
+        size: updatedSize.trim(),
+        concentration: updatedConcentration.trim(),
         quantity: Number(updatedQuantity),
       }),
     });
