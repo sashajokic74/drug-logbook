@@ -19,9 +19,10 @@ app.post("/drugs", (req, res) => {
   const newDrug = {
     id: Date.now(),
     name: req.body.name,
-    class: req.body.class || req.body.size || "",
-    stock: Number(req.body.stock ?? req.body.quantity ?? 0),
-    unit: req.body.unit || req.body.concentration || "",
+    category: req.body.category || "",
+    size: req.body.size || "",
+    concentration: req.body.concentration || "",
+    quantity: Number(req.body.quantity || 0),
   };
 
   drugs.push(newDrug);
@@ -37,14 +38,11 @@ app.put("/drugs/:id", (req, res) => {
   }
 
   drug.name = req.body.name ?? drug.name;
-  drug.class = req.body.class ?? req.body.size ?? drug.class;
-  drug.stock =
-    req.body.stock !== undefined
-      ? Number(req.body.stock)
-      : req.body.quantity !== undefined
-      ? Number(req.body.quantity)
-      : drug.stock;
-  drug.unit = req.body.unit ?? req.body.concentration ?? drug.unit;
+  drug.category = req.body.category ?? drug.category;
+  drug.size = req.body.size ?? drug.size;
+  drug.concentration = req.body.concentration ?? drug.concentration;
+  drug.quantity =
+    req.body.quantity !== undefined ? Number(req.body.quantity) : drug.quantity;
 
   return res.status(200).json(drug);
 });
@@ -80,11 +78,11 @@ app.post("/entries", (req, res) => {
     return res.status(400).json({ message: "Invalid quantity used" });
   }
 
-  if (quantityUsed > selectedDrug.stock) {
+  if (quantityUsed > selectedDrug.quantity) {
     return res.status(400).json({ message: "Not enough stock" });
   }
 
-  selectedDrug.stock = selectedDrug.stock - quantityUsed;
+  selectedDrug.quantity = selectedDrug.quantity - quantityUsed;
 
   const newEntry = {
     id: Date.now(),
@@ -93,7 +91,7 @@ app.post("/entries", (req, res) => {
     drugName: req.body.drugName,
     doseGiven: req.body.doseGiven,
     quantityUsed,
-    balance: selectedDrug.stock,
+    balance: selectedDrug.quantity,
     staffId: req.body.staffId,
     staffName: req.body.staffName,
     checkerId: req.body.checkerId,
