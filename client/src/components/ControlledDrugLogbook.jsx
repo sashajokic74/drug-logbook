@@ -33,12 +33,10 @@ function ControlledDrugLogbook() {
     return {
       id: drug.id,
       name: drug.name,
-      size: drug.size || drug.class || "",
-      concentration: drug.concentration || drug.unit || "",
-      quantity:
-        drug.quantity !== undefined
-          ? Number(drug.quantity)
-          : Number(drug.stock || 0),
+      size: drug.size || "",
+      concentration: drug.concentration || "",
+      quantity: Number(drug.quantity || 0),
+      category: drug.category || "",
     };
   }
 
@@ -87,9 +85,9 @@ function ControlledDrugLogbook() {
       },
       body: JSON.stringify({
         name: newDrug.name,
-        class: newDrug.size,
-        unit: newDrug.concentration,
-        stock: Number(newDrug.quantity),
+        size: newDrug.size,
+        concentration: newDrug.concentration,
+        quantity: Number(newDrug.quantity),
       }),
     });
 
@@ -139,9 +137,9 @@ function ControlledDrugLogbook() {
       },
       body: JSON.stringify({
         name: updatedName,
-        class: updatedSize,
-        unit: updatedConcentration,
-        stock: Number(updatedQuantity),
+        size: updatedSize,
+        concentration: updatedConcentration,
+        quantity: Number(updatedQuantity),
       }),
     });
 
