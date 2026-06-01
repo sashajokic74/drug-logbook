@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import drugsData from "../drug data/drugs";
+
+const API_URL = "http://localhost:8000";
 
 function ControlledDrugLogbook() {
   const AUTHORISED_DELETE_ID = "112233";
 
-  const [inventory, setInventory] = useState(drugsData);
+  const [inventory, setInventory] = useState([]);
   const [entries, setEntries] = useState([]);
 
   const [newDrug, setNewDrug] = useState({
@@ -28,18 +29,33 @@ function ControlledDrugLogbook() {
     checkerSignature: "",
   });
 
-  useEffect(() => {
-    const savedEntries = localStorage.getItem("logbookEntries");
-    const savedInventory = localStorage.getItem("drugInventory");
+  function normaliseDrug(drug) {
+    return {
+      id: drug.id,
+      name: drug.name || "",
+      size: drug.size || "",
+      concentration: drug.concentration || "",
+      quantity: Number(drug.quantity || 0),
+      category: drug.category || "",
+    };
+  }
 
-    if (savedEntries) setEntries(JSON.parse(savedEntries));
-    if (savedInventory) setInventory(JSON.parse(savedInventory));
+  async function loadDrugs() {
+    const response = await fetch(`${API_URL}/drugs`);
+    const data = await response.json();
+    setInventory(data.map(normaliseDrug));
+  }
+
+  async function loadEntries() {
+    const response = await fetch(`${API_URL}/entries`);
+    const data = await response.json();
+    setEntries(data);
+  }
+
+  useEffect(() => {
+    loadDrugs();
+    loadEntries();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("logbookEntries", JSON.stringify(entries));
-    localStorage.setItem("drugInventory", JSON.stringify(inventory));
-  }, [entries, inventory]);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -51,22 +67,29 @@ function ControlledDrugLogbook() {
     setNewDrug({ ...newDrug, [name]: value });
   }
 
-  function addDrug() {
-    if (!newDrug.name || !newDrug.size || !newDrug.concentration || !newDrug.quantity) {
+  async function addDrug() {
+    if (
+      !newDrug.name ||
+      !newDrug.size ||
+      !newDrug.concentration ||
+      !newDrug.quantity
+    ) {
       alert("Please complete all drug fields");
       return;
     }
 
-    setInventory([
-      ...inventory,
-      {
-        id: Date.now(),
+    await fetch(`${API_URL}/drugs`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
         name: newDrug.name,
         size: newDrug.size,
         concentration: newDrug.concentration,
         quantity: Number(newDrug.quantity),
-      },
-    ]);
+      }),
+    });
 
     setNewDrug({
       name: "",
@@ -74,11 +97,17 @@ function ControlledDrugLogbook() {
       concentration: "",
       quantity: "",
     });
+
+    loadDrugs();
   }
 
-  function editDrug(drugId) {
+  async function editDrug(drugId) {
     const drugToEdit = inventory.find((drug) => drug.id === drugId);
-    if (!drugToEdit) return;
+
+    if (!drugToEdit) {
+      alert("Drug not found");
+      return;
+    }
 
     const updatedName = prompt("Edit drug name:", drugToEdit.name);
     if (updatedName === null) return;
@@ -95,27 +124,34 @@ function ControlledDrugLogbook() {
     const updatedQuantity = prompt("Edit quantity:", drugToEdit.quantity);
     if (updatedQuantity === null) return;
 
-    if (!updatedName || !updatedSize || !updatedConcentration || !updatedQuantity) {
+    if (
+      !updatedName.trim() ||
+      !updatedSize.trim() ||
+      !updatedConcentration.trim() ||
+      updatedQuantity === "" ||
+      Number.isNaN(Number(updatedQuantity))
+    ) {
       alert("All drug fields are required");
       return;
     }
 
-    setInventory(
-      inventory.map((drug) =>
-        drug.id === drugId
-          ? {
-              ...drug,
-              name: updatedName,
-              size: updatedSize,
-              concentration: updatedConcentration,
-              quantity: Number(updatedQuantity),
-            }
-          : drug
-      )
-    );
+    await fetch(`${API_URL}/drugs/${drugId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: updatedName.trim(),
+        size: updatedSize.trim(),
+        concentration: updatedConcentration.trim(),
+        quantity: Number(updatedQuantity),
+      }),
+    });
+
+    loadDrugs();
   }
 
-  function deleteDrug(drugId) {
+  async function deleteDrug(drugId) {
     const enteredId = prompt("Enter authorised staff ID to delete drug:");
 
     if (enteredId !== AUTHORISED_DELETE_ID) {
@@ -123,13 +159,20 @@ function ControlledDrugLogbook() {
       return;
     }
 
-    const confirmDelete = window.confirm("Are you sure you want to delete this drug?");
+    const confirmDelete = window.confirm(
+      "Are you sure you want to delete this drug?"
+    );
+
     if (!confirmDelete) return;
 
-    setInventory(inventory.filter((drug) => drug.id !== drugId));
+    await fetch(`${API_URL}/drugs/${drugId}`, {
+      method: "DELETE",
+    });
+
+    loadDrugs();
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     const selectedDrug = inventory.find(
@@ -139,27 +182,28 @@ function ControlledDrugLogbook() {
     const quantityUsed = Number(formData.quantityUsed);
 
     if (!selectedDrug) return alert("Please select a drug");
-    if (!quantityUsed || quantityUsed <= 0) return alert("Please enter quantity used");
+    if (!quantityUsed || quantityUsed <= 0)
+      return alert("Please enter quantity used");
     if (quantityUsed > selectedDrug.quantity) return alert("Not enough stock");
 
-    const newBalance = selectedDrug.quantity - quantityUsed;
-
-    setInventory(
-      inventory.map((drug) =>
-        drug.name === formData.drugName
-          ? { ...drug, quantity: newBalance }
-          : drug
-      )
-    );
-
-    setEntries([
-      ...entries,
-      {
-        ...formData,
-        balance: newBalance,
-        dateTime: new Date().toLocaleString(),
+    const response = await fetch(`${API_URL}/entries`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    ]);
+      body: JSON.stringify(formData),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      alert(error.message || "Could not save entry");
+      return;
+    }
+
+    const data = await response.json();
+
+    setEntries([...entries, data.entry]);
+    setInventory(data.drugs.map(normaliseDrug));
 
     setFormData({
       patientName: "",
@@ -176,7 +220,7 @@ function ControlledDrugLogbook() {
     });
   }
 
-  function deleteEntry(indexToDelete) {
+  async function deleteEntry(entryId) {
     const enteredId = prompt("Enter authorised staff ID to delete:");
 
     if (enteredId !== AUTHORISED_DELETE_ID) {
@@ -184,7 +228,11 @@ function ControlledDrugLogbook() {
       return;
     }
 
-    setEntries(entries.filter((_, index) => index !== indexToDelete));
+    await fetch(`${API_URL}/entries/${entryId}`, {
+      method: "DELETE",
+    });
+
+    loadEntries();
   }
 
   function getDrugClass(name) {
@@ -207,61 +255,184 @@ function ControlledDrugLogbook() {
       <h1>Controlled Drug Digital Logbook</h1>
 
       <div className="prototype-warning">
-        <strong>Prototype Notice:</strong> This application is a prototype/demo only.
-        Real clinical use requires approval from the relevant NHS or private trust and
-        must comply with their data handling, governance, security and patient
-        confidentiality policies.
+        <strong>Prototype Notice:</strong> This application is a prototype/demo
+        only. Real clinical use requires approval from the relevant NHS or
+        private trust and must comply with their data handling, governance,
+        security and patient confidentiality policies.
       </div>
 
       <div className="add-drug-box">
         <h2>➕ Add New Drug</h2>
 
         <div className="add-drug-grid">
-          <input name="name" placeholder="Drug name" value={newDrug.name} onChange={handleNewDrugChange} />
-          <input name="size" placeholder="Size" value={newDrug.size} onChange={handleNewDrugChange} />
-          <input name="concentration" placeholder="Concentration" value={newDrug.concentration} onChange={handleNewDrugChange} />
-          <input type="number" name="quantity" placeholder="Quantity" value={newDrug.quantity} onChange={handleNewDrugChange} />
+          <input
+            name="name"
+            placeholder="Drug name"
+            value={newDrug.name}
+            onChange={handleNewDrugChange}
+          />
 
-          <button type="button" onClick={addDrug}>Add Drug</button>
+          <input
+            name="size"
+            placeholder="Size"
+            value={newDrug.size}
+            onChange={handleNewDrugChange}
+          />
+
+          <input
+            name="concentration"
+            placeholder="Concentration"
+            value={newDrug.concentration}
+            onChange={handleNewDrugChange}
+          />
+
+          <input
+            type="number"
+            name="quantity"
+            placeholder="Quantity"
+            value={newDrug.quantity}
+            onChange={handleNewDrugChange}
+          />
+
+          <button type="button" onClick={addDrug}>
+            Add Drug
+          </button>
         </div>
       </div>
 
       <form className="drug-form" onSubmit={handleSubmit}>
         <div className="form-section">
           <h2>👥 Patient Details</h2>
-          <label>Patient Name<input name="patientName" value={formData.patientName} onChange={handleChange} placeholder="Enter patient name" /></label>
-          <label>Hospital / NHS Number<input name="hospitalNumber" value={formData.hospitalNumber} onChange={handleChange} placeholder="Enter NHS number" /></label>
+
+          <label>
+            Patient Name
+            <input
+              name="patientName"
+              value={formData.patientName}
+              onChange={handleChange}
+              placeholder="Enter patient name"
+            />
+          </label>
+
+          <label>
+            Hospital / NHS Number
+            <input
+              name="hospitalNumber"
+              value={formData.hospitalNumber}
+              onChange={handleChange}
+              placeholder="Enter NHS number"
+            />
+          </label>
         </div>
 
         <div className="form-section">
           <h2>💊 Drug Details</h2>
+
           <label>
             Select Drug
-            <select name="drugName" value={formData.drugName} onChange={handleChange}>
+            <select
+              name="drugName"
+              value={formData.drugName}
+              onChange={handleChange}
+            >
               <option value="">Select a drug</option>
-              {inventory.map((drug, index) => (
-                <option key={index} value={drug.name}>
+
+              {inventory.map((drug) => (
+                <option key={drug.id} value={drug.name}>
                   {drug.name} - {drug.quantity} remaining
                 </option>
               ))}
             </select>
           </label>
-          <label>Dose Given<input name="doseGiven" value={formData.doseGiven} onChange={handleChange} placeholder="e.g. 50 mcg" /></label>
-          <label>Quantity Used<input type="number" name="quantityUsed" value={formData.quantityUsed} onChange={handleChange} placeholder="Enter quantity used" /></label>
+
+          <label>
+            Dose Given
+            <input
+              name="doseGiven"
+              value={formData.doseGiven}
+              onChange={handleChange}
+              placeholder="e.g. 50 mcg"
+            />
+          </label>
+
+          <label>
+            Quantity Used
+            <input
+              type="number"
+              name="quantityUsed"
+              value={formData.quantityUsed}
+              onChange={handleChange}
+              placeholder="Enter quantity used"
+            />
+          </label>
         </div>
 
         <div className="form-section">
           <h2>👤 Staff Details</h2>
-          <label>Staff ID<input name="staffId" value={formData.staffId} onChange={handleChange} placeholder="Enter staff ID" /></label>
-          <label>Staff Name<input name="staffName" value={formData.staffName} onChange={handleChange} placeholder="Enter staff name" /></label>
-          <label>Staff Digital Signature<input name="staffSignature" value={formData.staffSignature} onChange={handleChange} placeholder="Staff signature" /></label>
+
+          <label>
+            Staff ID
+            <input
+              name="staffId"
+              value={formData.staffId}
+              onChange={handleChange}
+              placeholder="Enter staff ID"
+            />
+          </label>
+
+          <label>
+            Staff Name
+            <input
+              name="staffName"
+              value={formData.staffName}
+              onChange={handleChange}
+              placeholder="Enter staff name"
+            />
+          </label>
+
+          <label>
+            Staff Digital Signature
+            <input
+              name="staffSignature"
+              value={formData.staffSignature}
+              onChange={handleChange}
+              placeholder="Staff signature"
+            />
+          </label>
         </div>
 
         <div className="form-section">
           <h2>Checker Details</h2>
-          <label>Checker ID<input name="checkerId" value={formData.checkerId} onChange={handleChange} placeholder="Enter checker ID" /></label>
-          <label>Checker Name<input name="checkerName" value={formData.checkerName} onChange={handleChange} placeholder="Enter checker name" /></label>
-          <label>Checker Digital Signature<input name="checkerSignature" value={formData.checkerSignature} onChange={handleChange} placeholder="Checker signature" /></label>
+
+          <label>
+            Checker ID
+            <input
+              name="checkerId"
+              value={formData.checkerId}
+              onChange={handleChange}
+              placeholder="Enter checker ID"
+            />
+          </label>
+
+          <label>
+            Checker Name
+            <input
+              name="checkerName"
+              value={formData.checkerName}
+              onChange={handleChange}
+              placeholder="Enter checker name"
+            />
+          </label>
+
+          <label>
+            Checker Digital Signature
+            <input
+              name="checkerSignature"
+              value={formData.checkerSignature}
+              onChange={handleChange}
+              placeholder="Checker signature"
+            />
+          </label>
         </div>
 
         <button type="submit">💾 Save Entry</button>
@@ -270,8 +441,8 @@ function ControlledDrugLogbook() {
       <h2 className="section-title">📦 Drug Stock</h2>
 
       <section className="stock-grid">
-        {inventory.map((drug, index) => (
-          <div className={`flip-card ${getDrugClass(drug.name)}`} key={index}>
+        {inventory.map((drug) => (
+          <div className={`flip-card ${getDrugClass(drug.name)}`} key={drug.id}>
             <div className="flip-card-inner">
               <div className="flip-card-front">
                 <h3>{drug.name}</h3>
@@ -283,16 +454,38 @@ function ControlledDrugLogbook() {
               <div className="flip-card-back">
                 <h3>{drug.name}</h3>
 
-                <p><strong>Size</strong><br />{drug.size}</p>
-                <p><strong>Concentration</strong><br />{drug.concentration}</p>
-                <p><strong>Available Quantity</strong><br />{drug.quantity}</p>
+                <p>
+                  <strong>Size</strong>
+                  <br />
+                  {drug.size}
+                </p>
+
+                <p>
+                  <strong>Concentration</strong>
+                  <br />
+                  {drug.concentration}
+                </p>
+
+                <p>
+                  <strong>Available Quantity</strong>
+                  <br />
+                  {drug.quantity}
+                </p>
 
                 <div className="drug-card-actions">
-                  <button type="button" className="edit-btn" onClick={() => editDrug(drug.id)}>
+                  <button
+                    type="button"
+                    className="edit-btn"
+                    onClick={() => editDrug(drug.id)}
+                  >
                     Edit
                   </button>
 
-                  <button type="button" className="delete-btn" onClick={() => deleteDrug(drug.id)}>
+                  <button
+                    type="button"
+                    className="delete-btn"
+                    onClick={() => deleteDrug(drug.id)}
+                  >
                     Delete
                   </button>
                 </div>
@@ -323,19 +516,38 @@ function ControlledDrugLogbook() {
           </thead>
 
           <tbody>
-            {entries.map((entry, index) => (
-              <tr key={index}>
+            {entries.map((entry) => (
+              <tr key={entry.id}>
                 <td>{entry.dateTime}</td>
                 <td>{entry.patientName}</td>
                 <td>{entry.hospitalNumber}</td>
                 <td>{entry.drugName}</td>
                 <td>{entry.doseGiven}</td>
                 <td>{entry.quantityUsed}</td>
-                <td><span className="balance-pill">{entry.balance}</span></td>
-                <td>{entry.staffName}<br />({entry.staffId})</td>
-                <td>{entry.checkerName}<br />({entry.checkerId})</td>
-                <td>Staff: {entry.staffSignature}<br />Checker: {entry.checkerSignature}</td>
-                <td><button className="delete-btn" onClick={() => deleteEntry(index)}>Delete</button></td>
+                <td>
+                  <span className="balance-pill">{entry.balance}</span>
+                </td>
+                <td>
+                  {entry.staffName}
+                  <br />({entry.staffId})
+                </td>
+                <td>
+                  {entry.checkerName}
+                  <br />({entry.checkerId})
+                </td>
+                <td>
+                  Staff: {entry.staffSignature}
+                  <br />
+                  Checker: {entry.checkerSignature}
+                </td>
+                <td>
+                  <button
+                    className="delete-btn"
+                    onClick={() => deleteEntry(entry.id)}
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
