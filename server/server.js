@@ -65,270 +65,221 @@ app.get("/drugs", (req, res) => {
 
 
 
-
-app.post("/drugs", (req,res)=>{
-
-
- const result = db.prepare(`
- INSERT INTO drugs
- (name, category, size, concentration, quantity)
- VALUES (?, ?, ?, ?, ?)
- `)
- .run(
-
- req.body.name,
- req.body.category || "",
- req.body.size || "",
- req.body.concentration || "",
- Number(req.body.quantity)
-
- );
+app.post("/drugs", (req, res) => {
 
 
- const newDrug =
- db.prepare(
- "SELECT * FROM drugs WHERE id=?"
- )
- .get(result.lastInsertRowid);
+  const result = db.prepare(`
+    INSERT INTO drugs
+    (name, category, size, concentration, quantity)
+    VALUES (?, ?, ?, ?, ?)
+  `)
+  .run(
+    req.body.name,
+    req.body.category || "",
+    req.body.size || "",
+    req.body.concentration || "",
+    Number(req.body.quantity || 0)
+  );
 
 
+  const newDrug = db
+    .prepare("SELECT * FROM drugs WHERE id=?")
+    .get(result.lastInsertRowid);
 
- return res.status(201).json(newDrug);
 
+  return res.status(201).json(newDrug);
 
 });
 
 
 
 
-
-app.put("/drugs/:id",(req,res)=>{
-
-
-db.prepare(`
-UPDATE drugs SET
-
-name=?,
-category=?,
-size=?,
-concentration=?,
-quantity=?
-
-WHERE id=?
-
-`)
-.run(
-
-req.body.name,
-req.body.category,
-req.body.size,
-req.body.concentration,
-Number(req.body.quantity),
-Number(req.params.id)
-
-);
+app.put("/drugs/:id", (req, res) => {
 
 
-const updatedDrug =
-db.prepare(
-"SELECT * FROM drugs WHERE id=?"
-)
-.get(req.params.id);
+  db.prepare(`
+    UPDATE drugs SET
+    name=?,
+    category=?,
+    size=?,
+    concentration=?,
+    quantity=?
+    WHERE id=?
+  `)
+  .run(
+    req.body.name,
+    req.body.category,
+    req.body.size,
+    req.body.concentration,
+    Number(req.body.quantity),
+    Number(req.params.id)
+  );
 
 
-return res.json(updatedDrug);
+  const updatedDrug = db
+    .prepare("SELECT * FROM drugs WHERE id=?")
+    .get(req.params.id);
 
+
+  return res.json(updatedDrug);
 
 });
 
 
 
 
+app.delete("/drugs/:id", (req, res) => {
 
 
-app.delete("/drugs/:id",(req,res)=>{
+  db.prepare(
+    "DELETE FROM drugs WHERE id=?"
+  )
+  .run(req.params.id);
 
 
-db.prepare(
-"DELETE FROM drugs WHERE id=?"
-)
-.run(req.params.id);
-
-
-
-return res.status(204).end();
-
+  return res.status(204).end();
 
 });
 
 
 
 
+/* ================= ENTRIES ================= */
 
 
-/* ================= ENTRY ROUTES ================= */
+app.get("/entries", (req, res) => {
 
 
-app.get("/entries",(req,res)=>{
+  const entries = db
+    .prepare("SELECT * FROM entries ORDER BY id DESC")
+    .all();
 
 
-const entries =
-db.prepare(
-"SELECT * FROM entries ORDER BY id DESC"
-)
-.all();
-
-
-
-return res.json(entries);
-
+  return res.json(entries);
 
 });
 
 
 
 
+app.post("/entries", (req, res) => {
+
+
+  const selectedDrug = db
+    .prepare("SELECT * FROM drugs WHERE name=?")
+    .get(req.body.drugName);
+
+
+  if (!selectedDrug) {
+
+    return res.status(404).json({
+      message: "Drug not found"
+    });
+
+  }
+
+
+  const quantityUsed =
+    Number(req.body.quantityUsed);
+
+
+  if (quantityUsed > selectedDrug.quantity) {
+
+    return res.status(400).json({
+      message: "Not enough stock"
+    });
+
+  }
+
+
+  const balance =
+    selectedDrug.quantity - quantityUsed;
+
+
+  db.prepare(
+    "UPDATE drugs SET quantity=? WHERE id=?"
+  )
+  .run(balance, selectedDrug.id);
 
 
 
-app.post("/entries",(req,res)=>{
+  const result = db.prepare(`
+
+    INSERT INTO entries
+
+    (
+      patientName,
+      hospitalNumber,
+      drugName,
+      doseGiven,
+      quantityUsed,
+      balance,
+      staffId,
+      staffName,
+      checkerId,
+      checkerName,
+      staffSignature,
+      checkerSignature,
+      dateTime
+    )
+
+    VALUES
+
+    (?,?,?,?,?,?,?,?,?,?,?,?,?)
+
+  `)
+  .run(
+
+    req.body.patientName,
+    req.body.hospitalNumber,
+    req.body.drugName,
+    req.body.doseGiven,
+    quantityUsed,
+    balance,
+    req.body.staffId,
+    req.body.staffName,
+    req.body.checkerId,
+    req.body.checkerName,
+    req.body.staffSignature,
+    req.body.checkerSignature,
+    new Date().toLocaleString()
+
+  );
 
 
-const selectedDrug =
-db.prepare(
-"SELECT * FROM drugs WHERE name=?"
-)
-.get(req.body.drugName);
+  const entry = db
+    .prepare("SELECT * FROM entries WHERE id=?")
+    .get(result.lastInsertRowid);
 
 
-
-if(!selectedDrug){
-
-return res.status(404).json({
-message:"Drug not found"
-});
-
-}
-
-
-
-
-const quantityUsed =
-Number(req.body.quantityUsed);
-
-
-
-const balance =
-selectedDrug.quantity - quantityUsed;
-
-
-
-db.prepare(
-"UPDATE drugs SET quantity=? WHERE id=?"
-)
-.run(balance,selectedDrug.id);
-
-
-
-
-
-
-const result =
-db.prepare(`
-
-INSERT INTO entries
-
-(
-patientName,
-hospitalNumber,
-drugName,
-doseGiven,
-quantityUsed,
-balance,
-staffId,
-staffName,
-checkerId,
-checkerName,
-staffSignature,
-checkerSignature,
-dateTime
-)
-
-VALUES
-
-(?,?,?,?,?,?,?,?,?,?,?,?,?)
-
-`)
-.run(
-
-req.body.patientName,
-req.body.hospitalNumber,
-req.body.drugName,
-req.body.doseGiven,
-quantityUsed,
-balance,
-req.body.staffId,
-req.body.staffName,
-req.body.checkerId,
-req.body.checkerName,
-req.body.staffSignature,
-req.body.checkerSignature,
-new Date().toLocaleString()
-
-);
+  const drugs = db
+    .prepare("SELECT * FROM drugs")
+    .all();
 
 
 
-
-const entry =
-db.prepare(
-"SELECT * FROM entries WHERE id=?"
-)
-.get(result.lastInsertRowid);
-
-
-
-const drugs =
-db.prepare(
-"SELECT * FROM drugs"
-)
-.all();
-
-
-
-
-return res.status(201).json({
-
-entry,
-drugs
-
-});
-
-
+  return res.status(201).json({
+    entry,
+    drugs
+  });
 
 });
 
 
 
 
+app.delete("/entries/:id", (req,res)=>{
 
 
-
-app.delete("/entries/:id",(req,res)=>{
-
-
-db.prepare(
-"DELETE FROM entries WHERE id=?"
-)
-.run(req.params.id);
+  db.prepare(
+    "DELETE FROM entries WHERE id=?"
+  )
+  .run(req.params.id);
 
 
-
-return res.status(204).end();
-
+  return res.status(204).end();
 
 });
-
 
 
 
@@ -339,12 +290,8 @@ return res.status(204).end();
 const PORT = 8000;
 
 
-app.listen(PORT,()=>{
+app.listen(PORT, () => {
 
-
-console.log(
-`Server running on port ${PORT}`
-);
-
+  console.log(`Server running on port ${PORT}`);
 
 });
