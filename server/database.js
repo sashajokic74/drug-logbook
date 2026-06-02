@@ -2,50 +2,69 @@ import Database from "better-sqlite3";
 
 const db = new Database("druglogbook.db");
 
-/* DRUG STOCK TABLE */
+/* ================= DRUG TABLE ================= */
 
 db.prepare(`
-CREATE TABLE IF NOT EXISTS drugs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  category TEXT,
-  size TEXT,
-  concentration TEXT,
-  quantity INTEGER
-)
+  CREATE TABLE IF NOT EXISTS drugs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    category TEXT,
+    size TEXT,
+    concentration TEXT,
+    quantity INTEGER DEFAULT 0
+  )
 `).run();
 
 
-/* PATIENT LOGBOOK TABLE */
+/* ================= ENTRIES TABLE ================= */
 
 db.prepare(`
-CREATE TABLE IF NOT EXISTS entries (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  patientName TEXT,
-  hospitalNumber TEXT,
-  drugName TEXT,
-  doseGiven TEXT,
-  quantityUsed INTEGER,
-  balance INTEGER,
-  staffId TEXT,
-  staffName TEXT,
-  checkerId TEXT,
-  checkerName TEXT,
-  staffSignature TEXT,
-  checkerSignature TEXT,
-  dateTime TEXT
-)
+  CREATE TABLE IF NOT EXISTS entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    patientName TEXT,
+    hospitalNumber TEXT,
+
+    drugName TEXT,
+    doseGiven TEXT,
+    quantityUsed INTEGER,
+    balance INTEGER,
+
+    staffId TEXT,
+    staffName TEXT,
+
+    checkerId TEXT,
+    checkerName TEXT,
+
+    staffSignature TEXT,
+    checkerSignature TEXT,
+
+    dateTime TEXT
+  )
 `).run();
 
 
-/* AUDIT TABLE - for next upgrade */
+/* ================= AUDIT TABLE ================= */
 
 db.prepare(`
-CREATE TABLE IF NOT EXISTS audit (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  action TEXT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)
+  CREATE TABLE IF NOT EXISTS audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`).run();
+
+
+/* ================= USERS TABLE ================= */
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
 `).run();
 
 
