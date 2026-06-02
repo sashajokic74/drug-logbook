@@ -1,4 +1,4 @@
-const Database = require("better-sqlite3");
+import Database from "better-sqlite3";
 
 const db = new Database("druglogbook.db");
 
@@ -6,8 +6,29 @@ db.prepare(`
   CREATE TABLE IF NOT EXISTS drugs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    strength TEXT,
+    category TEXT,
+    size TEXT,
+    concentration TEXT,
     quantity INTEGER
+  )
+`).run();
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patientName TEXT,
+    hospitalNumber TEXT,
+    drugName TEXT,
+    doseGiven TEXT,
+    quantityUsed INTEGER,
+    balance INTEGER,
+    staffId TEXT,
+    staffName TEXT,
+    checkerId TEXT,
+    checkerName TEXT,
+    staffSignature TEXT,
+    checkerSignature TEXT,
+    dateTime TEXT
   )
 `).run();
 
@@ -19,4 +40,4 @@ db.prepare(`
   )
 `).run();
 
-module.exports = db;
+export default db;
