@@ -4,22 +4,7 @@ import db from "./database.js";
 
 const JWT_SECRET = "change-this-secret-later";
 
-export function seedAdminUser() {
-  const existingAdmin = db
-    .prepare("SELECT * FROM users WHERE username = ?")
-    .get("admin");
-
-  if (!existingAdmin) {
-    const hashedPassword = bcrypt.hashSync("admin123", 10);
-
-    db.prepare(`
-      INSERT INTO users (username, password, role)
-      VALUES (?, ?, ?)
-    `).run("admin", hashedPassword, "admin");
-
-    console.log("Default admin user created");
-  }
-}
+/* ================= LOGIN USER ================= */
 
 export function loginUser(req, res) {
   const { username, password } = req.body;
@@ -29,13 +14,23 @@ export function loginUser(req, res) {
     .get(username);
 
   if (!user) {
-    return res.status(401).json({ message: "Invalid username or password" });
+    return res.status(401).json({
+      message: "Invalid username or password",
+    });
   }
 
-  const passwordMatch = bcrypt.compareSync(password, user.password);
+  let passwordMatch = false;
+
+  if (user.password.startsWith("$2b$")) {
+    passwordMatch = bcrypt.compareSync(password, user.password);
+  } else {
+    passwordMatch = password === user.password;
+  }
 
   if (!passwordMatch) {
-    return res.status(401).json({ message: "Invalid username or password" });
+    return res.status(401).json({
+      message: "Invalid username or password",
+    });
   }
 
   const token = jwt.sign(
@@ -43,18 +38,24 @@ export function loginUser(req, res) {
       id: user.id,
       username: user.username,
       role: user.role,
+      fullName: user.fullName,
     },
     JWT_SECRET,
-    { expiresIn: "8h" }
+    {
+      expiresIn: "8h",
+    }
   );
 
-  return res.json({
+  return res.status(200).json({
     message: "Login successful",
+
     token,
+
     user: {
       id: user.id,
       username: user.username,
       role: user.role,
+      fullName: user.fullName,
     },
   });
 }
