@@ -1,33 +1,14 @@
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import seedDrugs from "./drugData.js";
 import db from "./database.js";
+import { loginUser, verifyUser, adminOnly } from "./auth.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
-
-const JWT_SECRET = "change-this-secret-later";
-
-/* ================= ADMIN USER SEED ================= */
-
-const existingAdmin = db
-  .prepare("SELECT * FROM users WHERE username = ?")
-  .get("admin");
-
-if (!existingAdmin) {
-  const hashedPassword = bcrypt.hashSync("admin123", 10);
-
-  db.prepare(`
-    INSERT INTO users (username, password, role)
-    VALUES (?, ?, ?)
-  `).run("admin", hashedPassword, "admin");
-
-  console.log("Default admin user created");
-}
 
 /* ================= DATABASE SEED ================= */
 
@@ -59,42 +40,66 @@ if (existingDrugs.length === 0) {
 
 /* ================= AUTH ROUTES ================= */
 
-app.post("/login", (req, res) => {
-  const { username, password } = req.body;
+app.post("/login", loginUser);
 
-  const user = db
+/* ================= USER ROUTES ================= */
+
+app.get("/users", verifyUser, adminOnly, (req, res) => {
+  const users = db
+    .prepare("SELECT id, username, role, fullName, createdAt FROM users")
+    .all();
+
+  return res.status(200).json(users);
+});
+
+app.post("/users", verifyUser, adminOnly, (req, res) => {
+  const { username, password, role, fullName } = req.body;
+
+  if (!username || !password || !role) {
+    return res.status(400).json({
+      message: "Username, password and role are required",
+    });
+  }
+
+  const existingUser = db
     .prepare("SELECT * FROM users WHERE username = ?")
     .get(username);
 
-  if (!user) {
-    return res.status(401).json({ message: "Invalid username or password" });
+  if (existingUser) {
+    return res.status(409).json({
+      message: "Username already exists",
+    });
   }
 
-  const passwordMatch = bcrypt.compareSync(password, user.password);
+  const hashedPassword = bcrypt.hashSync(password, 10);
 
-  if (!passwordMatch) {
-    return res.status(401).json({ message: "Invalid username or password" });
-  }
+  const result = db
+    .prepare(`
+      INSERT INTO users
+      (username, password, role, fullName)
+      VALUES (?, ?, ?, ?)
+    `)
+    .run(
+      username,
+      hashedPassword,
+      role,
+      fullName || ""
+    );
 
-  const token = jwt.sign(
-    {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-    },
-    JWT_SECRET,
-    { expiresIn: "8h" }
+  const newUser = db
+    .prepare("SELECT id, username, role, fullName, createdAt FROM users WHERE id = ?")
+    .get(result.lastInsertRowid);
+
+  db.prepare(`
+    INSERT INTO audit (action, username, role)
+    VALUES (?, ?, ?)
+  `).run(
+    `Created user: ${newUser.username}`,
+    req.user.username,
+    req.user.role
   );
 
-  return res.status(200).json({
-    message: "Login successful",
-    token,
-    user: {
-      id: user.id,
-      username: user.username,
-      role: user.role,
-    },
-  });
+  return res.status(201).json(newUser);
 });
 
 /* ================= DRUG ROUTES ================= */
@@ -105,19 +110,17 @@ app.get("/drugs", (req, res) => {
 });
 
 app.post("/drugs", (req, res) => {
-  const result = db
-    .prepare(`
-      INSERT INTO drugs
-      (name, category, size, concentration, quantity)
-      VALUES (?, ?, ?, ?, ?)
-    `)
-    .run(
-      req.body.name,
-      req.body.category || "",
-      req.body.size || "",
-      req.body.concentration || "",
-      Number(req.body.quantity || 0)
-    );
+  const result = db.prepare(`
+    INSERT INTO drugs
+    (name, category, size, concentration, quantity)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(
+    req.body.name,
+    req.body.category || "",
+    req.body.size || "",
+    req.body.concentration || "",
+    Number(req.body.quantity || 0)
+  );
 
   const newDrug = db
     .prepare("SELECT * FROM drugs WHERE id = ?")
@@ -213,41 +216,39 @@ app.post("/entries", (req, res) => {
     selectedDrug.id
   );
 
-  const result = db
-    .prepare(`
-      INSERT INTO entries
-      (
-        patientName,
-        hospitalNumber,
-        drugName,
-        doseGiven,
-        quantityUsed,
-        balance,
-        staffId,
-        staffName,
-        checkerId,
-        checkerName,
-        staffSignature,
-        checkerSignature,
-        dateTime
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      req.body.patientName,
-      req.body.hospitalNumber,
-      req.body.drugName,
-      req.body.doseGiven,
+  const result = db.prepare(`
+    INSERT INTO entries
+    (
+      patientName,
+      hospitalNumber,
+      drugName,
+      doseGiven,
       quantityUsed,
       balance,
-      req.body.staffId,
-      req.body.staffName,
-      req.body.checkerId,
-      req.body.checkerName,
-      req.body.staffSignature,
-      req.body.checkerSignature,
-      new Date().toLocaleString()
-    );
+      staffId,
+      staffName,
+      checkerId,
+      checkerName,
+      staffSignature,
+      checkerSignature,
+      dateTime
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    req.body.patientName,
+    req.body.hospitalNumber,
+    req.body.drugName,
+    req.body.doseGiven,
+    quantityUsed,
+    balance,
+    req.body.staffId,
+    req.body.staffName,
+    req.body.checkerId,
+    req.body.checkerName,
+    req.body.staffSignature,
+    req.body.checkerSignature,
+    new Date().toLocaleString()
+  );
 
   const entry = db
     .prepare("SELECT * FROM entries WHERE id = ?")
@@ -277,7 +278,7 @@ app.delete("/entries/:id", (req, res) => {
 
 /* ================= AUDIT ROUTE ================= */
 
-app.get("/audit", (req, res) => {
+app.get("/audit", verifyUser, adminOnly, (req, res) => {
   const audit = db.prepare("SELECT * FROM audit ORDER BY id DESC").all();
   return res.status(200).json(audit);
 });
