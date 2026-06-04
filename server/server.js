@@ -21,13 +21,14 @@ if (!existingAdmin) {
 
   db.prepare(`
     INSERT INTO users
-    (username, password, role, fullName)
-    VALUES (?, ?, ?, ?)
+    (username, password, role, fullName, active)
+    VALUES (?, ?, ?, ?, ?)
   `).run(
     "admin",
     hashedPassword,
     "admin",
-    "System Administrator"
+    "System Administrator",
+    1
   );
 
   console.log("Default admin user created");
@@ -71,7 +72,7 @@ app.get("/users", verifyUser, adminOnly, (req, res) => {
   try {
     const users = db
       .prepare(`
-        SELECT id, username, role, fullName, createdAt
+        SELECT id, username, role, fullName, active, createdAt
         FROM users
         ORDER BY id ASC
       `)
@@ -108,14 +109,14 @@ app.post("/users", verifyUser, adminOnly, (req, res) => {
     const result = db
       .prepare(`
         INSERT INTO users
-        (username, password, role, fullName)
-        VALUES (?, ?, ?, ?)
+        (username, password, role, fullName, active)
+        VALUES (?, ?, ?, ?, ?)
       `)
-      .run(username, hashedPassword, role, fullName);
+      .run(username, hashedPassword, role, fullName, 1);
 
     const newUser = db
       .prepare(`
-        SELECT id, username, role, fullName, createdAt
+        SELECT id, username, role, fullName, active, createdAt
         FROM users
         WHERE id = ?
       `)
@@ -133,6 +134,47 @@ app.post("/users", verifyUser, adminOnly, (req, res) => {
     return res.status(201).json(newUser);
   } catch (error) {
     return res.status(500).json({ message: error.message });
+  }
+});
+
+app.put("/users/:id/deactivate", verifyUser, adminOnly, (req, res) => {
+  try {
+    const userToDeactivate = db
+      .prepare("SELECT * FROM users WHERE id = ?")
+      .get(Number(req.params.id));
+
+    if (!userToDeactivate) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    if (userToDeactivate.username === "admin") {
+      return res.status(400).json({
+        message: "Main admin account cannot be deactivated",
+      });
+    }
+
+    db.prepare("UPDATE users SET active = 0 WHERE id = ?").run(
+      Number(req.params.id)
+    );
+
+    db.prepare(`
+      INSERT INTO audit (action, username, role)
+      VALUES (?, ?, ?)
+    `).run(
+      `Deactivated user: ${userToDeactivate.username}`,
+      req.user.username,
+      req.user.role
+    );
+
+    return res.status(200).json({
+      message: "User deactivated",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
   }
 });
 

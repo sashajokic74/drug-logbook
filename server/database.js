@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS users (
   password TEXT NOT NULL,
   role TEXT NOT NULL,
   fullName TEXT,
+  active INTEGER DEFAULT 1,
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 `).run();
@@ -55,6 +56,10 @@ try {
 
 try {
   db.prepare("ALTER TABLE users ADD COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP").run();
+} catch (error) {}
+
+try {
+  db.prepare("ALTER TABLE users ADD COLUMN active INTEGER DEFAULT 1").run();
 } catch (error) {}
 
 /* ================= AUDIT TABLE ================= */

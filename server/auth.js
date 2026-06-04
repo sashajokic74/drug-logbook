@@ -19,13 +19,16 @@ export function loginUser(req, res) {
     });
   }
 
-  let passwordMatch = false;
-
-  if (user.password.startsWith("$2b$")) {
-    passwordMatch = bcrypt.compareSync(password, user.password);
-  } else {
-    passwordMatch = password === user.password;
+  if (user.active === 0) {
+    return res.status(403).json({
+      message: "This staff account is inactive",
+    });
   }
+
+  const passwordMatch = bcrypt.compareSync(
+    password,
+    user.password
+  );
 
   if (!passwordMatch) {
     return res.status(401).json({
@@ -58,7 +61,7 @@ export function loginUser(req, res) {
   });
 }
 
-/* ================= CHECK LOGIN TOKEN ================= */
+/* ================= VERIFY TOKEN ================= */
 
 export function verifyUser(req, res, next) {
   const header = req.headers.authorization;
@@ -72,13 +75,21 @@ export function verifyUser(req, res, next) {
   const token = header.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(
+      token,
+      JWT_SECRET
+    );
+
     req.user = decoded;
+
     next();
+
   } catch (error) {
+
     return res.status(401).json({
       message: "Invalid token",
     });
+
   }
 }
 
