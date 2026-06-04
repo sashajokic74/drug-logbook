@@ -10,6 +10,29 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+/* ================= DEFAULT ADMIN USER ================= */
+
+const existingAdmin = db
+  .prepare("SELECT * FROM users WHERE username = ?")
+  .get("admin");
+
+if (!existingAdmin) {
+  const hashedPassword = bcrypt.hashSync("admin123", 10);
+
+  db.prepare(`
+    INSERT INTO users
+    (username, password, role, fullName)
+    VALUES (?, ?, ?, ?)
+  `).run(
+    "admin",
+    hashedPassword,
+    "admin",
+    "System Administrator"
+  );
+
+  console.log("Default admin user created");
+}
+
 /* ================= DATABASE SEED ================= */
 
 const existingDrugs = db.prepare("SELECT * FROM drugs").all();
@@ -45,61 +68,72 @@ app.post("/login", loginUser);
 /* ================= USER ROUTES ================= */
 
 app.get("/users", verifyUser, adminOnly, (req, res) => {
-  const users = db
-    .prepare("SELECT id, username, role, fullName, createdAt FROM users")
-    .all();
+  try {
+    const users = db
+      .prepare(`
+        SELECT id, username, role, fullName, createdAt
+        FROM users
+        ORDER BY id ASC
+      `)
+      .all();
 
-  return res.status(200).json(users);
+    return res.status(200).json(users);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
 });
 
 app.post("/users", verifyUser, adminOnly, (req, res) => {
-  const { username, password, role, fullName } = req.body;
+  try {
+    const { username, password, role, fullName } = req.body;
 
-  if (!username || !password || !role) {
-    return res.status(400).json({
-      message: "Username, password and role are required",
-    });
-  }
+    if (!username || !password || !role || !fullName) {
+      return res.status(400).json({
+        message: "Full name, username, password and role are required",
+      });
+    }
 
-  const existingUser = db
-    .prepare("SELECT * FROM users WHERE username = ?")
-    .get(username);
+    const existingUser = db
+      .prepare("SELECT * FROM users WHERE username = ?")
+      .get(username);
 
-  if (existingUser) {
-    return res.status(409).json({
-      message: "Username already exists",
-    });
-  }
+    if (existingUser) {
+      return res.status(409).json({
+        message: "Username already exists",
+      });
+    }
 
-  const hashedPassword = bcrypt.hashSync(password, 10);
+    const hashedPassword = bcrypt.hashSync(password, 10);
 
-  const result = db
-    .prepare(`
-      INSERT INTO users
-      (username, password, role, fullName)
-      VALUES (?, ?, ?, ?)
-    `)
-    .run(
-      username,
-      hashedPassword,
-      role,
-      fullName || ""
+    const result = db
+      .prepare(`
+        INSERT INTO users
+        (username, password, role, fullName)
+        VALUES (?, ?, ?, ?)
+      `)
+      .run(username, hashedPassword, role, fullName);
+
+    const newUser = db
+      .prepare(`
+        SELECT id, username, role, fullName, createdAt
+        FROM users
+        WHERE id = ?
+      `)
+      .get(result.lastInsertRowid);
+
+    db.prepare(`
+      INSERT INTO audit (action, username, role)
+      VALUES (?, ?, ?)
+    `).run(
+      `Created user: ${newUser.username}`,
+      req.user.username,
+      req.user.role
     );
 
-  const newUser = db
-    .prepare("SELECT id, username, role, fullName, createdAt FROM users WHERE id = ?")
-    .get(result.lastInsertRowid);
-
-  db.prepare(`
-    INSERT INTO audit (action, username, role)
-    VALUES (?, ?, ?)
-  `).run(
-    `Created user: ${newUser.username}`,
-    req.user.username,
-    req.user.role
-  );
-
-  return res.status(201).json(newUser);
+    return res.status(201).json(newUser);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
 });
 
 /* ================= DRUG ROUTES ================= */
@@ -110,17 +144,19 @@ app.get("/drugs", (req, res) => {
 });
 
 app.post("/drugs", (req, res) => {
-  const result = db.prepare(`
-    INSERT INTO drugs
-    (name, category, size, concentration, quantity)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(
-    req.body.name,
-    req.body.category || "",
-    req.body.size || "",
-    req.body.concentration || "",
-    Number(req.body.quantity || 0)
-  );
+  const result = db
+    .prepare(`
+      INSERT INTO drugs
+      (name, category, size, concentration, quantity)
+      VALUES (?, ?, ?, ?, ?)
+    `)
+    .run(
+      req.body.name,
+      req.body.category || "",
+      req.body.size || "",
+      req.body.concentration || "",
+      Number(req.body.quantity || 0)
+    );
 
   const newDrug = db
     .prepare("SELECT * FROM drugs WHERE id = ?")
@@ -216,39 +252,41 @@ app.post("/entries", (req, res) => {
     selectedDrug.id
   );
 
-  const result = db.prepare(`
-    INSERT INTO entries
-    (
-      patientName,
-      hospitalNumber,
-      drugName,
-      doseGiven,
+  const result = db
+    .prepare(`
+      INSERT INTO entries
+      (
+        patientName,
+        hospitalNumber,
+        drugName,
+        doseGiven,
+        quantityUsed,
+        balance,
+        staffId,
+        staffName,
+        checkerId,
+        checkerName,
+        staffSignature,
+        checkerSignature,
+        dateTime
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    .run(
+      req.body.patientName,
+      req.body.hospitalNumber,
+      req.body.drugName,
+      req.body.doseGiven,
       quantityUsed,
       balance,
-      staffId,
-      staffName,
-      checkerId,
-      checkerName,
-      staffSignature,
-      checkerSignature,
-      dateTime
-    )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    req.body.patientName,
-    req.body.hospitalNumber,
-    req.body.drugName,
-    req.body.doseGiven,
-    quantityUsed,
-    balance,
-    req.body.staffId,
-    req.body.staffName,
-    req.body.checkerId,
-    req.body.checkerName,
-    req.body.staffSignature,
-    req.body.checkerSignature,
-    new Date().toLocaleString()
-  );
+      req.body.staffId,
+      req.body.staffName,
+      req.body.checkerId,
+      req.body.checkerName,
+      req.body.staffSignature,
+      req.body.checkerSignature,
+      new Date().toLocaleString()
+    );
 
   const entry = db
     .prepare("SELECT * FROM entries WHERE id = ?")

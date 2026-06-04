@@ -48,9 +48,7 @@ export function loginUser(req, res) {
 
   return res.status(200).json({
     message: "Login successful",
-
     token,
-
     user: {
       id: user.id,
       username: user.username,
@@ -74,21 +72,13 @@ export function verifyUser(req, res, next) {
   const token = header.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(
-      token,
-      JWT_SECRET
-    );
-
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
-
     next();
-
   } catch (error) {
-
     return res.status(401).json({
       message: "Invalid token",
     });
-
   }
 }
 

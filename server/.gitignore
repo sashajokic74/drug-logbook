@@ -1,4 +1,5 @@
-node_modules
-dist
-.env
-druglogbook.db
+*node_modules
+*dist
+*.env
+*druglogbook.db
+ 

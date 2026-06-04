@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-const db = new Database("druglogbook.db");
+const db = new Database("druglog.db");
 
 /* ================= DRUG TABLE ================= */
 
@@ -20,37 +20,19 @@ CREATE TABLE IF NOT EXISTS drugs (
 db.prepare(`
 CREATE TABLE IF NOT EXISTS entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-
   patientName TEXT,
   hospitalNumber TEXT,
-
   drugName TEXT,
   doseGiven TEXT,
   quantityUsed INTEGER,
   balance INTEGER,
-
   staffId TEXT,
   staffName TEXT,
-
+  staffSignature TEXT,
   checkerId TEXT,
   checkerName TEXT,
-
-  staffSignature TEXT,
   checkerSignature TEXT,
-
   dateTime TEXT
-)
-`).run();
-
-/* ================= AUDIT TABLE ================= */
-
-db.prepare(`
-CREATE TABLE IF NOT EXISTS audit (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  action TEXT NOT NULL,
-  username TEXT,
-  role TEXT,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 `).run();
 
@@ -67,25 +49,24 @@ CREATE TABLE IF NOT EXISTS users (
 )
 `).run();
 
-/* ================= DEFAULT ADMIN ================= */
+try {
+  db.prepare("ALTER TABLE users ADD COLUMN fullName TEXT").run();
+} catch (error) {}
 
-const adminExists = db
-  .prepare("SELECT * FROM users WHERE username = ?")
-  .get("admin");
+try {
+  db.prepare("ALTER TABLE users ADD COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP").run();
+} catch (error) {}
 
-if (!adminExists) {
-  db.prepare(`
-    INSERT INTO users
-    (username, password, role, fullName)
-    VALUES (?, ?, ?, ?)
-  `).run(
-    "admin",
-    "admin123",
-    "admin",
-    "System Administrator"
-  );
+/* ================= AUDIT TABLE ================= */
 
-  console.log("Admin user created");
-}
+db.prepare(`
+CREATE TABLE IF NOT EXISTS audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  action TEXT,
+  username TEXT,
+  role TEXT,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
 
 export default db;
