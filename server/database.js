@@ -15,7 +15,8 @@ CREATE TABLE IF NOT EXISTS drugs (
 )
 `).run();
 
-/* ================= ENTRIES TABLE ================= */
+/* ================= OLD ENTRIES TABLE ================= */
+/* Keep this for now so old app does not break */
 
 db.prepare(`
 CREATE TABLE IF NOT EXISTS entries (
@@ -61,6 +62,42 @@ try {
 try {
   db.prepare("ALTER TABLE users ADD COLUMN active INTEGER DEFAULT 1").run();
 } catch (error) {}
+
+/* ================= NEW CD REGISTER TRANSACTIONS ================= */
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS drug_transactions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  drugId INTEGER NOT NULL,
+  drugName TEXT NOT NULL,
+
+  transactionType TEXT NOT NULL,
+
+  patientName TEXT,
+  hospitalNumber TEXT,
+
+  amountSupplied REAL DEFAULT 0,
+  amountAdministered REAL DEFAULT 0,
+  amountWasted REAL DEFAULT 0,
+
+  unit TEXT,
+
+  balanceAfter REAL DEFAULT 0,
+
+  staffUserId INTEGER,
+  staffUsername TEXT,
+  staffFullName TEXT,
+
+  witnessUserId INTEGER,
+  witnessUsername TEXT,
+  witnessFullName TEXT,
+
+  notes TEXT,
+
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
 
 /* ================= AUDIT TABLE ================= */
 
