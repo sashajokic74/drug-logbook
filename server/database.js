@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS drugs (
 `).run();
 
 /* ================= OLD ENTRIES TABLE ================= */
-/* Keep this for now so old app does not break */
 
 db.prepare(`
 CREATE TABLE IF NOT EXISTS entries (
@@ -51,19 +50,11 @@ CREATE TABLE IF NOT EXISTS users (
 )
 `).run();
 
-try {
-  db.prepare("ALTER TABLE users ADD COLUMN fullName TEXT").run();
-} catch (error) {}
+try { db.prepare("ALTER TABLE users ADD COLUMN fullName TEXT").run(); } catch {}
+try { db.prepare("ALTER TABLE users ADD COLUMN active INTEGER DEFAULT 1").run(); } catch {}
+try { db.prepare("ALTER TABLE users ADD COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP").run(); } catch {}
 
-try {
-  db.prepare("ALTER TABLE users ADD COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP").run();
-} catch (error) {}
-
-try {
-  db.prepare("ALTER TABLE users ADD COLUMN active INTEGER DEFAULT 1").run();
-} catch (error) {}
-
-/* ================= NEW CD REGISTER TRANSACTIONS ================= */
+/* ================= CD REGISTER TRANSACTIONS ================= */
 
 db.prepare(`
 CREATE TABLE IF NOT EXISTS drug_transactions (
@@ -72,32 +63,62 @@ CREATE TABLE IF NOT EXISTS drug_transactions (
   drugId INTEGER NOT NULL,
   drugName TEXT NOT NULL,
 
-  transactionType TEXT NOT NULL,
-
   patientName TEXT,
   hospitalNumber TEXT,
 
-  amountSupplied REAL DEFAULT 0,
+  ampoulesSupplied REAL DEFAULT 0,
+  ampoulesUsed REAL DEFAULT 0,
+
   amountAdministered REAL DEFAULT 0,
+  administeredUnit TEXT,
+
   amountWasted REAL DEFAULT 0,
+  wastedUnit TEXT,
 
-  unit TEXT,
+  stockBalanceAfter REAL DEFAULT 0,
 
-  balanceAfter REAL DEFAULT 0,
+  administeredById TEXT,
+  administeredByName TEXT,
+  administeredSignature TEXT,
 
-  staffUserId INTEGER,
-  staffUsername TEXT,
-  staffFullName TEXT,
+  witnessId TEXT,
+  witnessName TEXT,
+  witnessSignature TEXT,
 
-  witnessUserId INTEGER,
-  witnessUsername TEXT,
-  witnessFullName TEXT,
+  createdByUserId INTEGER,
+  createdByUsername TEXT,
+  createdByFullName TEXT,
 
   notes TEXT,
-
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 `).run();
+
+const transactionColumns = [
+  ["ampoulesSupplied", "REAL DEFAULT 0"],
+  ["ampoulesUsed", "REAL DEFAULT 0"],
+  ["amountAdministered", "REAL DEFAULT 0"],
+  ["administeredUnit", "TEXT"],
+  ["amountWasted", "REAL DEFAULT 0"],
+  ["wastedUnit", "TEXT"],
+  ["stockBalanceAfter", "REAL DEFAULT 0"],
+  ["administeredById", "TEXT"],
+  ["administeredByName", "TEXT"],
+  ["administeredSignature", "TEXT"],
+  ["witnessId", "TEXT"],
+  ["witnessName", "TEXT"],
+  ["witnessSignature", "TEXT"],
+  ["createdByUserId", "INTEGER"],
+  ["createdByUsername", "TEXT"],
+  ["createdByFullName", "TEXT"],
+  ["notes", "TEXT"],
+];
+
+transactionColumns.forEach(([column, type]) => {
+  try {
+    db.prepare(`ALTER TABLE drug_transactions ADD COLUMN ${column} ${type}`).run();
+  } catch {}
+});
 
 /* ================= AUDIT TABLE ================= */
 

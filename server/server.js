@@ -1,3 +1,4 @@
+import transactionRoutes from "./transactions.js";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
@@ -9,6 +10,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use("/transactions", transactionRoutes);
 
 /* ================= DEFAULT ADMIN USER ================= */
 
@@ -364,7 +366,127 @@ app.get("/audit", verifyUser, adminOnly, (req, res) => {
 });
 
 /* ================= SERVER ================= */
+// ================= REGISTER ENTRY =================
 
+app.post("/register", verifyUser, (req, res) => {
+
+  const {
+    drugId,
+    patientName,
+    hospitalNumber,
+    supplied,
+    administered,
+    destroyed,
+    staffId,
+    staffName,
+    staffSignature,
+    checkerId,
+    checkerName,
+    checkerSignature
+  } = req.body;
+
+
+  const drug = db
+    .prepare("SELECT * FROM drugs WHERE id = ?")
+    .get(drugId);
+
+
+  if (!drug) {
+
+    return res.status(404).json({
+      message: "Drug not found"
+    });
+
+  }
+
+
+  const newBalance =
+    Number(drug.quantity)
+    + Number(supplied || 0)
+    - Number(administered || 0)
+    - Number(destroyed || 0);
+
+
+
+  db.prepare(`
+    INSERT INTO drug_register
+    (
+      drug_id,
+      patient_name,
+      hospital_number,
+      supplied,
+      administered,
+      destroyed,
+      balance,
+      staff_id,
+      staff_name,
+      staff_signature,
+      checker_id,
+      checker_name,
+      checker_signature
+    )
+
+    VALUES
+    (
+      ?,?,?,?,?,?,?,?,?,?,?,?,?
+    )
+  `)
+  .run(
+
+    drugId,
+
+    patientName,
+
+    hospitalNumber,
+
+    supplied || 0,
+
+    administered || 0,
+
+    destroyed || 0,
+
+    newBalance,
+
+    staffId,
+
+    staffName,
+
+    staffSignature,
+
+    checkerId,
+
+    checkerName,
+
+    checkerSignature
+
+  );
+
+
+
+  db.prepare(
+    `
+    UPDATE drugs
+    SET quantity = ?
+    WHERE id = ?
+    `
+  )
+  .run(
+    newBalance,
+    drugId
+  );
+
+
+
+  res.json({
+
+    message: "Entry saved",
+
+    balance: newBalance
+
+  });
+
+
+});
 const PORT = 8000;
 
 app.listen(PORT, () => {
