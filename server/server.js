@@ -25,13 +25,7 @@ if (!existingAdmin) {
     INSERT INTO users
     (username, password, role, fullName, active)
     VALUES (?, ?, ?, ?, ?)
-  `).run(
-    "admin",
-    hashedPassword,
-    "admin",
-    "System Administrator",
-    1
-  );
+  `).run("admin", hashedPassword, "admin", "System Administrator", 1);
 
   console.log("Default admin user created");
 }
@@ -172,6 +166,41 @@ app.put("/users/:id/deactivate", verifyUser, adminOnly, (req, res) => {
 
     return res.status(200).json({
       message: "User deactivated",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+});
+
+app.put("/users/:id/reactivate", verifyUser, adminOnly, (req, res) => {
+  try {
+    const userToReactivate = db
+      .prepare("SELECT * FROM users WHERE id = ?")
+      .get(Number(req.params.id));
+
+    if (!userToReactivate) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    db.prepare("UPDATE users SET active = 1 WHERE id = ?").run(
+      Number(req.params.id)
+    );
+
+    db.prepare(`
+      INSERT INTO audit (action, username, role)
+      VALUES (?, ?, ?)
+    `).run(
+      `Reactivated user: ${userToReactivate.username}`,
+      req.user.username,
+      req.user.role
+    );
+
+    return res.status(200).json({
+      message: "User reactivated",
     });
   } catch (error) {
     return res.status(500).json({
@@ -365,11 +394,9 @@ app.get("/audit", verifyUser, adminOnly, (req, res) => {
   return res.status(200).json(audit);
 });
 
-/* ================= SERVER ================= */
-// ================= REGISTER ENTRY =================
+/* ================= REGISTER ENTRY ================= */
 
 app.post("/register", verifyUser, (req, res) => {
-
   const {
     drugId,
     patientName,
@@ -382,31 +409,22 @@ app.post("/register", verifyUser, (req, res) => {
     staffSignature,
     checkerId,
     checkerName,
-    checkerSignature
+    checkerSignature,
   } = req.body;
 
-
-  const drug = db
-    .prepare("SELECT * FROM drugs WHERE id = ?")
-    .get(drugId);
-
+  const drug = db.prepare("SELECT * FROM drugs WHERE id = ?").get(drugId);
 
   if (!drug) {
-
     return res.status(404).json({
-      message: "Drug not found"
+      message: "Drug not found",
     });
-
   }
 
-
   const newBalance =
-    Number(drug.quantity)
-    + Number(supplied || 0)
-    - Number(administered || 0)
-    - Number(destroyed || 0);
-
-
+    Number(drug.quantity) +
+    Number(supplied || 0) -
+    Number(administered || 0) -
+    Number(destroyed || 0);
 
   db.prepare(`
     INSERT INTO drug_register
@@ -425,68 +443,40 @@ app.post("/register", verifyUser, (req, res) => {
       checker_name,
       checker_signature
     )
-
     VALUES
     (
       ?,?,?,?,?,?,?,?,?,?,?,?,?
     )
-  `)
-  .run(
-
+  `).run(
     drugId,
-
     patientName,
-
     hospitalNumber,
-
     supplied || 0,
-
     administered || 0,
-
     destroyed || 0,
-
     newBalance,
-
     staffId,
-
     staffName,
-
     staffSignature,
-
     checkerId,
-
     checkerName,
-
     checkerSignature
-
   );
 
-
-
-  db.prepare(
-    `
+  db.prepare(`
     UPDATE drugs
     SET quantity = ?
     WHERE id = ?
-    `
-  )
-  .run(
-    newBalance,
-    drugId
-  );
-
-
+  `).run(newBalance, drugId);
 
   res.json({
-
     message: "Entry saved",
-
-    balance: newBalance
-
+    balance: newBalance,
   });
-
-
 });
+
+/* ================= SERVER ================= */
+
 const PORT = 8000;
 
 app.listen(PORT, () => {

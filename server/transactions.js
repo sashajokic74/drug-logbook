@@ -3,10 +3,20 @@ import db from "./database.js";
 import { verifyUser } from "./auth.js";
 
 const router = express.Router();
+const REORDER_LEVEL = 5;
 
-/* =========================
-   READ DRUG REGISTER
-========================= */
+function addColumnIfMissing(columnSql) {
+  try {
+    db.prepare(columnSql).run();
+  } catch {
+    // column already exists
+  }
+}
+
+addColumnIfMissing(`
+  ALTER TABLE drug_transactions
+  ADD COLUMN stockBalanceBefore INTEGER
+`);
 
 router.get("/:drugId", verifyUser, (req, res) => {
   try {
@@ -17,61 +27,41 @@ router.get("/:drugId", verifyUser, (req, res) => {
         WHERE drugId = ?
         ORDER BY id DESC
       `)
-      .all(req.params.drugId);
+      .all(Number(req.params.drugId));
 
-    res.json(rows);
-
+    return res.status(200).json(rows);
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
   }
 });
 
-
-/* =========================
-   CREATE CD ENTRY
-========================= */
-
 router.post("/", verifyUser, (req, res) => {
   try {
-
     const {
       drugId,
       drugName,
-
       patientName,
       hospitalNumber,
-
       ampoulesSupplied,
       ampoulesUsed,
-
       amountAdministered,
       administeredUnit,
-
       amountWasted,
       wastedUnit,
-
       administeredById,
       administeredByName,
       administeredSignature,
-
       witnessId,
       witnessName,
       witnessSignature,
-
       notes,
     } = req.body;
 
-
     const drug = db
-      .prepare(`
-        SELECT *
-        FROM drugs
-        WHERE id = ?
-      `)
-      .get(drugId);
-
+      .prepare("SELECT * FROM drugs WHERE id = ?")
+      .get(Number(drugId));
 
     if (!drug) {
       return res.status(404).json({
@@ -79,14 +69,27 @@ router.post("/", verifyUser, (req, res) => {
       });
     }
 
+    if (!administeredByName || !witnessName) {
+      return res.status(400).json({
+        message: "Administered by and witness/checker are required",
+      });
+    }
 
-    const supplied = Number(ampoulesSupplied || 0);
-    const used = Number(ampoulesUsed || 0);
+    if (
+      administeredByName.trim().toLowerCase() ===
+      witnessName.trim().toLowerCase()
+    ) {
+      return res.status(400).json({
+        message:
+          "Administered by and witness/checker must be two different people",
+      });
+    }
 
+    const receivedFromPharmacy = Number(ampoulesSupplied || 0);
+    const openedOrUsed = Number(ampoulesUsed || 0);
 
-    const newBalance =
-      Number(drug.quantity) + supplied - used;
-
+    const previousBalance = Number(drug.quantity || 0);
+    const newBalance = previousBalance + receivedFromPharmacy - openedOrUsed;
 
     if (newBalance < 0) {
       return res.status(400).json({
@@ -94,121 +97,92 @@ router.post("/", verifyUser, (req, res) => {
       });
     }
 
+    const reorderRequired = newBalance < REORDER_LEVEL;
 
-    const insert = db.prepare(`
-      INSERT INTO drug_transactions
-      (
-        transactionType,
-
-        drugId,
-        drugName,
-
-        patientName,
-        hospitalNumber,
-
-        ampoulesSupplied,
-        ampoulesUsed,
-
-        amountAdministered,
-        administeredUnit,
-
-        amountWasted,
-        wastedUnit,
-
-        stockBalanceAfter,
-
-        administeredById,
-        administeredByName,
-        administeredSignature,
-
-        witnessId,
-        witnessName,
-        witnessSignature,
-
-        createdByUserId,
-        createdByUsername,
-        createdByFullName,
-
-        notes
-      )
-
-      VALUES
-      (
-        ?,?,?,?,?,?,?,?,?,?,
-        ?,?,?,?,?,?,?,?,?,?,
-        ?,?
-      )
-    `);
-
-
-    const result = insert.run(
-
-      "cd_entry",
-
-      drugId,
-      drugName,
-
-      patientName || "",
-      hospitalNumber || "",
-
-      supplied,
-      used,
-
-      amountAdministered || 0,
-      administeredUnit || "",
-
-      amountWasted || 0,
-      wastedUnit || "",
-
-      newBalance,
-
-      administeredById || "",
-      administeredByName || "",
-      administeredSignature || "",
-
-      witnessId || "",
-      witnessName || "",
-      witnessSignature || "",
-
-      req.user.id,
-      req.user.username,
-      req.user.fullName || req.user.username,
-
-      notes || ""
-    );
-
+    const result = db
+      .prepare(`
+        INSERT INTO drug_transactions
+        (
+          transactionType,
+          drugId,
+          drugName,
+          patientName,
+          hospitalNumber,
+          ampoulesSupplied,
+          ampoulesUsed,
+          amountAdministered,
+          administeredUnit,
+          amountWasted,
+          wastedUnit,
+          stockBalanceBefore,
+          stockBalanceAfter,
+          administeredById,
+          administeredByName,
+          administeredSignature,
+          witnessId,
+          witnessName,
+          witnessSignature,
+          createdByUserId,
+          createdByUsername,
+          createdByFullName,
+          notes
+        )
+        VALUES
+        (
+          ?,?,?,?,?,?,?,?,?,?,
+          ?,?,?,?,?,?,?,?,?,?,
+          ?,?,?
+        )
+      `)
+      .run(
+        "cd_entry",
+        Number(drugId),
+        drugName || drug.name,
+        patientName || "",
+        hospitalNumber || "",
+        receivedFromPharmacy,
+        openedOrUsed,
+        Number(amountAdministered || 0),
+        administeredUnit || "",
+        Number(amountWasted || 0),
+        wastedUnit || "",
+        previousBalance,
+        newBalance,
+        administeredById || "",
+        administeredByName || "",
+        administeredSignature || "",
+        witnessId || "",
+        witnessName || "",
+        witnessSignature || "",
+        req.user.id,
+        req.user.username,
+        req.user.fullName || req.user.username,
+        notes || ""
+      );
 
     db.prepare(`
       UPDATE drugs
       SET quantity = ?
       WHERE id = ?
-    `)
-    .run(newBalance, drugId);
-
+    `).run(newBalance, Number(drugId));
 
     const saved = db
-      .prepare(`
-        SELECT *
-        FROM drug_transactions
-        WHERE id = ?
-      `)
+      .prepare("SELECT * FROM drug_transactions WHERE id = ?")
       .get(result.lastInsertRowid);
 
-
-    res.json({
+    return res.status(201).json({
       entry: saved,
       balance: newBalance,
+      reorderRequired,
+      reorderMessage: reorderRequired
+        ? "Stock below 5 ampoules. Reorder from pharmacy."
+        : "",
     });
-
-
   } catch (error) {
-
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
     });
-
   }
 });
-
 
 export default router;
