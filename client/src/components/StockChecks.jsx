@@ -7,14 +7,23 @@ function StockChecks() {
   const [checks, setChecks] = useState([]);
   const [message, setMessage] = useState("");
 
+  const [staffOne, setStaffOne] = useState(null);
+  const [staffTwo, setStaffTwo] = useState(null);
+
+  const [staffOneForm, setStaffOneForm] = useState({
+    username: "",
+    password: "",
+  });
+
+  const [staffTwoForm, setStaffTwoForm] = useState({
+    username: "",
+    password: "",
+  });
+
   const [form, setForm] = useState({
     drugId: "",
     checkType: "Before Operating List",
     actualBalance: "",
-    staffOneId: "",
-    staffOneName: "",
-    staffTwoId: "",
-    staffTwoName: "",
     notes: "",
   });
 
@@ -49,9 +58,94 @@ function StockChecks() {
     });
   }
 
+  function updateStaffOneForm(event) {
+    setStaffOneForm({
+      ...staffOneForm,
+      [event.target.name]: event.target.value,
+    });
+  }
+
+  function updateStaffTwoForm(event) {
+    setStaffTwoForm({
+      ...staffTwoForm,
+      [event.target.name]: event.target.value,
+    });
+  }
+
   const selectedDrug = drugs.find(
     (drug) => Number(drug.id) === Number(form.drugId)
   );
+
+  async function verifyStaffOne() {
+    setMessage("");
+
+    const response = await fetch(`${API_URL}/checker/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username: staffOneForm.username,
+        password: staffOneForm.password,
+        currentUserId: staffTwo ? staffTwo.id : null,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setStaffOne(null);
+      setMessage(result.message || "Could not verify staff 1");
+      return;
+    }
+
+    if (result.role === "admin") {
+      setStaffOne(null);
+      setMessage("Admin account cannot complete CD stock check");
+      return;
+    }
+
+    setStaffOne(result);
+    setMessage(`Staff 1 verified: ${result.fullName}`);
+  }
+
+  async function verifyStaffTwo() {
+    setMessage("");
+
+    if (!staffOne) {
+      setMessage("Verify Staff 1 first");
+      return;
+    }
+
+    const response = await fetch(`${API_URL}/checker/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username: staffTwoForm.username,
+        password: staffTwoForm.password,
+        currentUserId: staffOne.id,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setStaffTwo(null);
+      setMessage(result.message || "Could not verify staff 2");
+      return;
+    }
+
+    if (result.role === "admin") {
+      setStaffTwo(null);
+      setMessage("Admin account cannot complete CD stock check");
+      return;
+    }
+
+    setStaffTwo(result);
+    setMessage(`Staff 2 verified: ${result.fullName}`);
+  }
 
   async function submitCheck() {
     setMessage("");
@@ -61,15 +155,12 @@ function StockChecks() {
       return;
     }
 
-    if (!form.staffOneName || !form.staffTwoName) {
-      setMessage("Two staff members are required");
+    if (!staffOne || !staffTwo) {
+      setMessage("Two verified staff members are required");
       return;
     }
 
-    if (
-      form.staffOneName.trim().toLowerCase() ===
-      form.staffTwoName.trim().toLowerCase()
-    ) {
+    if (Number(staffOne.id) === Number(staffTwo.id)) {
       setMessage("Two different staff members must complete the check");
       return;
     }
@@ -86,10 +177,10 @@ function StockChecks() {
         drugId: Number(form.drugId),
         checkType: form.checkType,
         actualBalance: Number(form.actualBalance),
-        staffOneId: form.staffOneId,
-        staffOneName: form.staffOneName,
-        staffTwoId: form.staffTwoId,
-        staffTwoName: form.staffTwoName,
+        staffOneId: staffOne.id,
+        staffOneName: staffOne.fullName || staffOne.username,
+        staffTwoId: staffTwo.id,
+        staffTwoName: staffTwo.fullName || staffTwo.username,
         notes: form.notes,
       }),
     });
@@ -107,11 +198,20 @@ function StockChecks() {
       drugId: "",
       checkType: "Before Operating List",
       actualBalance: "",
-      staffOneId: "",
-      staffOneName: "",
-      staffTwoId: "",
-      staffTwoName: "",
       notes: "",
+    });
+
+    setStaffOne(null);
+    setStaffTwo(null);
+
+    setStaffOneForm({
+      username: "",
+      password: "",
+    });
+
+    setStaffTwoForm({
+      username: "",
+      password: "",
     });
 
     await loadChecks();
@@ -174,37 +274,61 @@ function StockChecks() {
         </p>
       )}
 
-      <h3>Staff 1</h3>
+      <h3>Staff 1 Verification</h3>
 
       <input
-        name="staffOneId"
-        placeholder="Staff 1 ID"
-        value={form.staffOneId}
-        onChange={updateForm}
+        name="username"
+        placeholder="Staff 1 username"
+        value={staffOneForm.username}
+        onChange={updateStaffOneForm}
       />
 
       <input
-        name="staffOneName"
-        placeholder="Staff 1 name"
-        value={form.staffOneName}
-        onChange={updateForm}
+        name="password"
+        type="password"
+        placeholder="Staff 1 password"
+        value={staffOneForm.password}
+        onChange={updateStaffOneForm}
       />
 
-      <h3>Staff 2</h3>
+      <button type="button" onClick={verifyStaffOne}>
+        Verify Staff 1
+      </button>
+
+      {staffOne && (
+        <p style={{ color: "green", fontWeight: "bold" }}>
+          ✓ Staff 1 verified: {staffOne.fullName} ({staffOne.role},{" "}
+          {staffOne.staffType})
+        </p>
+      )}
+
+      <h3>Staff 2 Verification</h3>
 
       <input
-        name="staffTwoId"
-        placeholder="Staff 2 ID"
-        value={form.staffTwoId}
-        onChange={updateForm}
+        name="username"
+        placeholder="Staff 2 username"
+        value={staffTwoForm.username}
+        onChange={updateStaffTwoForm}
       />
 
       <input
-        name="staffTwoName"
-        placeholder="Staff 2 name"
-        value={form.staffTwoName}
-        onChange={updateForm}
+        name="password"
+        type="password"
+        placeholder="Staff 2 password"
+        value={staffTwoForm.password}
+        onChange={updateStaffTwoForm}
       />
+
+      <button type="button" onClick={verifyStaffTwo}>
+        Verify Staff 2
+      </button>
+
+      {staffTwo && (
+        <p style={{ color: "green", fontWeight: "bold" }}>
+          ✓ Staff 2 verified: {staffTwo.fullName} ({staffTwo.role},{" "}
+          {staffTwo.staffType})
+        </p>
+      )}
 
       <input
         name="notes"
@@ -217,7 +341,21 @@ function StockChecks() {
         Save CD Stock Check
       </button>
 
-      {message && <p style={{ fontWeight: "bold" }}>{message}</p>}
+      {message && (
+        <p
+          style={{
+            fontWeight: "bold",
+            color:
+              message.includes("correct") ||
+              message.includes("verified") ||
+              message.includes("created")
+                ? "green"
+                : "red",
+          }}
+        >
+          {message}
+        </p>
+      )}
 
       <h3>Stock Check History</h3>
 

@@ -12,6 +12,8 @@ function StaffManagement() {
     username: "",
     password: "",
     role: "odp",
+    staffType: "Permanent",
+    expiryDate: "",
   });
 
   useEffect(() => {
@@ -63,9 +65,16 @@ function StaffManagement() {
     const username = newStaff.username.trim();
     const password = newStaff.password.trim();
     const role = newStaff.role;
+    const staffType = newStaff.staffType;
+    const expiryDate = newStaff.expiryDate;
 
-    if (!fullName || !username || !password || !role) {
+    if (!fullName || !username || !password || !role || !staffType) {
       setStaffMessage("Please complete all staff fields");
+      return;
+    }
+
+    if (staffType !== "Permanent" && !expiryDate) {
+      setStaffMessage("Temporary, Bank, Agency or Locum staff need an expiry date");
       return;
     }
 
@@ -88,6 +97,8 @@ function StaffManagement() {
           username,
           password,
           role,
+          staffType,
+          expiryDate: expiryDate || null,
         }),
       });
 
@@ -105,6 +116,8 @@ function StaffManagement() {
         username: "",
         password: "",
         role: "odp",
+        staffType: "Permanent",
+        expiryDate: "",
       });
 
       await loadStaffUsers();
@@ -182,14 +195,28 @@ function StaffManagement() {
     }
   }
 
-  const activeStaff = staffUsers.filter((staff) => Number(staff.active) !== 0);
-  const inactiveStaff = staffUsers.filter((staff) => Number(staff.active) === 0);
+  function isExpired(staff) {
+    if (!staff.expiryDate) return false;
+
+    const today = new Date().toISOString().slice(0, 10);
+
+    return staff.expiryDate < today;
+  }
+
+  const activeStaff = staffUsers.filter(
+    (staff) => Number(staff.active) !== 0 && !isExpired(staff)
+  );
+
+  const inactiveStaff = staffUsers.filter(
+    (staff) => Number(staff.active) === 0 || isExpired(staff)
+  );
+
   const visibleStaff = staffView === "active" ? activeStaff : inactiveStaff;
 
   return (
     <section
       style={{
-        maxWidth: "1000px",
+        maxWidth: "1200px",
         margin: "20px auto",
         padding: "20px",
         border: "1px solid #ddd",
@@ -202,7 +229,7 @@ function StaffManagement() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
+          gridTemplateColumns: "repeat(7, 1fr)",
           gap: "10px",
           marginBottom: "20px",
         }}
@@ -238,6 +265,26 @@ function StaffManagement() {
           <option value="pharmacist">Pharmacist</option>
           <option value="viewer">Viewer</option>
         </select>
+
+        <select
+          name="staffType"
+          value={newStaff.staffType}
+          onChange={handleStaffChange}
+        >
+          <option value="Permanent">Permanent</option>
+          <option value="Bank">Bank</option>
+          <option value="Agency">Agency</option>
+          <option value="Locum">Locum</option>
+          <option value="Temporary">Temporary</option>
+        </select>
+
+        <input
+          name="expiryDate"
+          type="date"
+          value={newStaff.expiryDate}
+          onChange={handleStaffChange}
+          disabled={newStaff.staffType === "Permanent"}
+        />
 
         <button type="button" onClick={createStaffUser}>
           Create Staff
@@ -275,7 +322,7 @@ function StaffManagement() {
             color: staffView === "inactive" ? "white" : "black",
           }}
         >
-          Inactive Staff ({inactiveStaff.length})
+          Inactive / Expired Staff ({inactiveStaff.length})
         </button>
       </div>
 
@@ -285,6 +332,8 @@ function StaffManagement() {
             <th>Full Name</th>
             <th>Username</th>
             <th>Role</th>
+            <th>Staff Type</th>
+            <th>Expiry</th>
             <th>Status</th>
             <th>Created</th>
             <th>Action</th>
@@ -297,12 +346,20 @@ function StaffManagement() {
               <td>{staff.fullName || "-"}</td>
               <td>{staff.username}</td>
               <td>{staff.role}</td>
-              <td>{Number(staff.active) === 0 ? "Inactive" : "Active"}</td>
+              <td>{staff.staffType || "Permanent"}</td>
+              <td>{staff.expiryDate || "-"}</td>
+              <td>
+                {isExpired(staff)
+                  ? "Expired"
+                  : Number(staff.active) === 0
+                  ? "Inactive"
+                  : "Active"}
+              </td>
               <td>{staff.createdAt || "-"}</td>
               <td>
                 {staff.username === "admin" ? (
                   "-"
-                ) : Number(staff.active) === 0 ? (
+                ) : Number(staff.active) === 0 || isExpired(staff) ? (
                   <button type="button" onClick={() => reactivateStaff(staff.id)}>
                     Reactivate
                   </button>
@@ -319,7 +376,7 @@ function StaffManagement() {
 
       {visibleStaff.length === 0 && (
         <p style={{ marginTop: "15px" }}>
-          No {staffView === "active" ? "active" : "inactive"} staff found.
+          No {staffView === "active" ? "active" : "inactive / expired"} staff found.
         </p>
       )}
     </section>

@@ -5,12 +5,39 @@ import bcrypt from "bcrypt";
 import seedDrugs from "./drugData.js";
 import db from "./database.js";
 import { loginUser, verifyUser, adminOnly } from "./auth.js";
+import checkerRoutes from "./checker.js";
+import stockCheckRoutes from "./stockChecks.js";
 
 const app = express();
 
-app.use(cors());
+function addColumnIfMissing(sql) {
+  try {
+    db.prepare(sql).run();
+  } catch {
+    // column already exists
+  }
+}
+
+addColumnIfMissing(`
+  ALTER TABLE users
+  ADD COLUMN staffType TEXT DEFAULT 'Permanent'
+`);
+
+addColumnIfMissing(`
+  ALTER TABLE users
+  ADD COLUMN expiryDate TEXT
+`);
+
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+  })
+);
+
 app.use(express.json());
 app.use("/transactions", transactionRoutes);
+app.use("/checker", checkerRoutes);
+app.use("/stock-checks", stockCheckRoutes);
 
 /* ================= DEFAULT ADMIN USER ================= */
 
@@ -23,9 +50,17 @@ if (!existingAdmin) {
 
   db.prepare(`
     INSERT INTO users
-    (username, password, role, fullName, active)
-    VALUES (?, ?, ?, ?, ?)
-  `).run("admin", hashedPassword, "admin", "System Administrator", 1);
+    (username, password, role, fullName, active, staffType, expiryDate)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    "admin",
+    hashedPassword,
+    "admin",
+    "System Administrator",
+    1,
+    "Permanent",
+    null
+  );
 
   console.log("Default admin user created");
 }
@@ -68,7 +103,15 @@ app.get("/users", verifyUser, adminOnly, (req, res) => {
   try {
     const users = db
       .prepare(`
-        SELECT id, username, role, fullName, active, createdAt
+        SELECT 
+          id, 
+          username, 
+          role, 
+          fullName, 
+          active, 
+          staffType, 
+          expiryDate, 
+          createdAt
         FROM users
         ORDER BY id ASC
       `)
@@ -82,11 +125,30 @@ app.get("/users", verifyUser, adminOnly, (req, res) => {
 
 app.post("/users", verifyUser, adminOnly, (req, res) => {
   try {
-    const { username, password, role, fullName } = req.body;
+    const {
+      username,
+      password,
+      role,
+      fullName,
+      staffType,
+      expiryDate,
+    } = req.body;
 
     if (!username || !password || !role || !fullName) {
       return res.status(400).json({
         message: "Full name, username, password and role are required",
+      });
+    }
+
+    const finalStaffType = staffType || "Permanent";
+    const finalExpiryDate = expiryDate || null;
+
+    if (
+      finalStaffType !== "Permanent" &&
+      !finalExpiryDate
+    ) {
+      return res.status(400).json({
+        message: "Temporary, Bank, Agency or Locum staff need an expiry date",
       });
     }
 
@@ -105,14 +167,38 @@ app.post("/users", verifyUser, adminOnly, (req, res) => {
     const result = db
       .prepare(`
         INSERT INTO users
-        (username, password, role, fullName, active)
-        VALUES (?, ?, ?, ?, ?)
+        (
+          username, 
+          password, 
+          role, 
+          fullName, 
+          active,
+          staffType,
+          expiryDate
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `)
-      .run(username, hashedPassword, role, fullName, 1);
+      .run(
+        username,
+        hashedPassword,
+        role,
+        fullName,
+        1,
+        finalStaffType,
+        finalExpiryDate
+      );
 
     const newUser = db
       .prepare(`
-        SELECT id, username, role, fullName, active, createdAt
+        SELECT 
+          id, 
+          username, 
+          role, 
+          fullName, 
+          active, 
+          staffType, 
+          expiryDate, 
+          createdAt
         FROM users
         WHERE id = ?
       `)
@@ -122,7 +208,7 @@ app.post("/users", verifyUser, adminOnly, (req, res) => {
       INSERT INTO audit (action, username, role)
       VALUES (?, ?, ?)
     `).run(
-      `Created user: ${newUser.username}`,
+      `Created user: ${newUser.username} (${newUser.staffType})`,
       req.user.username,
       req.user.role
     );
