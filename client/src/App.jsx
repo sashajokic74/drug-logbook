@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ControlledDrugLogbook from "./components/ControlledDrugLogbook";
 import StaffManagement from "./components/StaffManagement";
+import StockChecks from "./components/StockChecks";
 
 const API_URL = "http://localhost:8000";
 
@@ -12,6 +13,7 @@ function App() {
   const [error, setError] = useState("");
 
   const [showStaffPanel, setShowStaffPanel] = useState(false);
+  const [showStockChecks, setShowStockChecks] = useState(false);
 
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
@@ -59,6 +61,7 @@ function App() {
 
     setUser(null);
     setShowStaffPanel(false);
+    setShowStockChecks(false);
   }
 
   if (!user) {
@@ -119,8 +122,22 @@ function App() {
             gap: "10px",
           }}
         >
+          <button
+            onClick={() => {
+              setShowStockChecks(!showStockChecks);
+              setShowStaffPanel(false);
+            }}
+          >
+            {showStockChecks ? "Hide CD Stock Checks" : "CD Stock Checks"}
+          </button>
+
           {user.role === "admin" && (
-            <button onClick={() => setShowStaffPanel(!showStaffPanel)}>
+            <button
+              onClick={() => {
+                setShowStaffPanel(!showStaffPanel);
+                setShowStockChecks(false);
+              }}
+            >
               {showStaffPanel ? "Hide Staff Management" : "Staff Management"}
             </button>
           )}
@@ -129,9 +146,11 @@ function App() {
         </div>
       </div>
 
+      {showStockChecks && <StockChecks />}
+
       {user.role === "admin" && showStaffPanel && <StaffManagement />}
 
-      <ControlledDrugLogbook />
+      {!showStockChecks && !showStaffPanel && <ControlledDrugLogbook />}
     </>
   );
 }
