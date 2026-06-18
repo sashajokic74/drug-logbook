@@ -20,7 +20,11 @@ function StaffManagement() {
 
   async function loadStaffUsers() {
     const token = localStorage.getItem("token");
-    if (!token) return;
+
+    if (!token) {
+      setStaffMessage("Please logout and login again");
+      return;
+    }
 
     try {
       const response = await fetch(`${API_URL}/users`, {
@@ -36,8 +40,9 @@ function StaffManagement() {
         return;
       }
 
-      setStaffUsers(data);
-    } catch {
+      setStaffUsers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.log(error);
       setStaffMessage("Server not running");
     }
   }
@@ -45,22 +50,31 @@ function StaffManagement() {
   function handleStaffChange(event) {
     const { name, value } = event.target;
 
-    setNewStaff((prev) => ({
-      ...prev,
+    setNewStaff((previousStaff) => ({
+      ...previousStaff,
       [name]: value,
     }));
   }
 
-  async function createStaffUser(event) {
-    event.preventDefault();
+  async function createStaffUser() {
     setStaffMessage("");
 
-    if (!newStaff.fullName || !newStaff.username || !newStaff.password) {
+    const fullName = newStaff.fullName.trim();
+    const username = newStaff.username.trim();
+    const password = newStaff.password.trim();
+    const role = newStaff.role;
+
+    if (!fullName || !username || !password || !role) {
       setStaffMessage("Please complete all staff fields");
       return;
     }
 
     const token = localStorage.getItem("token");
+
+    if (!token) {
+      setStaffMessage("Please logout and login again");
+      return;
+    }
 
     try {
       const response = await fetch(`${API_URL}/users`, {
@@ -69,7 +83,12 @@ function StaffManagement() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(newStaff),
+        body: JSON.stringify({
+          fullName,
+          username,
+          password,
+          role,
+        }),
       });
 
       const data = await response.json();
@@ -90,7 +109,8 @@ function StaffManagement() {
 
       await loadStaffUsers();
       setStaffView("active");
-    } catch {
+    } catch (error) {
+      console.log(error);
       setStaffMessage("Server not running");
     }
   }
@@ -98,10 +118,12 @@ function StaffManagement() {
   async function deactivateStaff(id) {
     const token = localStorage.getItem("token");
 
-    const confirmDeactivate = window.confirm(
-      "Deactivate this staff account?"
-    );
+    if (!token) {
+      setStaffMessage("Please logout and login again");
+      return;
+    }
 
+    const confirmDeactivate = window.confirm("Deactivate this staff account?");
     if (!confirmDeactivate) return;
 
     try {
@@ -122,13 +144,19 @@ function StaffManagement() {
       setStaffMessage("Staff account deactivated");
       await loadStaffUsers();
       setStaffView("active");
-    } catch {
+    } catch (error) {
+      console.log(error);
       setStaffMessage("Server not running");
     }
   }
 
   async function reactivateStaff(id) {
     const token = localStorage.getItem("token");
+
+    if (!token) {
+      setStaffMessage("Please logout and login again");
+      return;
+    }
 
     try {
       const response = await fetch(`${API_URL}/users/${id}/reactivate`, {
@@ -148,14 +176,14 @@ function StaffManagement() {
       setStaffMessage("Staff account reactivated");
       await loadStaffUsers();
       setStaffView("inactive");
-    } catch {
+    } catch (error) {
+      console.log(error);
       setStaffMessage("Server not running");
     }
   }
 
-  const activeStaff = staffUsers.filter((staff) => staff.active !== 0);
-  const inactiveStaff = staffUsers.filter((staff) => staff.active === 0);
-
+  const activeStaff = staffUsers.filter((staff) => Number(staff.active) !== 0);
+  const inactiveStaff = staffUsers.filter((staff) => Number(staff.active) === 0);
   const visibleStaff = staffView === "active" ? activeStaff : inactiveStaff;
 
   return (
@@ -171,8 +199,7 @@ function StaffManagement() {
     >
       <h2>👥 Staff Management</h2>
 
-      <form
-        onSubmit={createStaffUser}
+      <div
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(5, 1fr)",
@@ -202,11 +229,7 @@ function StaffManagement() {
           onChange={handleStaffChange}
         />
 
-        <select
-          name="role"
-          value={newStaff.role}
-          onChange={handleStaffChange}
-        >
+        <select name="role" value={newStaff.role} onChange={handleStaffChange}>
           <option value="admin">Admin</option>
           <option value="odp">ODP</option>
           <option value="anaesthetist">Anaesthetist</option>
@@ -216,10 +239,21 @@ function StaffManagement() {
           <option value="viewer">Viewer</option>
         </select>
 
-        <button type="submit">Create Staff</button>
-      </form>
+        <button type="button" onClick={createStaffUser}>
+          Create Staff
+        </button>
+      </div>
 
-      {staffMessage && <p>{staffMessage}</p>}
+      {staffMessage && (
+        <p
+          style={{
+            fontWeight: "bold",
+            color: staffMessage.includes("created") ? "green" : "red",
+          }}
+        >
+          {staffMessage}
+        </p>
+      )}
 
       <div style={{ display: "flex", gap: "10px", marginBottom: "15px" }}>
         <button
@@ -263,17 +297,17 @@ function StaffManagement() {
               <td>{staff.fullName || "-"}</td>
               <td>{staff.username}</td>
               <td>{staff.role}</td>
-              <td>{staff.active === 0 ? "Inactive" : "Active"}</td>
+              <td>{Number(staff.active) === 0 ? "Inactive" : "Active"}</td>
               <td>{staff.createdAt || "-"}</td>
               <td>
                 {staff.username === "admin" ? (
                   "-"
-                ) : staff.active === 0 ? (
-                  <button onClick={() => reactivateStaff(staff.id)}>
+                ) : Number(staff.active) === 0 ? (
+                  <button type="button" onClick={() => reactivateStaff(staff.id)}>
                     Reactivate
                   </button>
                 ) : (
-                  <button onClick={() => deactivateStaff(staff.id)}>
+                  <button type="button" onClick={() => deactivateStaff(staff.id)}>
                     Deactivate
                   </button>
                 )}
