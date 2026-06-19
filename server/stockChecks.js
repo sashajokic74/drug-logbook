@@ -1,27 +1,36 @@
 import express from "express";
 import db from "./database.js";
 import { verifyUser } from "./auth.js";
+import { createSignatureHash } from "./signature.js";
 
 const router = express.Router();
 
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS cd_stock_checks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    drugId INTEGER NOT NULL,
-    drugName TEXT NOT NULL,
-    checkType TEXT NOT NULL,
-    expectedBalance INTEGER NOT NULL,
-    actualBalance INTEGER NOT NULL,
-    difference INTEGER NOT NULL,
-    staffOneId TEXT NOT NULL,
-    staffOneName TEXT NOT NULL,
-    staffTwoId TEXT NOT NULL,
-    staffTwoName TEXT NOT NULL,
-    notes TEXT,
-    createdByUsername TEXT,
-    createdAt TEXT DEFAULT CURRENT_TIMESTAMP
-  )
-`).run();
+function isExpired(expiryDate) {
+  if (!expiryDate) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return expiryDate < today;
+}
+
+function getActiveVerifiedStaff(id, label) {
+  const staff = db
+    .prepare(`
+      SELECT id, username, role, fullName, active, staffType, expiryDate
+      FROM users
+      WHERE id = ?
+    `)
+    .get(Number(id));
+
+  if (!staff) return { ok: false, message: `${label} staff account not found` };
+  if (Number(staff.active) === 0) return { ok: false, message: `${label} staff account is inactive` };
+  if (staff.staffType !== "Permanent" && isExpired(staff.expiryDate)) {
+    return { ok: false, message: `${label} staff access has expired` };
+  }
+  if (staff.role === "admin") {
+    return { ok: false, message: `Admin account cannot be used for ${label} stock check` };
+  }
+
+  return { ok: true, staff };
+}
 
 router.get("/", verifyUser, (req, res) => {
   try {
@@ -39,57 +48,6 @@ router.get("/", verifyUser, (req, res) => {
   }
 });
 
-function isExpired(expiryDate) {
-  if (!expiryDate) return false;
-
-  const today = new Date().toISOString().slice(0, 10);
-
-  return expiryDate < today;
-}
-
-function getActiveVerifiedStaff(id, name) {
-  const staff = db
-    .prepare(`
-      SELECT id, username, role, fullName, active, staffType, expiryDate
-      FROM users
-      WHERE id = ?
-    `)
-    .get(Number(id));
-
-  if (!staff) {
-    return {
-      ok: false,
-      message: `${name} staff account not found`,
-    };
-  }
-
-  if (Number(staff.active) === 0) {
-    return {
-      ok: false,
-      message: `${name} staff account is inactive`,
-    };
-  }
-
-  if (staff.staffType !== "Permanent" && isExpired(staff.expiryDate)) {
-    return {
-      ok: false,
-      message: `${name} staff access has expired`,
-    };
-  }
-
-  if (staff.role === "admin") {
-    return {
-      ok: false,
-      message: `Admin account cannot be used for ${name} stock check`,
-    };
-  }
-
-  return {
-    ok: true,
-    staff,
-  };
-}
-
 router.post("/", verifyUser, (req, res) => {
   try {
     const {
@@ -97,9 +55,7 @@ router.post("/", verifyUser, (req, res) => {
       checkType,
       actualBalance,
       staffOneId,
-      staffOneName,
       staffTwoId,
-      staffTwoName,
       notes,
     } = req.body;
 
@@ -111,7 +67,7 @@ router.post("/", verifyUser, (req, res) => {
 
     if (!staffOneId || !staffTwoId) {
       return res.status(400).json({
-        message: "Two verified staff members are required for CD stock check",
+        message: "Two verified staff members are required",
       });
     }
 
@@ -122,19 +78,13 @@ router.post("/", verifyUser, (req, res) => {
     }
 
     const staffOneCheck = getActiveVerifiedStaff(staffOneId, "Staff 1");
-
     if (!staffOneCheck.ok) {
-      return res.status(403).json({
-        message: staffOneCheck.message,
-      });
+      return res.status(403).json({ message: staffOneCheck.message });
     }
 
     const staffTwoCheck = getActiveVerifiedStaff(staffTwoId, "Staff 2");
-
     if (!staffTwoCheck.ok) {
-      return res.status(403).json({
-        message: staffTwoCheck.message,
-      });
+      return res.status(403).json({ message: staffTwoCheck.message });
     }
 
     const drug = db
@@ -142,14 +92,35 @@ router.post("/", verifyUser, (req, res) => {
       .get(Number(drugId));
 
     if (!drug) {
-      return res.status(404).json({
-        message: "Drug not found",
-      });
+      return res.status(404).json({ message: "Drug not found" });
     }
 
     const expectedBalance = Number(drug.quantity || 0);
     const countedBalance = Number(actualBalance);
     const difference = countedBalance - expectedBalance;
+
+    const staffOneSignedAt = new Date().toISOString();
+    const staffTwoSignedAt = new Date().toISOString();
+
+    const staffOneSignatureHash = createSignatureHash({
+      userId: staffOneCheck.staff.id,
+      username: staffOneCheck.staff.username,
+      fullName: staffOneCheck.staff.fullName,
+      role: staffOneCheck.staff.role,
+      action: `CD stock check ${checkType}`,
+      drugName: drug.name,
+      timestamp: staffOneSignedAt,
+    });
+
+    const staffTwoSignatureHash = createSignatureHash({
+      userId: staffTwoCheck.staff.id,
+      username: staffTwoCheck.staff.username,
+      fullName: staffTwoCheck.staff.fullName,
+      role: staffTwoCheck.staff.role,
+      action: `CD stock check ${checkType}`,
+      drugName: drug.name,
+      timestamp: staffTwoSignedAt,
+    });
 
     const result = db
       .prepare(`
@@ -163,12 +134,20 @@ router.post("/", verifyUser, (req, res) => {
           difference,
           staffOneId,
           staffOneName,
+          staffOneRole,
+          staffOneStaffType,
+          staffOneSignedAt,
+          staffOneSignatureHash,
           staffTwoId,
           staffTwoName,
+          staffTwoRole,
+          staffTwoStaffType,
+          staffTwoSignedAt,
+          staffTwoSignatureHash,
           notes,
           createdByUsername
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         Number(drugId),
@@ -179,8 +158,16 @@ router.post("/", verifyUser, (req, res) => {
         difference,
         staffOneCheck.staff.id,
         staffOneCheck.staff.fullName || staffOneCheck.staff.username,
+        staffOneCheck.staff.role,
+        staffOneCheck.staff.staffType || "Permanent",
+        staffOneSignedAt,
+        staffOneSignatureHash,
         staffTwoCheck.staff.id,
         staffTwoCheck.staff.fullName || staffTwoCheck.staff.username,
+        staffTwoCheck.staff.role,
+        staffTwoCheck.staff.staffType || "Permanent",
+        staffTwoSignedAt,
+        staffTwoSignatureHash,
         notes || "",
         req.user.username
       );

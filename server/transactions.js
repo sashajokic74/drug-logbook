@@ -1,22 +1,10 @@
 import express from "express";
 import db from "./database.js";
 import { verifyUser } from "./auth.js";
+import { createSignatureHash } from "./signature.js";
 
 const router = express.Router();
 const REORDER_LEVEL = 5;
-
-function addColumnIfMissing(columnSql) {
-  try {
-    db.prepare(columnSql).run();
-  } catch {
-    // column already exists
-  }
-}
-
-addColumnIfMissing(`
-  ALTER TABLE drug_transactions
-  ADD COLUMN stockBalanceBefore INTEGER
-`);
 
 function parseNumberFromText(text) {
   if (!text) return 0;
@@ -45,6 +33,18 @@ function amountPerAmpoule(drug) {
   }
 
   return concentrationValue;
+}
+
+function getStaffById(id) {
+  if (!id) return null;
+
+  return db
+    .prepare(`
+      SELECT id, username, fullName, role, staffType
+      FROM users
+      WHERE id = ?
+    `)
+    .get(Number(id));
 }
 
 router.get("/:drugId", verifyUser, (req, res) => {
@@ -101,18 +101,30 @@ router.post("/", verifyUser, (req, res) => {
 
     const isPatientUse = used > 0;
 
-    if (!administeredByName || !witnessName) {
+    if (!administeredById || !witnessId) {
       return res.status(400).json({
-        message: "Administered by/received by and witness/checker are required",
+        message: "Two verified staff members are required",
       });
     }
 
-    if (
-      administeredByName.trim().toLowerCase() ===
-      witnessName.trim().toLowerCase()
-    ) {
+    if (Number(administeredById) === Number(witnessId)) {
       return res.status(400).json({
         message: "Two different staff members are required",
+      });
+    }
+
+    const administeredStaff = getStaffById(administeredById);
+    const witnessStaff = getStaffById(witnessId);
+
+    if (!administeredStaff || !witnessStaff) {
+      return res.status(400).json({
+        message: "Verified staff record not found",
+      });
+    }
+
+    if (administeredStaff.role === "admin" || witnessStaff.role === "admin") {
+      return res.status(400).json({
+        message: "Admin account cannot sign controlled drug transactions",
       });
     }
 
@@ -149,7 +161,31 @@ router.post("/", verifyUser, (req, res) => {
       return res.status(400).json({ message: "Not enough stock" });
     }
 
+    const transactionType = isPatientUse ? "patient_use" : "pharmacy_supply";
     const reorderRequired = newBalance < REORDER_LEVEL;
+
+    const administeredSignedAt = new Date().toISOString();
+    const witnessSignedAt = new Date().toISOString();
+
+    const administeredSignatureHash = createSignatureHash({
+      userId: administeredStaff.id,
+      username: administeredStaff.username,
+      fullName: administeredStaff.fullName,
+      role: administeredStaff.role,
+      action: transactionType,
+      drugName: drug.name,
+      timestamp: administeredSignedAt,
+    });
+
+    const witnessSignatureHash = createSignatureHash({
+      userId: witnessStaff.id,
+      username: witnessStaff.username,
+      fullName: witnessStaff.fullName,
+      role: witnessStaff.role,
+      action: transactionType,
+      drugName: drug.name,
+      timestamp: witnessSignedAt,
+    });
 
     const result = db
       .prepare(`
@@ -168,12 +204,23 @@ router.post("/", verifyUser, (req, res) => {
           wastedUnit,
           stockBalanceBefore,
           stockBalanceAfter,
+
           administeredById,
           administeredByName,
           administeredSignature,
+          administeredRole,
+          administeredStaffType,
+          administeredSignedAt,
+          administeredSignatureHash,
+
           witnessId,
           witnessName,
           witnessSignature,
+          witnessRole,
+          witnessStaffType,
+          witnessSignedAt,
+          witnessSignatureHash,
+
           createdByUserId,
           createdByUsername,
           createdByFullName,
@@ -183,32 +230,49 @@ router.post("/", verifyUser, (req, res) => {
         (
           ?,?,?,?,?,?,?,?,?,?,
           ?,?,?,?,?,?,?,?,?,?,
-          ?,?,?
+          ?,?,?,?,?,?,?,?,?,?,
+          ?
         )
       `)
       .run(
-        isPatientUse ? "patient_use" : "pharmacy_supply",
+        transactionType,
         Number(drugId),
         drugName || drug.name,
         patientName || "",
         hospitalNumber || "",
+
         received,
         used,
+
         administered,
         administeredUnit || "",
+
         wasted,
         wastedUnit || "",
+
         previousBalance,
         newBalance,
-        administeredById || "",
-        administeredByName || "",
-        administeredSignature || "",
-        witnessId || "",
-        witnessName || "",
-        witnessSignature || "",
+
+        administeredStaff.id,
+        administeredStaff.fullName || administeredByName || "",
+        administeredSignature || administeredStaff.username,
+        administeredStaff.role,
+        administeredStaff.staffType || "Permanent",
+        administeredSignedAt,
+        administeredSignatureHash,
+
+        witnessStaff.id,
+        witnessStaff.fullName || witnessName || "",
+        witnessSignature || witnessStaff.username,
+        witnessStaff.role,
+        witnessStaff.staffType || "Permanent",
+        witnessSignedAt,
+        witnessSignatureHash,
+
         req.user.id,
         req.user.username,
         req.user.fullName || req.user.username,
+
         notes || ""
       );
 

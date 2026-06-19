@@ -178,9 +178,7 @@ function StockChecks() {
         checkType: form.checkType,
         actualBalance: Number(form.actualBalance),
         staffOneId: staffOne.id,
-        staffOneName: staffOne.fullName || staffOne.username,
         staffTwoId: staffTwo.id,
-        staffTwoName: staffTwo.fullName || staffTwo.username,
         notes: form.notes,
       }),
     });
@@ -203,16 +201,8 @@ function StockChecks() {
 
     setStaffOne(null);
     setStaffTwo(null);
-
-    setStaffOneForm({
-      username: "",
-      password: "",
-    });
-
-    setStaffTwoForm({
-      username: "",
-      password: "",
-    });
+    setStaffOneForm({ username: "", password: "" });
+    setStaffTwoForm({ username: "", password: "" });
 
     await loadChecks();
   }
@@ -225,6 +215,7 @@ function StockChecks() {
         Select Drug
         <select name="drugId" value={form.drugId} onChange={updateForm}>
           <option value="">Select drug</option>
+
           {drugs.map((drug) => (
             <option key={drug.id} value={drug.id}>
               {drug.name} — {drug.quantity} ampoules expected
@@ -369,7 +360,9 @@ function StockChecks() {
             <th>Actual</th>
             <th>Difference</th>
             <th>Staff 1</th>
+            <th>Staff 1 Signature</th>
             <th>Staff 2</th>
+            <th>Staff 2 Signature</th>
             <th>Notes</th>
           </tr>
         </thead>
@@ -382,6 +375,7 @@ function StockChecks() {
               <td>{check.checkType}</td>
               <td>{check.expectedBalance}</td>
               <td>{check.actualBalance}</td>
+
               <td
                 style={{
                   color: Number(check.difference) === 0 ? "green" : "red",
@@ -390,8 +384,75 @@ function StockChecks() {
               >
                 {check.difference}
               </td>
-              <td>{check.staffOneName}</td>
-              <td>{check.staffTwoName}</td>
+
+              <td>
+                {check.staffOneName}
+                <br />
+
+                <small>
+                  {check.staffOneRole || ""}{" "}
+                  {check.staffOneStaffType ? `(${check.staffOneStaffType})` : ""}
+                </small>
+              </td>
+
+              <td>
+                {check.staffOneSignedAt ? (
+                  <>
+                    ✓ Signed
+                    <br />
+
+                    <small>
+                      {new Date(check.staffOneSignedAt).toLocaleString()}
+                    </small>
+
+                    <br />
+
+                    <small>
+                      ID:{" "}
+                      {check.staffOneSignatureHash
+                        ? check.staffOneSignatureHash.substring(0, 10)
+                        : "-"}
+                    </small>
+                  </>
+                ) : (
+                  "-"
+                )}
+              </td>
+
+              <td>
+                {check.staffTwoName}
+                <br />
+
+                <small>
+                  {check.staffTwoRole || ""}{" "}
+                  {check.staffTwoStaffType ? `(${check.staffTwoStaffType})` : ""}
+                </small>
+              </td>
+
+              <td>
+                {check.staffTwoSignedAt ? (
+                  <>
+                    ✓ Signed
+                    <br />
+
+                    <small>
+                      {new Date(check.staffTwoSignedAt).toLocaleString()}
+                    </small>
+
+                    <br />
+
+                    <small>
+                      ID:{" "}
+                      {check.staffTwoSignatureHash
+                        ? check.staffTwoSignatureHash.substring(0, 10)
+                        : "-"}
+                    </small>
+                  </>
+                ) : (
+                  "-"
+                )}
+              </td>
+
               <td>{check.notes}</td>
             </tr>
           ))}

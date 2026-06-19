@@ -2,6 +2,14 @@ import Database from "better-sqlite3";
 
 const db = new Database("druglog.db");
 
+function addColumnIfMissing(table, column, type) {
+  try {
+    db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+  } catch {
+    // column already exists
+  }
+}
+
 /* ================= DRUG TABLE ================= */
 
 db.prepare(`
@@ -46,19 +54,25 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL,
   fullName TEXT,
   active INTEGER DEFAULT 1,
+  staffType TEXT DEFAULT 'Permanent',
+  expiryDate TEXT,
   createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
 )
 `).run();
 
-try { db.prepare("ALTER TABLE users ADD COLUMN fullName TEXT").run(); } catch {}
-try { db.prepare("ALTER TABLE users ADD COLUMN active INTEGER DEFAULT 1").run(); } catch {}
-try { db.prepare("ALTER TABLE users ADD COLUMN createdAt DATETIME DEFAULT CURRENT_TIMESTAMP").run(); } catch {}
+addColumnIfMissing("users", "fullName", "TEXT");
+addColumnIfMissing("users", "active", "INTEGER DEFAULT 1");
+addColumnIfMissing("users", "staffType", "TEXT DEFAULT 'Permanent'");
+addColumnIfMissing("users", "expiryDate", "TEXT");
+addColumnIfMissing("users", "createdAt", "DATETIME DEFAULT CURRENT_TIMESTAMP");
 
 /* ================= CD REGISTER TRANSACTIONS ================= */
 
 db.prepare(`
 CREATE TABLE IF NOT EXISTS drug_transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  transactionType TEXT,
 
   drugId INTEGER NOT NULL,
   drugName TEXT NOT NULL,
@@ -75,15 +89,24 @@ CREATE TABLE IF NOT EXISTS drug_transactions (
   amountWasted REAL DEFAULT 0,
   wastedUnit TEXT,
 
+  stockBalanceBefore REAL DEFAULT 0,
   stockBalanceAfter REAL DEFAULT 0,
 
   administeredById TEXT,
   administeredByName TEXT,
   administeredSignature TEXT,
+  administeredRole TEXT,
+  administeredStaffType TEXT,
+  administeredSignedAt TEXT,
+  administeredSignatureHash TEXT,
 
   witnessId TEXT,
   witnessName TEXT,
   witnessSignature TEXT,
+  witnessRole TEXT,
+  witnessStaffType TEXT,
+  witnessSignedAt TEXT,
+  witnessSignatureHash TEXT,
 
   createdByUserId INTEGER,
   createdByUsername TEXT,
@@ -95,29 +118,96 @@ CREATE TABLE IF NOT EXISTS drug_transactions (
 `).run();
 
 const transactionColumns = [
+  ["transactionType", "TEXT"],
+
   ["ampoulesSupplied", "REAL DEFAULT 0"],
   ["ampoulesUsed", "REAL DEFAULT 0"],
+
   ["amountAdministered", "REAL DEFAULT 0"],
   ["administeredUnit", "TEXT"],
+
   ["amountWasted", "REAL DEFAULT 0"],
   ["wastedUnit", "TEXT"],
+
+  ["stockBalanceBefore", "REAL DEFAULT 0"],
   ["stockBalanceAfter", "REAL DEFAULT 0"],
+
   ["administeredById", "TEXT"],
   ["administeredByName", "TEXT"],
   ["administeredSignature", "TEXT"],
+  ["administeredRole", "TEXT"],
+  ["administeredStaffType", "TEXT"],
+  ["administeredSignedAt", "TEXT"],
+  ["administeredSignatureHash", "TEXT"],
+
   ["witnessId", "TEXT"],
   ["witnessName", "TEXT"],
   ["witnessSignature", "TEXT"],
+  ["witnessRole", "TEXT"],
+  ["witnessStaffType", "TEXT"],
+  ["witnessSignedAt", "TEXT"],
+  ["witnessSignatureHash", "TEXT"],
+
   ["createdByUserId", "INTEGER"],
   ["createdByUsername", "TEXT"],
   ["createdByFullName", "TEXT"],
+
   ["notes", "TEXT"],
 ];
 
 transactionColumns.forEach(([column, type]) => {
-  try {
-    db.prepare(`ALTER TABLE drug_transactions ADD COLUMN ${column} ${type}`).run();
-  } catch {}
+  addColumnIfMissing("drug_transactions", column, type);
+});
+
+/* ================= CD STOCK CHECKS ================= */
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS cd_stock_checks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  drugId INTEGER NOT NULL,
+  drugName TEXT NOT NULL,
+
+  checkType TEXT NOT NULL,
+
+  expectedBalance INTEGER NOT NULL,
+  actualBalance INTEGER NOT NULL,
+  difference INTEGER NOT NULL,
+
+  staffOneId TEXT NOT NULL,
+  staffOneName TEXT NOT NULL,
+  staffOneRole TEXT,
+  staffOneStaffType TEXT,
+  staffOneSignedAt TEXT,
+  staffOneSignatureHash TEXT,
+
+  staffTwoId TEXT NOT NULL,
+  staffTwoName TEXT NOT NULL,
+  staffTwoRole TEXT,
+  staffTwoStaffType TEXT,
+  staffTwoSignedAt TEXT,
+  staffTwoSignatureHash TEXT,
+
+  notes TEXT,
+  createdByUsername TEXT,
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
+
+const stockCheckColumns = [
+  ["staffOneRole", "TEXT"],
+  ["staffOneStaffType", "TEXT"],
+  ["staffOneSignedAt", "TEXT"],
+  ["staffOneSignatureHash", "TEXT"],
+
+  ["staffTwoRole", "TEXT"],
+  ["staffTwoStaffType", "TEXT"],
+  ["staffTwoSignedAt", "TEXT"],
+  ["staffTwoSignatureHash", "TEXT"],
+];
+
+stockCheckColumns.forEach(([column, type]) => {
+  addColumnIfMissing("cd_stock_checks", column, type);
 });
 
 /* ================= AUDIT TABLE ================= */

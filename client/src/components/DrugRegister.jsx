@@ -11,15 +11,8 @@ function DrugRegister({ drug, onClose }) {
   const [administeredUser, setAdministeredUser] = useState(null);
   const [checkerUser, setCheckerUser] = useState(null);
 
-  const [adminForm, setAdminForm] = useState({
-    username: "",
-    password: "",
-  });
-
-  const [checkerForm, setCheckerForm] = useState({
-    username: "",
-    password: "",
-  });
+  const [adminForm, setAdminForm] = useState({ username: "", password: "" });
+  const [checkerForm, setCheckerForm] = useState({ username: "", password: "" });
 
   const [supplyForm, setSupplyForm] = useState({
     ampoulesReceived: "",
@@ -51,14 +44,9 @@ function DrugRegister({ drug, onClose }) {
     try {
       const token = localStorage.getItem("token");
 
-      const transactionsResponse = await fetch(
-        `${API_URL}/transactions/${drug.id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const transactionsResponse = await fetch(`${API_URL}/transactions/${drug.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       const transactionsData = await transactionsResponse.json();
       setTransactions(Array.isArray(transactionsData) ? transactionsData : []);
@@ -70,40 +58,26 @@ function DrugRegister({ drug, onClose }) {
         (item) => Number(item.id) === Number(drug.id)
       );
 
-      if (currentDrug) {
-        setBalance(Number(currentDrug.quantity || 0));
-      }
+      if (currentDrug) setBalance(Number(currentDrug.quantity || 0));
     } catch (error) {
       console.log(error);
     }
   }
 
-  function updateForm(event) {
-    setForm({
-      ...form,
-      [event.target.name]: event.target.value,
-    });
+  function updateForm(e) {
+    setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function updateAdminForm(event) {
-    setAdminForm({
-      ...adminForm,
-      [event.target.name]: event.target.value,
-    });
+  function updateAdminForm(e) {
+    setAdminForm({ ...adminForm, [e.target.name]: e.target.value });
   }
 
-  function updateCheckerForm(event) {
-    setCheckerForm({
-      ...checkerForm,
-      [event.target.name]: event.target.value,
-    });
+  function updateCheckerForm(e) {
+    setCheckerForm({ ...checkerForm, [e.target.name]: e.target.value });
   }
 
-  function updateSupplyForm(event) {
-    setSupplyForm({
-      ...supplyForm,
-      [event.target.name]: event.target.value,
-    });
+  function updateSupplyForm(e) {
+    setSupplyForm({ ...supplyForm, [e.target.name]: e.target.value });
   }
 
   function patientNewBalance() {
@@ -116,42 +90,25 @@ function DrugRegister({ drug, onClose }) {
 
   function parseNumberFromText(text) {
     if (!text) return 0;
-
     const match = String(text).match(/[\d.]+/);
-
-    if (!match) return 0;
-
-    return Number(match[0]);
-  }
-
-  function getConcentrationValue() {
-    return parseNumberFromText(drug.concentration);
-  }
-
-  function getAmpouleVolume() {
-    return parseNumberFromText(drug.size);
+    return match ? Number(match[0]) : 0;
   }
 
   function getDoseUnit() {
     const concentration = String(drug.concentration || "").toLowerCase();
-
     if (concentration.includes("mcg")) return "mcg";
     if (concentration.includes("mg")) return "mg";
     if (concentration.includes("ml")) return "ml";
-
     return form.administeredUnit || "mcg";
   }
 
   function amountPerAmpoule() {
-    const concentrationValue = getConcentrationValue();
-    const volume = getAmpouleVolume();
-
+    const concentrationValue = parseNumberFromText(drug.concentration);
+    const volume = parseNumberFromText(drug.size);
     if (!concentrationValue || !volume) return 0;
-
     if (String(drug.concentration || "").includes("/ml")) {
       return concentrationValue * volume;
     }
-
     return concentrationValue;
   }
 
@@ -169,16 +126,13 @@ function DrugRegister({ drug, onClose }) {
 
   function isDoseBalanced() {
     if (!form.ampoulesUsed) return false;
-
     return Math.abs(discrepancyAmount()) < 0.0001;
   }
 
   async function verifyAdministeredBy() {
     const response = await fetch(`${API_URL}/checker/verify`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         username: adminForm.username,
         password: adminForm.password,
@@ -212,9 +166,7 @@ function DrugRegister({ drug, onClose }) {
 
     const response = await fetch(`${API_URL}/checker/verify`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         username: checkerForm.username,
         password: checkerForm.password,
@@ -335,7 +287,7 @@ function DrugRegister({ drug, onClose }) {
 
     if (!isDoseBalanced()) {
       alert(
-        `Dose mismatch. Opened ampoules contain ${totalAvailableFromOpenedAmpoules()} ${getDoseUnit()}, but administered + wasted = ${totalAccountedFor()} ${getDoseUnit()}. Discrepancy: ${discrepancyAmount()} ${getDoseUnit()}`
+        `Dose mismatch. Opened ampoules contain ${totalAvailableFromOpenedAmpoules()} ${getDoseUnit()}, but administered + wasted = ${totalAccountedFor()} ${getDoseUnit()}.`
       );
       return;
     }
@@ -360,8 +312,7 @@ function DrugRegister({ drug, onClose }) {
         amountWasted: Number(form.amountWasted || 0),
         wastedUnit: getDoseUnit(),
         administeredById: administeredUser.id,
-        administeredByName:
-          administeredUser.fullName || administeredUser.username,
+        administeredByName: administeredUser.fullName || administeredUser.username,
         administeredSignature: administeredUser.username,
         witnessId: checkerUser.id,
         witnessName: checkerUser.fullName || checkerUser.username,
@@ -420,15 +371,12 @@ function DrugRegister({ drug, onClose }) {
       )}
 
       <button type="button" onClick={() => setShowSupplyForm(!showSupplyForm)}>
-        {showSupplyForm
-          ? "Hide Pharmacy Stock Supply"
-          : "➕ Receive Pharmacy Stock"}
+        {showSupplyForm ? "Hide Pharmacy Stock Supply" : "➕ Receive Pharmacy Stock"}
       </button>
 
       {showSupplyForm && (
         <>
           <h3>📦 Pharmacy Stock Supply</h3>
-
           <input value={`Current balance: ${balance} ampoules`} disabled />
 
           <input
@@ -438,10 +386,7 @@ function DrugRegister({ drug, onClose }) {
             onChange={updateSupplyForm}
           />
 
-          <input
-            value={`Balance after supply: ${supplyNewBalance()} ampoules`}
-            disabled
-          />
+          <input value={`Balance after supply: ${supplyNewBalance()} ampoules`} disabled />
 
           <input
             name="requisitionNumber"
@@ -452,49 +397,15 @@ function DrugRegister({ drug, onClose }) {
 
           <h4>Received By</h4>
 
-          <input
-            name="receivedById"
-            placeholder="Staff ID"
-            value={supplyForm.receivedById}
-            onChange={updateSupplyForm}
-          />
-
-          <input
-            name="receivedByName"
-            placeholder="Staff name"
-            value={supplyForm.receivedByName}
-            onChange={updateSupplyForm}
-          />
-
-          <input
-            name="receivedSignature"
-            placeholder="Signature"
-            value={supplyForm.receivedSignature}
-            onChange={updateSupplyForm}
-          />
+          <input name="receivedById" placeholder="Staff ID" value={supplyForm.receivedById} onChange={updateSupplyForm} />
+          <input name="receivedByName" placeholder="Staff name" value={supplyForm.receivedByName} onChange={updateSupplyForm} />
+          <input name="receivedSignature" placeholder="Signature" value={supplyForm.receivedSignature} onChange={updateSupplyForm} />
 
           <h4>Checked By</h4>
 
-          <input
-            name="checkedById"
-            placeholder="Checker ID"
-            value={supplyForm.checkedById}
-            onChange={updateSupplyForm}
-          />
-
-          <input
-            name="checkedByName"
-            placeholder="Checker name"
-            value={supplyForm.checkedByName}
-            onChange={updateSupplyForm}
-          />
-
-          <input
-            name="checkedSignature"
-            placeholder="Checker signature"
-            value={supplyForm.checkedSignature}
-            onChange={updateSupplyForm}
-          />
+          <input name="checkedById" placeholder="Checker ID" value={supplyForm.checkedById} onChange={updateSupplyForm} />
+          <input name="checkedByName" placeholder="Checker name" value={supplyForm.checkedByName} onChange={updateSupplyForm} />
+          <input name="checkedSignature" placeholder="Checker signature" value={supplyForm.checkedSignature} onChange={updateSupplyForm} />
 
           <button type="button" onClick={saveSupplyEntry}>
             ➕ Add Pharmacy Supply
@@ -506,31 +417,13 @@ function DrugRegister({ drug, onClose }) {
 
       <h3>👤 Patient Entry</h3>
 
-      <input
-        name="patientName"
-        placeholder="Patient name"
-        value={form.patientName}
-        onChange={updateForm}
-      />
-
-      <input
-        name="hospitalNumber"
-        placeholder="Hospital number / MRN / NHS No."
-        value={form.hospitalNumber}
-        onChange={updateForm}
-      />
+      <input name="patientName" placeholder="Patient name" value={form.patientName} onChange={updateForm} />
+      <input name="hospitalNumber" placeholder="Hospital number / MRN / NHS No." value={form.hospitalNumber} onChange={updateForm} />
 
       <h3>Stock Used For Patient</h3>
 
       <input value={`Previous balance: ${balance} ampoules`} disabled />
-
-      <input
-        name="ampoulesUsed"
-        placeholder="Ampoules opened / used"
-        value={form.ampoulesUsed}
-        onChange={updateForm}
-      />
-
+      <input name="ampoulesUsed" placeholder="Ampoules opened / used" value={form.ampoulesUsed} onChange={updateForm} />
       <input value={`New balance: ${patientNewBalance()} ampoules`} disabled />
 
       {patientNewBalance() < REORDER_LEVEL && (
@@ -541,41 +434,20 @@ function DrugRegister({ drug, onClose }) {
 
       <h3>Dose Reconciliation</h3>
 
-      <input
-        value={`Amount per ampoule: ${amountPerAmpoule()} ${getDoseUnit()}`}
-        disabled
-      />
-
-      <input
-        value={`Opened ampoules total: ${totalAvailableFromOpenedAmpoules()} ${getDoseUnit()}`}
-        disabled
-      />
+      <input value={`Amount per ampoule: ${amountPerAmpoule()} ${getDoseUnit()}`} disabled />
+      <input value={`Opened ampoules total: ${totalAvailableFromOpenedAmpoules()} ${getDoseUnit()}`} disabled />
 
       <h3>Dose Given / Wasted</h3>
 
-      <input
-        name="amountAdministered"
-        placeholder="Amount administered"
-        value={form.amountAdministered}
-        onChange={updateForm}
-      />
+      <input name="amountAdministered" placeholder="Amount administered" value={form.amountAdministered} onChange={updateForm} />
 
-      <select
-        name="administeredUnit"
-        value={form.administeredUnit}
-        onChange={updateForm}
-      >
+      <select name="administeredUnit" value={form.administeredUnit} onChange={updateForm}>
         <option>mcg</option>
         <option>mg</option>
         <option>ml</option>
       </select>
 
-      <input
-        name="amountWasted"
-        placeholder="Amount wasted"
-        value={form.amountWasted}
-        onChange={updateForm}
-      />
+      <input name="amountWasted" placeholder="Amount wasted" value={form.amountWasted} onChange={updateForm} />
 
       <select name="wastedUnit" value={form.wastedUnit} onChange={updateForm}>
         <option>mcg</option>
@@ -583,23 +455,11 @@ function DrugRegister({ drug, onClose }) {
         <option>ml</option>
       </select>
 
-      <input
-        value={`Administered + wasted: ${totalAccountedFor()} ${getDoseUnit()}`}
-        disabled
-      />
-
-      <input
-        value={`Discrepancy: ${discrepancyAmount()} ${getDoseUnit()}`}
-        disabled
-      />
+      <input value={`Administered + wasted: ${totalAccountedFor()} ${getDoseUnit()}`} disabled />
+      <input value={`Discrepancy: ${discrepancyAmount()} ${getDoseUnit()}`} disabled />
 
       {form.ampoulesUsed && (
-        <p
-          style={{
-            color: isDoseBalanced() ? "green" : "red",
-            fontWeight: "bold",
-          }}
-        >
+        <p style={{ color: isDoseBalanced() ? "green" : "red", fontWeight: "bold" }}>
           {isDoseBalanced()
             ? "✓ Dose fully accounted for"
             : "⚠️ Administered + wasted does not match opened ampoule amount"}
@@ -608,20 +468,8 @@ function DrugRegister({ drug, onClose }) {
 
       <h3>Administered By Verification</h3>
 
-      <input
-        name="username"
-        placeholder="Administering staff username"
-        value={adminForm.username}
-        onChange={updateAdminForm}
-      />
-
-      <input
-        name="password"
-        type="password"
-        placeholder="Administering staff password"
-        value={adminForm.password}
-        onChange={updateAdminForm}
-      />
+      <input name="username" placeholder="Administering staff username" value={adminForm.username} onChange={updateAdminForm} />
+      <input name="password" type="password" placeholder="Administering staff password" value={adminForm.password} onChange={updateAdminForm} />
 
       <button type="button" onClick={verifyAdministeredBy}>
         Verify Administered By
@@ -629,27 +477,14 @@ function DrugRegister({ drug, onClose }) {
 
       {administeredUser && (
         <p style={{ color: "green", fontWeight: "bold" }}>
-          ✓ Administered by verified: {administeredUser.fullName} (
-          {administeredUser.role})
+          ✓ Administered by verified: {administeredUser.fullName} ({administeredUser.role})
         </p>
       )}
 
       <h3>Second Checker Verification</h3>
 
-      <input
-        name="username"
-        placeholder="Checker username"
-        value={checkerForm.username}
-        onChange={updateCheckerForm}
-      />
-
-      <input
-        name="password"
-        type="password"
-        placeholder="Checker password"
-        value={checkerForm.password}
-        onChange={updateCheckerForm}
-      />
+      <input name="username" placeholder="Checker username" value={checkerForm.username} onChange={updateCheckerForm} />
+      <input name="password" type="password" placeholder="Checker password" value={checkerForm.password} onChange={updateCheckerForm} />
 
       <button type="button" onClick={verifySecondChecker}>
         Verify Second Checker
@@ -661,12 +496,7 @@ function DrugRegister({ drug, onClose }) {
         </p>
       )}
 
-      <input
-        name="notes"
-        placeholder="Notes"
-        value={form.notes}
-        onChange={updateForm}
-      />
+      <input name="notes" placeholder="Notes" value={form.notes} onChange={updateForm} />
 
       <button type="button" onClick={savePatientEntry}>
         💾 Save Patient Entry
@@ -687,7 +517,9 @@ function DrugRegister({ drug, onClose }) {
             <th>Waste</th>
             <th>Balance After</th>
             <th>Staff</th>
+            <th>Staff Signature</th>
             <th>Witness</th>
+            <th>Witness Signature</th>
             <th>Notes</th>
           </tr>
         </thead>
@@ -706,17 +538,68 @@ function DrugRegister({ drug, onClose }) {
                 <td>{entry.hospitalNumber || "-"}</td>
                 <td>{entry.ampoulesSupplied}</td>
                 <td>{entry.ampoulesUsed}</td>
-                <td>
-                  {entry.amountAdministered}
-                  {entry.administeredUnit}
-                </td>
-                <td>
-                  {entry.amountWasted}
-                  {entry.wastedUnit}
-                </td>
+                <td>{entry.amountAdministered}{entry.administeredUnit}</td>
+                <td>{entry.amountWasted}{entry.wastedUnit}</td>
                 <td>{entry.stockBalanceAfter}</td>
-                <td>{entry.administeredByName}</td>
-                <td>{entry.witnessName}</td>
+
+                <td>
+                  {entry.administeredByName}
+                  <br />
+                  <small>
+                    {entry.administeredRole || ""}{" "}
+                    {entry.administeredStaffType
+                      ? `(${entry.administeredStaffType})`
+                      : ""}
+                  </small>
+                </td>
+
+                <td>
+                  {entry.administeredSignedAt ? (
+                    <>
+                      ✓ Signed
+                      <br />
+                      <small>{new Date(entry.administeredSignedAt).toLocaleString()}</small>
+                      <br />
+                      <small>
+                        ID:{" "}
+                        {entry.administeredSignatureHash
+                          ? entry.administeredSignatureHash.substring(0, 10)
+                          : "-"}
+                      </small>
+                    </>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+
+                <td>
+                  {entry.witnessName}
+                  <br />
+                  <small>
+                    {entry.witnessRole || ""}{" "}
+                    {entry.witnessStaffType ? `(${entry.witnessStaffType})` : ""}
+                  </small>
+                </td>
+
+                <td>
+                  {entry.witnessSignedAt ? (
+                    <>
+                      ✓ Signed
+                      <br />
+                      <small>{new Date(entry.witnessSignedAt).toLocaleString()}</small>
+                      <br />
+                      <small>
+                        ID:{" "}
+                        {entry.witnessSignatureHash
+                          ? entry.witnessSignatureHash.substring(0, 10)
+                          : "-"}
+                      </small>
+                    </>
+                  ) : (
+                    "-"
+                  )}
+                </td>
+
                 <td>{entry.notes}</td>
               </tr>
             );
