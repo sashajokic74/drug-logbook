@@ -7,6 +7,7 @@ import db from "./database.js";
 import { loginUser, verifyUser, adminOnly } from "./auth.js";
 import checkerRoutes from "./checker.js";
 import stockCheckRoutes from "./stockChecks.js";
+import correctionRoutes from "./corrections.js";
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use(express.json());
 app.use("/transactions", transactionRoutes);
 app.use("/checker", checkerRoutes);
 app.use("/stock-checks", stockCheckRoutes);
+app.use("/corrections", correctionRoutes);
 
 /* ================= DEFAULT ADMIN USER ================= */
 

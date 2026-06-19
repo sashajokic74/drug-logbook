@@ -116,13 +116,27 @@ function DrugRegister({ drug, onClose }) {
     return Number(form.ampoulesUsed || 0) * amountPerAmpoule();
   }
 
-  function totalAccountedFor() {
-    return Number(form.amountAdministered || 0) + Number(form.amountWasted || 0);
-  }
+  function cleanNumber(value) {
+  if (!value) return 0;
+
+  const match = String(value).match(/[\d.]+/);
+
+  return match ? Number(match[0]) : 0;
+}
+
+function totalAccountedFor() {
+  return (
+    cleanNumber(form.amountAdministered) +
+    cleanNumber(form.amountWasted)
+  );
+}
 
   function discrepancyAmount() {
-    return totalAvailableFromOpenedAmpoules() - totalAccountedFor();
-  }
+  return (
+    totalAvailableFromOpenedAmpoules() -
+    totalAccountedFor()
+  );
+}
 
   function isDoseBalanced() {
     if (!form.ampoulesUsed) return false;
@@ -307,9 +321,9 @@ function DrugRegister({ drug, onClose }) {
         hospitalNumber: form.hospitalNumber,
         ampoulesSupplied: 0,
         ampoulesUsed: Number(form.ampoulesUsed || 0),
-        amountAdministered: Number(form.amountAdministered || 0),
+        amountAdministered: cleanNumber(form.amountAdministered),
         administeredUnit: getDoseUnit(),
-        amountWasted: Number(form.amountWasted || 0),
+        amountWasted: cleanNumber(form.amountWasted),
         wastedUnit: getDoseUnit(),
         administeredById: administeredUser.id,
         administeredByName: administeredUser.fullName || administeredUser.username,
