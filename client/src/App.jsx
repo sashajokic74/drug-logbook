@@ -2,25 +2,23 @@ import { useEffect, useState } from "react";
 import ControlledDrugLogbook from "./components/ControlledDrugLogbook";
 import StaffManagement from "./components/StaffManagement";
 import StockChecks from "./components/StockChecks";
+import Corrections from "./components/Corrections";
 
 const API_URL = "http://localhost:8000";
 
 function App() {
   const [user, setUser] = useState(null);
-
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState("");
 
   const [showStaffPanel, setShowStaffPanel] = useState(false);
   const [showStockChecks, setShowStockChecks] = useState(false);
+  const [showCorrections, setShowCorrections] = useState(false);
 
   useEffect(() => {
     const savedUser = localStorage.getItem("user");
-
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
+    if (savedUser) setUser(JSON.parse(savedUser));
   }, []);
 
   async function handleLogin(event) {
@@ -30,13 +28,8 @@ function App() {
     try {
       const response = await fetch(`${API_URL}/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          username,
-          password,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
@@ -48,7 +41,6 @@ function App() {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
-
       setUser(data.user);
     } catch {
       setError("Server not running");
@@ -58,22 +50,22 @@ function App() {
   function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-
     setUser(null);
     setShowStaffPanel(false);
     setShowStockChecks(false);
+    setShowCorrections(false);
+  }
+
+  function showOnly(panel) {
+    setShowStaffPanel(panel === "staff");
+    setShowStockChecks(panel === "stock");
+    setShowCorrections(panel === "corrections");
   }
 
   if (!user) {
     return (
       <div className="app">
-        <div
-          className="card"
-          style={{
-            maxWidth: "420px",
-            margin: "80px auto",
-          }}
-        >
+        <div className="card" style={{ maxWidth: "420px", margin: "80px auto" }}>
           <h1>🔐 Staff Login</h1>
 
           <form onSubmit={handleLogin}>
@@ -116,27 +108,28 @@ function App() {
           <span>({user.role})</span>
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "10px",
-          }}
-        >
+        <div style={{ display: "flex", gap: "10px" }}>
           <button
-            onClick={() => {
-              setShowStockChecks(!showStockChecks);
-              setShowStaffPanel(false);
-            }}
+            onClick={() =>
+              showStockChecks ? showOnly("") : showOnly("stock")
+            }
           >
             {showStockChecks ? "Hide CD Stock Checks" : "CD Stock Checks"}
           </button>
 
+          <button
+            onClick={() =>
+              showCorrections ? showOnly("") : showOnly("corrections")
+            }
+          >
+            {showCorrections ? "Hide Corrections" : "Corrections"}
+          </button>
+
           {user.role === "admin" && (
             <button
-              onClick={() => {
-                setShowStaffPanel(!showStaffPanel);
-                setShowStockChecks(false);
-              }}
+              onClick={() =>
+                showStaffPanel ? showOnly("") : showOnly("staff")
+              }
             >
               {showStaffPanel ? "Hide Staff Management" : "Staff Management"}
             </button>
@@ -148,9 +141,13 @@ function App() {
 
       {showStockChecks && <StockChecks />}
 
+      {showCorrections && <Corrections />}
+
       {user.role === "admin" && showStaffPanel && <StaffManagement />}
 
-      {!showStockChecks && !showStaffPanel && <ControlledDrugLogbook />}
+      {!showStockChecks && !showCorrections && !showStaffPanel && (
+        <ControlledDrugLogbook />
+      )}
     </>
   );
 }

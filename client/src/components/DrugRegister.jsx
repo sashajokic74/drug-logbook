@@ -540,33 +540,36 @@ function totalAccountedFor() {
 
         <tbody>
           {transactions.map((entry) => {
+            const isCorrection = entry.transactionType === "CORRECTION";
+
             const isSupply =
-              Number(entry.ampoulesSupplied || 0) > 0 &&
-              Number(entry.ampoulesUsed || 0) === 0;
+         !isCorrection &&
+         Number(entry.ampoulesSupplied || 0) > 0 &&
+         Number(entry.ampoulesUsed || 0) === 0;
 
             return (
               <tr key={entry.id}>
-                <td>{entry.createdAt}</td>
-                <td>{isSupply ? "Pharmacy Supply" : "Patient Use"}</td>
-                <td>{entry.patientName || "-"}</td>
-                <td>{entry.hospitalNumber || "-"}</td>
-                <td>{entry.ampoulesSupplied}</td>
-                <td>{entry.ampoulesUsed}</td>
-                <td>{entry.amountAdministered}{entry.administeredUnit}</td>
-                <td>{entry.amountWasted}{entry.wastedUnit}</td>
+                <td>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ""}</td>
+                <td>{isCorrection ? "CORRECTION" : isSupply ? "Pharmacy Supply" : "Patient Use"}</td>
+                <td>{isCorrection ? "-" : entry.patientName || "-"}</td>
+                <td>{isCorrection ? "-" : entry.hospitalNumber || "-"}</td>
+                <td>
+                  {isCorrection && Number(entry.ampoulesSupplied || 0) > 0
+                    ? `+${entry.ampoulesSupplied}`
+                    : entry.ampoulesSupplied}
+                </td>
+                <td>{isCorrection ? "-" : entry.ampoulesUsed}</td>
+                <td>{isCorrection ? "-" : `${entry.amountAdministered || ""}${entry.administeredUnit || ""}`}</td>
+                <td>{isCorrection ? "-" : `${entry.amountWasted || ""}${entry.wastedUnit || ""}`}</td>
                 <td>{entry.stockBalanceAfter}</td>
-
                 <td>
                   {entry.administeredByName}
                   <br />
                   <small>
                     {entry.administeredRole || ""}{" "}
-                    {entry.administeredStaffType
-                      ? `(${entry.administeredStaffType})`
-                      : ""}
+                    {entry.administeredStaffType ? `(${entry.administeredStaffType})` : ""}
                   </small>
                 </td>
-
                 <td>
                   {entry.administeredSignedAt ? (
                     <>
@@ -585,7 +588,6 @@ function totalAccountedFor() {
                     "-"
                   )}
                 </td>
-
                 <td>
                   {entry.witnessName}
                   <br />
@@ -594,7 +596,6 @@ function totalAccountedFor() {
                     {entry.witnessStaffType ? `(${entry.witnessStaffType})` : ""}
                   </small>
                 </td>
-
                 <td>
                   {entry.witnessSignedAt ? (
                     <>
@@ -613,7 +614,6 @@ function totalAccountedFor() {
                     "-"
                   )}
                 </td>
-
                 <td>{entry.notes}</td>
               </tr>
             );
