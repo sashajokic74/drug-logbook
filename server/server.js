@@ -36,6 +36,7 @@ app.use(
 );
 
 app.use(express.json());
+
 app.use("/transactions", transactionRoutes);
 app.use("/checker", checkerRoutes);
 app.use("/stock-checks", stockCheckRoutes);
@@ -127,14 +128,8 @@ app.get("/users", verifyUser, adminOnly, (req, res) => {
 
 app.post("/users", verifyUser, adminOnly, (req, res) => {
   try {
-    const {
-      username,
-      password,
-      role,
-      fullName,
-      staffType,
-      expiryDate,
-    } = req.body;
+    const { username, password, role, fullName, staffType, expiryDate } =
+      req.body;
 
     if (!username || !password || !role || !fullName) {
       return res.status(400).json({
@@ -145,10 +140,7 @@ app.post("/users", verifyUser, adminOnly, (req, res) => {
     const finalStaffType = staffType || "Permanent";
     const finalExpiryDate = expiryDate || null;
 
-    if (
-      finalStaffType !== "Permanent" &&
-      !finalExpiryDate
-    ) {
+    if (finalStaffType !== "Permanent" && !finalExpiryDate) {
       return res.status(400).json({
         message: "Temporary, Bank, Agency or Locum staff need an expiry date",
       });
@@ -304,7 +296,7 @@ app.get("/drugs", (req, res) => {
   return res.status(200).json(drugs);
 });
 
-app.post("/drugs", (req, res) => {
+app.post("/drugs", verifyUser, adminOnly, (req, res) => {
   const result = db
     .prepare(`
       INSERT INTO drugs
@@ -326,7 +318,7 @@ app.post("/drugs", (req, res) => {
   return res.status(201).json(newDrug);
 });
 
-app.put("/drugs/:id", (req, res) => {
+app.put("/drugs/:id", verifyUser, adminOnly, (req, res) => {
   const existingDrug = db
     .prepare("SELECT * FROM drugs WHERE id = ?")
     .get(Number(req.params.id));
@@ -366,7 +358,7 @@ app.put("/drugs/:id", (req, res) => {
   return res.status(200).json(savedDrug);
 });
 
-app.delete("/drugs/:id", (req, res) => {
+app.delete("/drugs/:id", verifyUser, adminOnly, (req, res) => {
   const existingDrug = db
     .prepare("SELECT * FROM drugs WHERE id = ?")
     .get(Number(req.params.id));
@@ -380,14 +372,14 @@ app.delete("/drugs/:id", (req, res) => {
   return res.status(204).end();
 });
 
-/* ================= ENTRY ROUTES ================= */
+/* ================= OLD ENTRY ROUTES ================= */
 
-app.get("/entries", (req, res) => {
+app.get("/entries", verifyUser, (req, res) => {
   const entries = db.prepare("SELECT * FROM entries ORDER BY id DESC").all();
   return res.status(200).json(entries);
 });
 
-app.post("/entries", (req, res) => {
+app.post("/entries", verifyUser, (req, res) => {
   const selectedDrug = db
     .prepare("SELECT * FROM drugs WHERE name = ?")
     .get(req.body.drugName);
@@ -461,7 +453,7 @@ app.post("/entries", (req, res) => {
   });
 });
 
-app.delete("/entries/:id", (req, res) => {
+app.delete("/entries/:id", verifyUser, adminOnly, (req, res) => {
   const existingEntry = db
     .prepare("SELECT * FROM entries WHERE id = ?")
     .get(Number(req.params.id));
@@ -482,7 +474,7 @@ app.get("/audit", verifyUser, adminOnly, (req, res) => {
   return res.status(200).json(audit);
 });
 
-/* ================= REGISTER ENTRY ================= */
+/* ================= OLD REGISTER ROUTE ================= */
 
 app.post("/register", verifyUser, (req, res) => {
   const {
