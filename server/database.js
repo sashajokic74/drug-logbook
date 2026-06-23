@@ -10,6 +10,31 @@ function addColumnIfMissing(table, column, type) {
   }
 }
 
+/* ================= HOSPITAL TABLE ================= */
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS hospitals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  active INTEGER DEFAULT 1,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
+
+/* ================= LOCATION TABLE ================= */
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS locations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  hospitalId INTEGER NOT NULL,
+  hospitalName TEXT NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT DEFAULT 'Theatre',
+  active INTEGER DEFAULT 1,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
+
 /* ================= DRUG TABLE ================= */
 
 db.prepare(`
@@ -19,9 +44,24 @@ CREATE TABLE IF NOT EXISTS drugs (
   category TEXT,
   size TEXT,
   concentration TEXT,
-  quantity INTEGER DEFAULT 0
+  quantity INTEGER DEFAULT 0,
+
+  hospitalId INTEGER,
+  hospitalName TEXT,
+  locationId INTEGER,
+  locationName TEXT,
+
+  minimumStock INTEGER DEFAULT 5,
+  maximumStock INTEGER DEFAULT 20
 )
 `).run();
+
+addColumnIfMissing("drugs", "hospitalId", "INTEGER");
+addColumnIfMissing("drugs", "hospitalName", "TEXT");
+addColumnIfMissing("drugs", "locationId", "INTEGER");
+addColumnIfMissing("drugs", "locationName", "TEXT");
+addColumnIfMissing("drugs", "minimumStock", "INTEGER DEFAULT 5");
+addColumnIfMissing("drugs", "maximumStock", "INTEGER DEFAULT 20");
 
 /* ================= OLD ENTRIES TABLE ================= */
 
@@ -74,6 +114,11 @@ CREATE TABLE IF NOT EXISTS drug_transactions (
 
   transactionType TEXT,
 
+  hospitalId INTEGER,
+  hospitalName TEXT,
+  locationId INTEGER,
+  locationName TEXT,
+
   drugId INTEGER NOT NULL,
   drugName TEXT NOT NULL,
 
@@ -120,6 +165,11 @@ CREATE TABLE IF NOT EXISTS drug_transactions (
 const transactionColumns = [
   ["transactionType", "TEXT"],
 
+  ["hospitalId", "INTEGER"],
+  ["hospitalName", "TEXT"],
+  ["locationId", "INTEGER"],
+  ["locationName", "TEXT"],
+
   ["ampoulesSupplied", "REAL DEFAULT 0"],
   ["ampoulesUsed", "REAL DEFAULT 0"],
 
@@ -165,6 +215,11 @@ db.prepare(`
 CREATE TABLE IF NOT EXISTS cd_stock_checks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
 
+  hospitalId INTEGER,
+  hospitalName TEXT,
+  locationId INTEGER,
+  locationName TEXT,
+
   drugId INTEGER NOT NULL,
   drugName TEXT NOT NULL,
 
@@ -195,6 +250,11 @@ CREATE TABLE IF NOT EXISTS cd_stock_checks (
 `).run();
 
 const stockCheckColumns = [
+  ["hospitalId", "INTEGER"],
+  ["hospitalName", "TEXT"],
+  ["locationId", "INTEGER"],
+  ["locationName", "TEXT"],
+
   ["staffOneRole", "TEXT"],
   ["staffOneStaffType", "TEXT"],
   ["staffOneSignedAt", "TEXT"],
@@ -208,6 +268,54 @@ const stockCheckColumns = [
 
 stockCheckColumns.forEach(([column, type]) => {
   addColumnIfMissing("cd_stock_checks", column, type);
+});
+
+/* ================= CORRECTIONS ================= */
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS corrections (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  originalTransactionId INTEGER NOT NULL,
+
+  hospitalId INTEGER,
+  hospitalName TEXT,
+  locationId INTEGER,
+  locationName TEXT,
+
+  correctionType TEXT NOT NULL DEFAULT 'documentation',
+  reason TEXT NOT NULL,
+  correctionText TEXT NOT NULL,
+
+  stockAdjustment REAL DEFAULT 0,
+
+  correctedById TEXT,
+  correctedByName TEXT,
+  correctedByRole TEXT,
+  correctedSignedAt TEXT,
+  correctedSignatureHash TEXT,
+
+  checkedById TEXT,
+  checkedByName TEXT,
+  checkedByRole TEXT,
+  checkedSignedAt TEXT,
+  checkedSignatureHash TEXT,
+
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
+
+const correctionColumns = [
+  ["hospitalId", "INTEGER"],
+  ["hospitalName", "TEXT"],
+  ["locationId", "INTEGER"],
+  ["locationName", "TEXT"],
+  ["correctionType", "TEXT NOT NULL DEFAULT 'documentation'"],
+  ["stockAdjustment", "REAL DEFAULT 0"],
+];
+
+correctionColumns.forEach(([column, type]) => {
+  addColumnIfMissing("corrections", column, type);
 });
 
 /* ================= AUDIT TABLE ================= */
