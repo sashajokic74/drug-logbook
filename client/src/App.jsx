@@ -4,11 +4,16 @@ import StaffManagement from "./components/StaffManagement";
 import StockChecks from "./components/StockChecks";
 import Corrections from "./components/Corrections";
 import LocationManagement from "./components/LocationManagement";
+import DeviceSetup from "./components/DeviceSetup";
 import "./index.css";
 
 const API_URL = "http://localhost:8000";
 
 function App() {
+  const [device, setDevice] = useState(
+    JSON.parse(localStorage.getItem("device"))
+  );
+
   const [user, setUser] = useState(
     JSON.parse(localStorage.getItem("user"))
   );
@@ -30,6 +35,16 @@ function App() {
     setShowStockChecks(panel === "stock");
     setShowCorrections(panel === "corrections");
     setShowLocations(panel === "locations");
+  }
+
+  function saveDevice(deviceData) {
+    setDevice(deviceData);
+  }
+
+  function changeDevice() {
+    localStorage.removeItem("device");
+    setDevice(null);
+    logout();
   }
 
   async function login(event) {
@@ -77,10 +92,23 @@ function App() {
     setShowLocations(false);
   }
 
+  if (!device) {
+    return <DeviceSetup onDeviceSaved={saveDevice} />;
+  }
+
   if (!user) {
     return (
       <div className="app">
         <h1>Controlled Drug Logbook</h1>
+
+        <p>
+          Device: <strong>{device.locationName}</strong>,{" "}
+          {device.hospitalName}
+        </p>
+
+        <button type="button" onClick={changeDevice}>
+          Change Device
+        </button>
 
         <form onSubmit={login}>
           <input
@@ -133,8 +161,17 @@ function App() {
 
         {" "}({user.role})
 
+        {" "}
+        <span>
+          | {device.locationName}, {device.hospitalName}
+        </span>
+
         <button onClick={logout}>
           Logout
+        </button>
+
+        <button type="button" onClick={changeDevice}>
+          Change Device
         </button>
 
         <br />
@@ -213,7 +250,7 @@ function App() {
         !showLocations &&
         !showStockChecks &&
         !showCorrections && (
-          <ControlledDrugLogbook />
+          <ControlledDrugLogbook device={device} />
         )}
 
     </div>

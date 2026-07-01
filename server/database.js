@@ -1,6 +1,11 @@
 import Database from "better-sqlite3";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const db = new Database("druglog.db");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const db = new Database(path.join(__dirname, "druglog.db"));
 
 function addColumnIfMissing(table, column, type) {
   try {
@@ -35,6 +40,28 @@ CREATE TABLE IF NOT EXISTS locations (
 )
 `).run();
 
+/* ================= DEVICES TABLE ================= */
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS devices (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  deviceName TEXT NOT NULL,
+  deviceCode TEXT UNIQUE NOT NULL,
+
+  hospitalId INTEGER NOT NULL,
+  hospitalName TEXT NOT NULL,
+
+  locationId INTEGER NOT NULL,
+  locationName TEXT NOT NULL,
+
+  deviceType TEXT DEFAULT 'iPad',
+  active INTEGER DEFAULT 1,
+
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
+
 /* ================= DRUG TABLE ================= */
 
 db.prepare(`
@@ -62,6 +89,43 @@ addColumnIfMissing("drugs", "locationId", "INTEGER");
 addColumnIfMissing("drugs", "locationName", "TEXT");
 addColumnIfMissing("drugs", "minimumStock", "INTEGER DEFAULT 5");
 addColumnIfMissing("drugs", "maximumStock", "INTEGER DEFAULT 20");
+addColumnIfMissing("users", "hospitalId", "INTEGER");
+addColumnIfMissing("users", "hospitalName", "TEXT");
+addColumnIfMissing("users", "locationId", "INTEGER");
+addColumnIfMissing("users", "locationName", "TEXT");
+addColumnIfMissing("users", "deviceId", "INTEGER");
+addColumnIfMissing("users", "deviceName", "TEXT");
+
+/* ================= PATIENT LISTS ================= */
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS patients (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  hospitalId INTEGER,
+  hospitalName TEXT,
+  locationId INTEGER,
+  locationName TEXT,
+
+  patientName TEXT NOT NULL,
+  hospitalNumber TEXT NOT NULL,
+  speciality TEXT,
+  procedure TEXT,
+  listDate TEXT,
+
+  active INTEGER DEFAULT 1,
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
+
+addColumnIfMissing("patients", "hospitalId", "INTEGER");
+addColumnIfMissing("patients", "hospitalName", "TEXT");
+addColumnIfMissing("patients", "locationId", "INTEGER");
+addColumnIfMissing("patients", "locationName", "TEXT");
+addColumnIfMissing("patients", "speciality", "TEXT");
+addColumnIfMissing("patients", "procedure", "TEXT");
+addColumnIfMissing("patients", "listDate", "TEXT");
+addColumnIfMissing("patients", "active", "INTEGER DEFAULT 1");
 
 /* ================= OLD ENTRIES TABLE ================= */
 
@@ -317,6 +381,59 @@ const correctionColumns = [
 correctionColumns.forEach(([column, type]) => {
   addColumnIfMissing("corrections", column, type);
 });
+
+/* ================= PHARMACY REQUESTS ================= */
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS pharmacy_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  requisitionNumber TEXT UNIQUE NOT NULL,
+
+  hospitalId INTEGER,
+  hospitalName TEXT,
+  locationId INTEGER,
+  locationName TEXT,
+
+  drugId INTEGER NOT NULL,
+  drugName TEXT NOT NULL,
+  drugSize TEXT,
+  drugConcentration TEXT,
+
+  currentBalance REAL DEFAULT 0,
+  quantityRequested REAL NOT NULL,
+
+  reason TEXT,
+  status TEXT DEFAULT 'Sent to Pharmacy',
+
+  requestedById TEXT NOT NULL,
+  requestedByName TEXT NOT NULL,
+  requestedByRole TEXT,
+  requestedByStaffType TEXT,
+  requestedSignedAt TEXT,
+  requestedSignatureHash TEXT,
+
+  pharmacyEmail TEXT DEFAULT 'pharmacy.request@nhs.uk',
+  emailSubject TEXT,
+  emailBody TEXT,
+  emailSent INTEGER DEFAULT 0,
+  emailSentAt TEXT,
+
+  receivedTransactionId INTEGER,
+  receivedById TEXT,
+  receivedByName TEXT,
+  receivedAt TEXT,
+
+  createdByUsername TEXT,
+  createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+)
+`).run();
+addColumnIfMissing("pharmacy_requests", "completedAt", "TEXT");
+addColumnIfMissing("pharmacy_requests", "completedAt", "TEXT");
+addColumnIfMissing("pharmacy_requests", "completedById", "TEXT");
+addColumnIfMissing("pharmacy_requests", "completedByName", "TEXT");
+addColumnIfMissing("pharmacy_requests", "checkedById", "TEXT");
+addColumnIfMissing("pharmacy_requests", "checkedByName", "TEXT");
 
 /* ================= AUDIT TABLE ================= */
 

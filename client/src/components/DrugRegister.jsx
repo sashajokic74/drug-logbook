@@ -3,27 +3,61 @@ import { useEffect, useState } from "react";
 const API_URL = "http://localhost:8000";
 const REORDER_LEVEL = 5;
 
-function DrugRegister({ drug, onClose }) {
+function DrugRegister({ drug, device, onClose }) {
   const [transactions, setTransactions] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [patientMessage, setPatientMessage] = useState("");
   const [balance, setBalance] = useState(Number(drug.quantity || 0));
+
+  const [showPharmacyRequest, setShowPharmacyRequest] = useState(false);
   const [showSupplyForm, setShowSupplyForm] = useState(false);
+
+  const [pharmacyRequestMessage, setPharmacyRequestMessage] = useState("");
+  const [pharmacyRequestUser, setPharmacyRequestUser] = useState(null);
+
+  const [verifiedRequisition, setVerifiedRequisition] = useState(null);
+  const [supplyMessage, setSupplyMessage] = useState("");
+  const [supplyReceivedUser, setSupplyReceivedUser] = useState(null);
+  const [supplyCheckerUser, setSupplyCheckerUser] = useState(null);
+
+  const [pharmacyRequestForm, setPharmacyRequestForm] = useState({
+    quantityRequested: "",
+    reason: "Routine top up",
+  });
+
+  const [pharmacyRequestLogin, setPharmacyRequestLogin] = useState({
+    username: "",
+    password: "",
+  });
+
+  const [supplyForm, setSupplyForm] = useState({
+    ampoulesReceived: "",
+    requisitionNumber: "",
+  });
+
+  const [supplyReceivedLogin, setSupplyReceivedLogin] = useState({
+    username: "",
+    password: "",
+  });
+
+  const [supplyCheckerLogin, setSupplyCheckerLogin] = useState({
+    username: "",
+    password: "",
+  });
+
+  const [newPatient, setNewPatient] = useState({
+    patientName: "",
+    hospitalNumber: "",
+    speciality: "",
+    procedure: "",
+    listDate: new Date().toISOString().slice(0, 10),
+  });
 
   const [administeredUser, setAdministeredUser] = useState(null);
   const [checkerUser, setCheckerUser] = useState(null);
 
   const [adminForm, setAdminForm] = useState({ username: "", password: "" });
   const [checkerForm, setCheckerForm] = useState({ username: "", password: "" });
-
-  const [supplyForm, setSupplyForm] = useState({
-    ampoulesReceived: "",
-    requisitionNumber: "",
-    receivedById: "",
-    receivedByName: "",
-    receivedSignature: "",
-    checkedById: "",
-    checkedByName: "",
-    checkedSignature: "",
-  });
 
   const [form, setForm] = useState({
     patientName: "",
@@ -38,7 +72,8 @@ function DrugRegister({ drug, onClose }) {
 
   useEffect(() => {
     loadTransactions();
-  }, [drug.id]);
+    loadPatients();
+  }, [drug.id, device?.locationId]);
 
   async function loadTransactions() {
     try {
@@ -58,9 +93,36 @@ function DrugRegister({ drug, onClose }) {
         (item) => Number(item.id) === Number(drug.id)
       );
 
-      if (currentDrug) setBalance(Number(currentDrug.quantity || 0));
+      if (currentDrug) {
+        setBalance(Number(currentDrug.quantity || 0));
+      }
     } catch (error) {
       console.log(error);
+    }
+  }
+
+  async function loadPatients() {
+    if (!device?.hospitalId || !device?.locationId) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_URL}/patients?hospitalId=${device.hospitalId}&locationId=${device.locationId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPatientMessage(data.message || "Could not load patient list");
+        return;
+      }
+
+      setPatients(Array.isArray(data) ? data : []);
+    } catch {
+      setPatientMessage("Could not load patient list");
     }
   }
 
@@ -78,6 +140,363 @@ function DrugRegister({ drug, onClose }) {
 
   function updateSupplyForm(e) {
     setSupplyForm({ ...supplyForm, [e.target.name]: e.target.value });
+    setVerifiedRequisition(null);
+    setSupplyMessage("");
+  }
+
+  function updateSupplyReceivedLogin(e) {
+    setSupplyReceivedLogin({
+      ...supplyReceivedLogin,
+      [e.target.name]: e.target.value,
+    });
+  }
+
+  function updateSupplyCheckerLogin(e) {
+    setSupplyCheckerLogin({
+      ...supplyCheckerLogin,
+      [e.target.name]: e.target.value,
+    });
+  }
+
+  function updatePharmacyRequestForm(e) {
+    setPharmacyRequestForm({
+      ...pharmacyRequestForm,
+      [e.target.name]: e.target.value,
+    });
+  }
+
+  function updatePharmacyRequestLogin(e) {
+    setPharmacyRequestLogin({
+      ...pharmacyRequestLogin,
+      [e.target.name]: e.target.value,
+    });
+  }
+
+  function updateNewPatient(event) {
+    setNewPatient({
+      ...newPatient,
+      [event.target.name]: event.target.value,
+    });
+  }
+
+  function selectPatient(patient) {
+    setForm({
+      ...form,
+      patientName: patient.patientName,
+      hospitalNumber: patient.hospitalNumber,
+      notes: patient.speciality
+        ? `Speciality: ${patient.speciality}${patient.procedure ? `; Procedure: ${patient.procedure}` : ""}`
+        : form.notes,
+    });
+  }
+
+  function parsePatientCsv(text) {
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.split(",").map((cell) => cell.trim()))
+      .filter((columns, index) => {
+        if (index !== 0) return true;
+        return !columns.join(" ").toLowerCase().includes("patient");
+      })
+      .map(([patientName, hospitalNumber, speciality, procedure, listDate]) => ({
+        patientName,
+        hospitalNumber,
+        speciality: speciality || "",
+        procedure: procedure || "",
+        listDate: listDate || newPatient.listDate,
+      }))
+      .filter((patient) => patient.patientName && patient.hospitalNumber);
+  }
+
+  async function addPatient(event) {
+    event.preventDefault();
+    setPatientMessage("");
+
+    if (!device?.hospitalId || !device?.locationId) {
+      setPatientMessage("Device location is required before adding patients");
+      return;
+    }
+
+    if (!newPatient.patientName || !newPatient.hospitalNumber) {
+      setPatientMessage("Patient name and MRN / NHS number are required");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    const response = await fetch(`${API_URL}/patients`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        ...newPatient,
+        hospitalId: device.hospitalId,
+        hospitalName: device.hospitalName,
+        locationId: device.locationId,
+        locationName: device.locationName,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setPatientMessage(result.message || "Could not add patient");
+      return;
+    }
+
+    setPatientMessage("Patient added");
+    setNewPatient({
+      patientName: "",
+      hospitalNumber: "",
+      speciality: "",
+      procedure: "",
+      listDate: new Date().toISOString().slice(0, 10),
+    });
+    await loadPatients();
+  }
+
+  async function uploadPatientList(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPatientMessage("");
+
+    const text = await file.text();
+    const parsedPatients = parsePatientCsv(text);
+
+    if (parsedPatients.length === 0) {
+      setPatientMessage("No valid patients found in CSV");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    const response = await fetch(`${API_URL}/patients/bulk`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        hospitalId: device.hospitalId,
+        hospitalName: device.hospitalName,
+        locationId: device.locationId,
+        locationName: device.locationName,
+        patients: parsedPatients,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setPatientMessage(result.message || "Could not upload patient list");
+      return;
+    }
+
+    setPatientMessage(result.message || "Patient list uploaded");
+    event.target.value = "";
+    await loadPatients();
+  }
+
+  function isAuthorisedClinicalStaff(roleValue) {
+    const role = String(roleValue || "").toLowerCase();
+
+    if (
+      role === "admin" ||
+      role.includes("surgeon") ||
+      role.includes("anaesthetist")
+    ) {
+      return false;
+    }
+
+    return (
+      role.includes("odp") ||
+      role.includes("anaesthetic") ||
+      role.includes("anaesthetics") ||
+      role.includes("nurse") ||
+      role.includes("theatre")
+    );
+  }
+
+  async function verifyPharmacyRequestUser() {
+    setPharmacyRequestMessage("");
+
+    const response = await fetch(`${API_URL}/checker/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: pharmacyRequestLogin.username,
+        password: pharmacyRequestLogin.password,
+        currentUserId: null,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setPharmacyRequestMessage(result.message || "Could not verify staff");
+      setPharmacyRequestUser(null);
+      return;
+    }
+
+    if (!isAuthorisedClinicalStaff(result.role)) {
+      setPharmacyRequestMessage(
+        "Only ODP, anaesthetic practitioner, theatre practitioner or nurse can request controlled drug pharmacy supply."
+      );
+      setPharmacyRequestUser(null);
+      return;
+    }
+
+    setPharmacyRequestUser(result);
+    setPharmacyRequestMessage(`✓ ${result.fullName || result.username} verified`);
+  }
+
+  async function sendPharmacyRequest() {
+    setPharmacyRequestMessage("");
+
+    if (!pharmacyRequestUser) {
+      setPharmacyRequestMessage("Verify authorised staff before sending request");
+      return;
+    }
+
+    if (
+      !pharmacyRequestForm.quantityRequested ||
+      Number(pharmacyRequestForm.quantityRequested) <= 0
+    ) {
+      setPharmacyRequestMessage("Enter quantity requested");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
+    const response = await fetch(`${API_URL}/pharmacy-requests`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        drugId: drug.id,
+        quantityRequested: Number(pharmacyRequestForm.quantityRequested),
+        reason: pharmacyRequestForm.reason,
+        requestedById: pharmacyRequestUser.id,
+        requestedByName: pharmacyRequestUser.fullName || pharmacyRequestUser.username,
+        requestedByRole: pharmacyRequestUser.role,
+        hospitalId: drug.hospitalId || null,
+        hospitalName: drug.hospitalName || "",
+        locationId: drug.locationId || null,
+        locationName: drug.locationName || "",
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setPharmacyRequestMessage(result.message || "Could not create pharmacy request");
+      return;
+    }
+
+    setPharmacyRequestMessage(
+      `✓ Pharmacy request created. Requisition number: ${result.request.requisitionNumber}`
+    );
+
+    setPharmacyRequestForm({ quantityRequested: "", reason: "Routine top up" });
+    setPharmacyRequestLogin({ username: "", password: "" });
+    setPharmacyRequestUser(null);
+  }
+
+  async function verifySupplyRequisition() {
+    setSupplyMessage("");
+    setVerifiedRequisition(null);
+
+    const response = await fetch(`${API_URL}/pharmacy-requests/verify-requisition`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requisitionNumber: supplyForm.requisitionNumber,
+        drugId: drug.id,
+        quantityReceived: Number(supplyForm.ampoulesReceived || 0),
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setSupplyMessage(result.message || "Could not verify requisition");
+      return;
+    }
+
+    setVerifiedRequisition(result.request);
+    setSupplyMessage(`✓ Requisition verified: ${result.request.requisitionNumber}`);
+  }
+
+  async function verifySupplyReceivedBy() {
+    setSupplyMessage("");
+
+    const response = await fetch(`${API_URL}/checker/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: supplyReceivedLogin.username,
+        password: supplyReceivedLogin.password,
+        currentUserId: null,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setSupplyMessage(result.message || "Could not verify receiving staff");
+      setSupplyReceivedUser(null);
+      return;
+    }
+
+    if (!isAuthorisedClinicalStaff(result.role)) {
+      setSupplyMessage("Only authorised clinical staff can receive controlled drug stock.");
+      setSupplyReceivedUser(null);
+      return;
+    }
+
+    setSupplyReceivedUser(result);
+    setSupplyMessage(`✓ Received by verified: ${result.fullName || result.username}`);
+  }
+
+  async function verifySupplyChecker() {
+    setSupplyMessage("");
+
+    if (!supplyReceivedUser) {
+      setSupplyMessage("Verify receiving staff first");
+      return;
+    }
+
+    const response = await fetch(`${API_URL}/checker/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: supplyCheckerLogin.username,
+        password: supplyCheckerLogin.password,
+        currentUserId: supplyReceivedUser.id,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setSupplyMessage(result.message || "Could not verify checker");
+      setSupplyCheckerUser(null);
+      return;
+    }
+
+    if (!isAuthorisedClinicalStaff(result.role)) {
+      setSupplyMessage("Only authorised clinical staff can check controlled drug stock.");
+      setSupplyCheckerUser(null);
+      return;
+    }
+
+    setSupplyCheckerUser(result);
+    setSupplyMessage(`✓ Checked by verified: ${result.fullName || result.username}`);
   }
 
   function patientNewBalance() {
@@ -105,10 +524,13 @@ function DrugRegister({ drug, onClose }) {
   function amountPerAmpoule() {
     const concentrationValue = parseNumberFromText(drug.concentration);
     const volume = parseNumberFromText(drug.size);
+
     if (!concentrationValue || !volume) return 0;
+
     if (String(drug.concentration || "").includes("/ml")) {
       return concentrationValue * volume;
     }
+
     return concentrationValue;
   }
 
@@ -117,33 +539,111 @@ function DrugRegister({ drug, onClose }) {
   }
 
   function cleanNumber(value) {
-  if (!value) return 0;
+    if (!value) return 0;
+    const match = String(value).match(/[\d.]+/);
+    return match ? Number(match[0]) : 0;
+  }
 
-  const match = String(value).match(/[\d.]+/);
-
-  return match ? Number(match[0]) : 0;
-}
-
-function totalAccountedFor() {
-  return (
-    cleanNumber(form.amountAdministered) +
-    cleanNumber(form.amountWasted)
-  );
-}
+  function totalAccountedFor() {
+    return cleanNumber(form.amountAdministered) + cleanNumber(form.amountWasted);
+  }
 
   function discrepancyAmount() {
-  return (
-    totalAvailableFromOpenedAmpoules() -
-    totalAccountedFor()
-  );
-}
+    return totalAvailableFromOpenedAmpoules() - totalAccountedFor();
+  }
 
   function isDoseBalanced() {
     if (!form.ampoulesUsed) return false;
     return Math.abs(discrepancyAmount()) < 0.0001;
   }
 
-  async function verifyAdministeredBy() {
+  async function saveSupplyEntry() {
+    setSupplyMessage("");
+
+    if (!verifiedRequisition) {
+      setSupplyMessage("Verify requisition number first");
+      return;
+    }
+
+    if (!supplyReceivedUser) {
+      setSupplyMessage("Verify receiving staff first");
+      return;
+    }
+
+    if (!supplyCheckerUser) {
+      setSupplyMessage("Verify checking staff first");
+      return;
+    }
+
+    if (Number(supplyReceivedUser.id) === Number(supplyCheckerUser.id)) {
+      setSupplyMessage("Received by and checked by must be two different staff members");
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+    const received = Number(supplyForm.ampoulesReceived || 0);
+
+    const response = await fetch(`${API_URL}/transactions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        drugId: drug.id,
+        drugName: drug.name,
+        patientName: "",
+        hospitalNumber: "",
+        ampoulesSupplied: received,
+        ampoulesUsed: 0,
+        amountAdministered: 0,
+        administeredUnit: "",
+        amountWasted: 0,
+        wastedUnit: "",
+        administeredById: supplyReceivedUser.id,
+        administeredByName: supplyReceivedUser.fullName || supplyReceivedUser.username,
+        administeredSignature: supplyReceivedUser.username,
+        witnessId: supplyCheckerUser.id,
+        witnessName: supplyCheckerUser.fullName || supplyCheckerUser.username,
+        witnessSignature: supplyCheckerUser.username,
+        notes: `Pharmacy stock received. Requisition: ${verifiedRequisition.requisitionNumber}`,
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setSupplyMessage(result.message || "Could not add pharmacy supply");
+      return;
+    }
+
+    const completeResponse = await fetch(
+      `${API_URL}/pharmacy-requests/${verifiedRequisition.id}/complete`,
+      { method: "PUT" }
+    );
+
+    const completeResult = await completeResponse.json();
+
+    if (!completeResponse.ok) {
+      setSupplyMessage(completeResult.message || "Stock added but requisition was not completed");
+      return;
+    }
+
+    setSupplyMessage(
+      `✓ Pharmacy supply added and requisition completed: ${verifiedRequisition.requisitionNumber}`
+    );
+
+    setSupplyForm({ ampoulesReceived: "", requisitionNumber: "" });
+    setSupplyReceivedLogin({ username: "", password: "" });
+    setSupplyCheckerLogin({ username: "", password: "" });
+    setSupplyReceivedUser(null);
+    setSupplyCheckerUser(null);
+    setVerifiedRequisition(null);
+    setShowSupplyForm(false);
+
+    await loadTransactions();
+  }
+    async function verifyAdministeredBy() {
     const response = await fetch(`${API_URL}/checker/verify`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -206,78 +706,6 @@ function totalAccountedFor() {
     alert(`Second checker verified: ${result.fullName}`);
   }
 
-  async function saveSupplyEntry() {
-    const received = Number(supplyForm.ampoulesReceived || 0);
-
-    if (!received || received <= 0) {
-      alert("Enter ampoules received from pharmacy");
-      return;
-    }
-
-    if (!supplyForm.receivedByName || !supplyForm.checkedByName) {
-      alert("Received by and checked by are required");
-      return;
-    }
-
-    if (
-      supplyForm.receivedByName.trim().toLowerCase() ===
-      supplyForm.checkedByName.trim().toLowerCase()
-    ) {
-      alert("Received by and checked by must be two different people");
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(`${API_URL}/transactions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        drugId: drug.id,
-        drugName: drug.name,
-        patientName: "",
-        hospitalNumber: "",
-        ampoulesSupplied: received,
-        ampoulesUsed: 0,
-        amountAdministered: 0,
-        administeredUnit: "",
-        amountWasted: 0,
-        wastedUnit: "",
-        administeredById: supplyForm.receivedById,
-        administeredByName: supplyForm.receivedByName,
-        administeredSignature: supplyForm.receivedSignature,
-        witnessId: supplyForm.checkedById,
-        witnessName: supplyForm.checkedByName,
-        witnessSignature: supplyForm.checkedSignature,
-        notes: supplyForm.requisitionNumber || "Pharmacy stock supply received",
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      alert(result.message);
-      return;
-    }
-
-    setSupplyForm({
-      ampoulesReceived: "",
-      requisitionNumber: "",
-      receivedById: "",
-      receivedByName: "",
-      receivedSignature: "",
-      checkedById: "",
-      checkedByName: "",
-      checkedSignature: "",
-    });
-
-    setShowSupplyForm(false);
-    await loadTransactions();
-  }
-
   async function savePatientEntry() {
     if (!administeredUser) {
       alert("Administered by staff must be verified first.");
@@ -326,7 +754,8 @@ function totalAccountedFor() {
         amountWasted: cleanNumber(form.amountWasted),
         wastedUnit: getDoseUnit(),
         administeredById: administeredUser.id,
-        administeredByName: administeredUser.fullName || administeredUser.username,
+        administeredByName:
+          administeredUser.fullName || administeredUser.username,
         administeredSignature: administeredUser.username,
         witnessId: checkerUser.id,
         witnessName: checkerUser.fullName || checkerUser.username,
@@ -378,22 +807,199 @@ function totalAccountedFor() {
 
       <h2>Current Balance: {balance} ampoules</h2>
 
+      <h3>Patient List - {device?.locationName || "Current Location"}</h3>
+
+      <p>
+        CSV columns: patient name, MRN / NHS number, speciality, procedure,
+        list date.
+      </p>
+
+      <input type="file" accept=".csv,text/csv" onChange={uploadPatientList} />
+
+      <form onSubmit={addPatient}>
+        <input
+          name="patientName"
+          placeholder="Patient name"
+          value={newPatient.patientName}
+          onChange={updateNewPatient}
+        />
+
+        <input
+          name="hospitalNumber"
+          placeholder="MRN / NHS / private hospital number"
+          value={newPatient.hospitalNumber}
+          onChange={updateNewPatient}
+        />
+
+        <input
+          name="speciality"
+          placeholder="Speciality e.g. Orthopaedics, ENT, ICU"
+          value={newPatient.speciality}
+          onChange={updateNewPatient}
+        />
+
+        <input
+          name="procedure"
+          placeholder="Procedure / operation"
+          value={newPatient.procedure}
+          onChange={updateNewPatient}
+        />
+
+        <input
+          type="date"
+          name="listDate"
+          value={newPatient.listDate}
+          onChange={updateNewPatient}
+        />
+
+        <button type="submit">Add Patient To This Area</button>
+      </form>
+
+      {patientMessage && (
+        <p
+          style={{
+            color: patientMessage.includes("Could") || patientMessage.includes("No valid")
+              ? "red"
+              : "green",
+            fontWeight: "bold",
+          }}
+        >
+          {patientMessage}
+        </p>
+      )}
+
+      {patients.length > 0 && (
+        <table>
+          <thead>
+            <tr>
+              <th>Patient</th>
+              <th>MRN / NHS No.</th>
+              <th>Speciality</th>
+              <th>Procedure</th>
+              <th>List Date</th>
+              <th>Select</th>
+            </tr>
+          </thead>
+          <tbody>
+            {patients.map((patient) => (
+              <tr key={patient.id}>
+                <td>{patient.patientName}</td>
+                <td>{patient.hospitalNumber}</td>
+                <td>{patient.speciality || "-"}</td>
+                <td>{patient.procedure || "-"}</td>
+                <td>{patient.listDate || "-"}</td>
+                <td>
+                  <button type="button" onClick={() => selectPatient(patient)}>
+                    Use Patient
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
       {balance < REORDER_LEVEL && (
         <p style={{ color: "red", fontWeight: "bold" }}>
           ⚠️ LOW STOCK — order from pharmacy
         </p>
       )}
 
-      <button type="button" onClick={() => setShowSupplyForm(!showSupplyForm)}>
-        {showSupplyForm ? "Hide Pharmacy Stock Supply" : "➕ Receive Pharmacy Stock"}
+      <button
+        type="button"
+        onClick={() => setShowPharmacyRequest(!showPharmacyRequest)}
+      >
+        {showPharmacyRequest ? "Hide Pharmacy Request" : "📩 Request Pharmacy Stock"}
+      </button>
+
+      {showPharmacyRequest && (
+        <>
+          <h3>📩 Pharmacy Stock Request</h3>
+
+          <input value={`Current balance: ${balance} ampoules`} disabled />
+
+          <input
+            type="number"
+            name="quantityRequested"
+            placeholder="Quantity requested from pharmacy"
+            value={pharmacyRequestForm.quantityRequested}
+            onChange={updatePharmacyRequestForm}
+          />
+
+          <select
+            name="reason"
+            value={pharmacyRequestForm.reason}
+            onChange={updatePharmacyRequestForm}
+          >
+            <option>Routine top up</option>
+            <option>Low stock</option>
+            <option>Weekend / Bank Holiday cover</option>
+            <option>High theatre activity</option>
+            <option>Emergency request</option>
+            <option>Other</option>
+          </select>
+
+          <h4>Authorised Staff Verification</h4>
+
+          <input
+            name="username"
+            placeholder="Authorised staff username"
+            value={pharmacyRequestLogin.username}
+            onChange={updatePharmacyRequestLogin}
+          />
+
+          <input
+            type="password"
+            name="password"
+            placeholder="Authorised staff password"
+            value={pharmacyRequestLogin.password}
+            onChange={updatePharmacyRequestLogin}
+          />
+
+          <button type="button" onClick={verifyPharmacyRequestUser}>
+            Verify Authorised Staff
+          </button>
+
+          {pharmacyRequestUser && (
+            <p style={{ color: "green", fontWeight: "bold" }}>
+              ✓ {pharmacyRequestUser.fullName || pharmacyRequestUser.username} verified
+            </p>
+          )}
+
+          <button type="button" onClick={sendPharmacyRequest}>
+            Sign & Create Pharmacy Request
+          </button>
+
+          {pharmacyRequestMessage && (
+            <p
+              style={{
+                fontWeight: "bold",
+                color: pharmacyRequestMessage.includes("✓") ? "green" : "red",
+              }}
+            >
+              {pharmacyRequestMessage}
+            </p>
+          )}
+
+          <hr />
+        </>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setShowSupplyForm(!showSupplyForm)}
+      >
+        {showSupplyForm ? "Hide Pharmacy Stock Supply" : "📦 Receive Pharmacy Stock"}
       </button>
 
       {showSupplyForm && (
         <>
           <h3>📦 Pharmacy Stock Supply</h3>
+
           <input value={`Current balance: ${balance} ampoules`} disabled />
 
           <input
+            type="number"
             name="ampoulesReceived"
             placeholder="Ampoules received from pharmacy"
             value={supplyForm.ampoulesReceived}
@@ -404,22 +1010,85 @@ function totalAccountedFor() {
 
           <input
             name="requisitionNumber"
-            placeholder="Requisition number / pharmacy note"
+            placeholder="Requisition number from pharmacy"
             value={supplyForm.requisitionNumber}
             onChange={updateSupplyForm}
           />
 
-          <h4>Received By</h4>
+          <button type="button" onClick={verifySupplyRequisition}>
+            Verify Requisition Number
+          </button>
 
-          <input name="receivedById" placeholder="Staff ID" value={supplyForm.receivedById} onChange={updateSupplyForm} />
-          <input name="receivedByName" placeholder="Staff name" value={supplyForm.receivedByName} onChange={updateSupplyForm} />
-          <input name="receivedSignature" placeholder="Signature" value={supplyForm.receivedSignature} onChange={updateSupplyForm} />
+          {verifiedRequisition && (
+            <p style={{ color: "green", fontWeight: "bold" }}>
+              ✓ Requisition matched: {verifiedRequisition.requisitionNumber}
+            </p>
+          )}
 
-          <h4>Checked By</h4>
+          <h4>Received By Verification</h4>
 
-          <input name="checkedById" placeholder="Checker ID" value={supplyForm.checkedById} onChange={updateSupplyForm} />
-          <input name="checkedByName" placeholder="Checker name" value={supplyForm.checkedByName} onChange={updateSupplyForm} />
-          <input name="checkedSignature" placeholder="Checker signature" value={supplyForm.checkedSignature} onChange={updateSupplyForm} />
+          <input
+            name="username"
+            placeholder="Receiving staff username"
+            value={supplyReceivedLogin.username}
+            onChange={updateSupplyReceivedLogin}
+          />
+
+          <input
+            type="password"
+            name="password"
+            placeholder="Receiving staff password"
+            value={supplyReceivedLogin.password}
+            onChange={updateSupplyReceivedLogin}
+          />
+
+          <button type="button" onClick={verifySupplyReceivedBy}>
+            Verify Received By
+          </button>
+
+          {supplyReceivedUser && (
+            <p style={{ color: "green", fontWeight: "bold" }}>
+              ✓ Received by verified: {supplyReceivedUser.fullName || supplyReceivedUser.username}
+            </p>
+          )}
+
+          <h4>Checked By Verification</h4>
+
+          <input
+            name="username"
+            placeholder="Checking staff username"
+            value={supplyCheckerLogin.username}
+            onChange={updateSupplyCheckerLogin}
+          />
+
+          <input
+            type="password"
+            name="password"
+            placeholder="Checking staff password"
+            value={supplyCheckerLogin.password}
+            onChange={updateSupplyCheckerLogin}
+          />
+
+          <button type="button" onClick={verifySupplyChecker}>
+            Verify Checked By
+          </button>
+
+          {supplyCheckerUser && (
+            <p style={{ color: "green", fontWeight: "bold" }}>
+              ✓ Checked by verified: {supplyCheckerUser.fullName || supplyCheckerUser.username}
+            </p>
+          )}
+
+          {supplyMessage && (
+            <p
+              style={{
+                color: supplyMessage.includes("✓") ? "green" : "red",
+                fontWeight: "bold",
+              }}
+            >
+              {supplyMessage}
+            </p>
+          )}
 
           <button type="button" onClick={saveSupplyEntry}>
             ➕ Add Pharmacy Supply
@@ -431,13 +1100,31 @@ function totalAccountedFor() {
 
       <h3>👤 Patient Entry</h3>
 
-      <input name="patientName" placeholder="Patient name" value={form.patientName} onChange={updateForm} />
-      <input name="hospitalNumber" placeholder="Hospital number / MRN / NHS No." value={form.hospitalNumber} onChange={updateForm} />
+      <input
+        name="patientName"
+        placeholder="Patient name"
+        value={form.patientName}
+        onChange={updateForm}
+      />
+
+      <input
+        name="hospitalNumber"
+        placeholder="Hospital number / MRN / NHS No."
+        value={form.hospitalNumber}
+        onChange={updateForm}
+      />
 
       <h3>Stock Used For Patient</h3>
 
       <input value={`Previous balance: ${balance} ampoules`} disabled />
-      <input name="ampoulesUsed" placeholder="Ampoules opened / used" value={form.ampoulesUsed} onChange={updateForm} />
+
+      <input
+        name="ampoulesUsed"
+        placeholder="Ampoules opened / used"
+        value={form.ampoulesUsed}
+        onChange={updateForm}
+      />
+
       <input value={`New balance: ${patientNewBalance()} ampoules`} disabled />
 
       {patientNewBalance() < REORDER_LEVEL && (
@@ -453,17 +1140,35 @@ function totalAccountedFor() {
 
       <h3>Dose Given / Wasted</h3>
 
-      <input name="amountAdministered" placeholder="Amount administered" value={form.amountAdministered} onChange={updateForm} />
+      <input
+        name="amountAdministered"
+        placeholder="Amount administered"
+        value={form.amountAdministered}
+        onChange={updateForm}
+      />
 
-      <select name="administeredUnit" value={form.administeredUnit} onChange={updateForm}>
+      <select
+        name="administeredUnit"
+        value={form.administeredUnit}
+        onChange={updateForm}
+      >
         <option>mcg</option>
         <option>mg</option>
         <option>ml</option>
       </select>
 
-      <input name="amountWasted" placeholder="Amount wasted" value={form.amountWasted} onChange={updateForm} />
+      <input
+        name="amountWasted"
+        placeholder="Amount wasted"
+        value={form.amountWasted}
+        onChange={updateForm}
+      />
 
-      <select name="wastedUnit" value={form.wastedUnit} onChange={updateForm}>
+      <select
+        name="wastedUnit"
+        value={form.wastedUnit}
+        onChange={updateForm}
+      >
         <option>mcg</option>
         <option>mg</option>
         <option>ml</option>
@@ -482,8 +1187,20 @@ function totalAccountedFor() {
 
       <h3>Administered By Verification</h3>
 
-      <input name="username" placeholder="Administering staff username" value={adminForm.username} onChange={updateAdminForm} />
-      <input name="password" type="password" placeholder="Administering staff password" value={adminForm.password} onChange={updateAdminForm} />
+      <input
+        name="username"
+        placeholder="Administering staff username"
+        value={adminForm.username}
+        onChange={updateAdminForm}
+      />
+
+      <input
+        name="password"
+        type="password"
+        placeholder="Administering staff password"
+        value={adminForm.password}
+        onChange={updateAdminForm}
+      />
 
       <button type="button" onClick={verifyAdministeredBy}>
         Verify Administered By
@@ -497,8 +1214,20 @@ function totalAccountedFor() {
 
       <h3>Second Checker Verification</h3>
 
-      <input name="username" placeholder="Checker username" value={checkerForm.username} onChange={updateCheckerForm} />
-      <input name="password" type="password" placeholder="Checker password" value={checkerForm.password} onChange={updateCheckerForm} />
+      <input
+        name="username"
+        placeholder="Checker username"
+        value={checkerForm.username}
+        onChange={updateCheckerForm}
+      />
+
+      <input
+        name="password"
+        type="password"
+        placeholder="Checker password"
+        value={checkerForm.password}
+        onChange={updateCheckerForm}
+      />
 
       <button type="button" onClick={verifySecondChecker}>
         Verify Second Checker
@@ -510,7 +1239,12 @@ function totalAccountedFor() {
         </p>
       )}
 
-      <input name="notes" placeholder="Notes" value={form.notes} onChange={updateForm} />
+      <input
+        name="notes"
+        placeholder="Notes"
+        value={form.notes}
+        onChange={updateForm}
+      />
 
       <button type="button" onClick={savePatientEntry}>
         💾 Save Patient Entry
@@ -543,9 +1277,9 @@ function totalAccountedFor() {
             const isCorrection = entry.transactionType === "CORRECTION";
 
             const isSupply =
-         !isCorrection &&
-         Number(entry.ampoulesSupplied || 0) > 0 &&
-         Number(entry.ampoulesUsed || 0) === 0;
+              !isCorrection &&
+              Number(entry.ampoulesSupplied || 0) > 0 &&
+              Number(entry.ampoulesUsed || 0) === 0;
 
             return (
               <tr key={entry.id}>
@@ -562,58 +1296,10 @@ function totalAccountedFor() {
                 <td>{isCorrection ? "-" : `${entry.amountAdministered || ""}${entry.administeredUnit || ""}`}</td>
                 <td>{isCorrection ? "-" : `${entry.amountWasted || ""}${entry.wastedUnit || ""}`}</td>
                 <td>{entry.stockBalanceAfter}</td>
-                <td>
-                  {entry.administeredByName}
-                  <br />
-                  <small>
-                    {entry.administeredRole || ""}{" "}
-                    {entry.administeredStaffType ? `(${entry.administeredStaffType})` : ""}
-                  </small>
-                </td>
-                <td>
-                  {entry.administeredSignedAt ? (
-                    <>
-                      ✓ Signed
-                      <br />
-                      <small>{new Date(entry.administeredSignedAt).toLocaleString()}</small>
-                      <br />
-                      <small>
-                        ID:{" "}
-                        {entry.administeredSignatureHash
-                          ? entry.administeredSignatureHash.substring(0, 10)
-                          : "-"}
-                      </small>
-                    </>
-                  ) : (
-                    "-"
-                  )}
-                </td>
-                <td>
-                  {entry.witnessName}
-                  <br />
-                  <small>
-                    {entry.witnessRole || ""}{" "}
-                    {entry.witnessStaffType ? `(${entry.witnessStaffType})` : ""}
-                  </small>
-                </td>
-                <td>
-                  {entry.witnessSignedAt ? (
-                    <>
-                      ✓ Signed
-                      <br />
-                      <small>{new Date(entry.witnessSignedAt).toLocaleString()}</small>
-                      <br />
-                      <small>
-                        ID:{" "}
-                        {entry.witnessSignatureHash
-                          ? entry.witnessSignatureHash.substring(0, 10)
-                          : "-"}
-                      </small>
-                    </>
-                  ) : (
-                    "-"
-                  )}
-                </td>
+                <td>{entry.administeredByName}</td>
+                <td>{entry.administeredSignature || "-"}</td>
+                <td>{entry.witnessName}</td>
+                <td>{entry.witnessSignature || "-"}</td>
                 <td>{entry.notes}</td>
               </tr>
             );

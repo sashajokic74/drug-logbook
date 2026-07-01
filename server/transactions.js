@@ -101,6 +101,25 @@ router.post("/", verifyUser, (req, res) => {
 
     const isPatientUse = used > 0;
 
+    if (received <= 0 && used <= 0) {
+      return res.status(400).json({
+        message: "Enter ampoules used or ampoules received",
+      });
+    }
+
+    if (received > 0 && used > 0) {
+      return res.status(400).json({
+        message:
+          "Patient use and pharmacy supply must be recorded as separate entries",
+      });
+    }
+
+    if (isPatientUse && (!patientName || !hospitalNumber)) {
+      return res.status(400).json({
+        message: "Patient name and MRN / NHS / hospital number are required",
+      });
+    }
+
     if (!administeredById || !witnessId) {
       return res.status(400).json({
         message: "Two verified staff members are required",
@@ -187,104 +206,117 @@ router.post("/", verifyUser, (req, res) => {
       timestamp: witnessSignedAt,
     });
 
-    const result = db
-      .prepare(`
-        INSERT INTO drug_transactions
-        (
-          transactionType,
-          drugId,
-          drugName,
-          patientName,
-          hospitalNumber,
-          ampoulesSupplied,
-          ampoulesUsed,
-          amountAdministered,
-          administeredUnit,
-          amountWasted,
-          wastedUnit,
-          stockBalanceBefore,
-          stockBalanceAfter,
+    const saveTransaction = db.transaction(() => {
+      const result = db
+        .prepare(`
+          INSERT INTO drug_transactions
+          (
+            transactionType,
+            drugId,
+            drugName,
+            patientName,
+            hospitalNumber,
+            ampoulesSupplied,
+            ampoulesUsed,
+            amountAdministered,
+            administeredUnit,
+            amountWasted,
+            wastedUnit,
+            stockBalanceBefore,
+            stockBalanceAfter,
 
-          administeredById,
-          administeredByName,
-          administeredSignature,
-          administeredRole,
-          administeredStaffType,
+            administeredById,
+            administeredByName,
+            administeredSignature,
+            administeredRole,
+            administeredStaffType,
+            administeredSignedAt,
+            administeredSignatureHash,
+
+            witnessId,
+            witnessName,
+            witnessSignature,
+            witnessRole,
+            witnessStaffType,
+            witnessSignedAt,
+            witnessSignatureHash,
+
+            createdByUserId,
+            createdByUsername,
+            createdByFullName,
+            notes
+          )
+          VALUES
+          (
+            ?,?,?,?,?,?,?,?,?,?,
+            ?,?,?,?,?,?,?,?,?,?,
+            ?,?,?,?,?,?,?,?,?,?,
+            ?
+          )
+        `)
+        .run(
+          transactionType,
+          Number(drugId),
+          drugName || drug.name,
+          patientName || "",
+          hospitalNumber || "",
+
+          received,
+          used,
+
+          administered,
+          administeredUnit || "",
+
+          wasted,
+          wastedUnit || "",
+
+          previousBalance,
+          newBalance,
+
+          administeredStaff.id,
+          administeredStaff.fullName || administeredByName || "",
+          administeredSignature || administeredStaff.username,
+          administeredStaff.role,
+          administeredStaff.staffType || "Permanent",
           administeredSignedAt,
           administeredSignatureHash,
 
-          witnessId,
-          witnessName,
-          witnessSignature,
-          witnessRole,
-          witnessStaffType,
+          witnessStaff.id,
+          witnessStaff.fullName || witnessName || "",
+          witnessSignature || witnessStaff.username,
+          witnessStaff.role,
+          witnessStaff.staffType || "Permanent",
           witnessSignedAt,
           witnessSignatureHash,
 
-          createdByUserId,
-          createdByUsername,
-          createdByFullName,
-          notes
-        )
-        VALUES
-        (
-          ?,?,?,?,?,?,?,?,?,?,
-          ?,?,?,?,?,?,?,?,?,?,
-          ?,?,?,?,?,?,?,?,?,?,
-          ?
-        )
-      `)
-      .run(
-        transactionType,
-        Number(drugId),
-        drugName || drug.name,
-        patientName || "",
-        hospitalNumber || "",
+          req.user.id,
+          req.user.username,
+          req.user.fullName || req.user.username,
 
-        received,
-        used,
+          notes || ""
+        );
 
-        administered,
-        administeredUnit || "",
+      db.prepare(`
+        UPDATE drugs
+        SET quantity = ?
+        WHERE id = ?
+      `).run(newBalance, Number(drugId));
 
-        wasted,
-        wastedUnit || "",
-
-        previousBalance,
-        newBalance,
-
-        administeredStaff.id,
-        administeredStaff.fullName || administeredByName || "",
-        administeredSignature || administeredStaff.username,
-        administeredStaff.role,
-        administeredStaff.staffType || "Permanent",
-        administeredSignedAt,
-        administeredSignatureHash,
-
-        witnessStaff.id,
-        witnessStaff.fullName || witnessName || "",
-        witnessSignature || witnessStaff.username,
-        witnessStaff.role,
-        witnessStaff.staffType || "Permanent",
-        witnessSignedAt,
-        witnessSignatureHash,
-
-        req.user.id,
+      db.prepare(`
+        INSERT INTO audit (action, username, role)
+        VALUES (?, ?, ?)
+      `).run(
+        `${transactionType}: ${drug.name} ${previousBalance} -> ${newBalance}`,
         req.user.username,
-        req.user.fullName || req.user.username,
-
-        notes || ""
+        req.user.role
       );
 
-    db.prepare(`
-      UPDATE drugs
-      SET quantity = ?
-      WHERE id = ?
-    `).run(newBalance, Number(drugId));
+      return db
+        .prepare("SELECT * FROM drug_transactions WHERE id = ?")
+        .get(result.lastInsertRowid);
+    });
 
-    const saved = db
-      .prepare("SELECT * FROM drug_transactions WHERE id = ?")
-      .get(result.lastInsertRowid);
+    const saved = saveTransaction();
 
     return res.status(201).json({
       entry: saved,

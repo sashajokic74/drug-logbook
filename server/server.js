@@ -9,6 +9,7 @@ import checkerRoutes from "./checker.js";
 import stockCheckRoutes from "./stockChecks.js";
 import correctionRoutes from "./corrections.js";
 import locationRoutes from "./locations.js";
+import pharmacyRequestRoutes from "./pharmacyRequests.js";
 
 const app = express();
 
@@ -43,6 +44,240 @@ app.use("/checker", checkerRoutes);
 app.use("/stock-checks", stockCheckRoutes);
 app.use("/corrections", correctionRoutes);
 app.use("/locations", locationRoutes);
+app.use("/pharmacy-requests", pharmacyRequestRoutes);
+
+/* ================= DEVICE SETUP ROUTES ================= */
+
+app.get("/device-setup/hospitals", (req, res) => {
+  try {
+    const hospitals = db
+      .prepare(`
+        SELECT *
+        FROM hospitals
+        WHERE active = 1
+        ORDER BY name ASC
+      `)
+      .all();
+
+    return res.json(hospitals);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/device-setup/hospitals", (req, res) => {
+  try {
+    const { name } = req.body;
+    const hospitalName = String(name || "").trim();
+
+    if (!hospitalName) {
+      return res.status(400).json({ message: "Hospital name is required" });
+    }
+
+    const existingHospital = db
+      .prepare(
+        "SELECT * FROM hospitals WHERE lower(name) = lower(?) AND active = 1"
+      )
+      .get(hospitalName);
+
+    if (existingHospital) {
+      return res.status(200).json(existingHospital);
+    }
+
+    const result = db
+      .prepare(`
+        INSERT INTO hospitals (name, active)
+        VALUES (?, 1)
+      `)
+      .run(hospitalName);
+
+    const hospital = db
+      .prepare("SELECT * FROM hospitals WHERE id = ?")
+      .get(result.lastInsertRowid);
+
+    return res.status(201).json(hospital);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/device-setup/locations", (req, res) => {
+  try {
+    const { hospitalId } = req.query;
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital is required" });
+    }
+
+    const locations = db
+      .prepare(`
+        SELECT *
+        FROM locations
+        WHERE active = 1
+          AND hospitalId = ?
+        ORDER BY name ASC
+      `)
+      .all(Number(hospitalId));
+
+    return res.json(locations);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/device-setup/locations", (req, res) => {
+  try {
+    const { hospitalId, name, type } = req.body;
+    const locationName = String(name || "").trim();
+
+    if (!hospitalId || !locationName) {
+      return res.status(400).json({
+        message: "Hospital and location name are required",
+      });
+    }
+
+    const hospital = db
+      .prepare("SELECT * FROM hospitals WHERE id = ? AND active = 1")
+      .get(Number(hospitalId));
+
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+
+    const existingLocation = db
+      .prepare(`
+        SELECT *
+        FROM locations
+        WHERE hospitalId = ?
+          AND lower(name) = lower(?)
+          AND active = 1
+      `)
+      .get(Number(hospitalId), locationName);
+
+    if (existingLocation) {
+      return res.status(200).json(existingLocation);
+    }
+
+    const result = db
+      .prepare(`
+        INSERT INTO locations
+        (
+          hospitalId,
+          hospitalName,
+          name,
+          type,
+          active
+        )
+        VALUES (?, ?, ?, ?, 1)
+      `)
+      .run(
+        hospital.id,
+        hospital.name,
+        locationName,
+        type || "Theatre"
+      );
+
+    const location = db
+      .prepare("SELECT * FROM locations WHERE id = ?")
+      .get(result.lastInsertRowid);
+
+    return res.status(201).json(location);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/device-setup/devices", (req, res) => {
+  try {
+    const { hospitalId, locationId } = req.query;
+    const params = [];
+
+    let sql = `
+      SELECT *
+      FROM devices
+      WHERE active = 1
+    `;
+
+    if (hospitalId) {
+      sql += " AND hospitalId = ?";
+      params.push(Number(hospitalId));
+    }
+
+    if (locationId) {
+      sql += " AND locationId = ?";
+      params.push(Number(locationId));
+    }
+
+    sql += " ORDER BY hospitalName ASC, locationName ASC, deviceName ASC";
+
+    const devices = db.prepare(sql).all(...params);
+
+    return res.json(devices);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/device-setup/devices", (req, res) => {
+  try {
+    const {
+      deviceName,
+      deviceCode,
+      hospitalId,
+      hospitalName,
+      locationId,
+      locationName,
+      deviceType,
+    } = req.body;
+
+    if (!deviceName || !deviceCode || !hospitalId || !locationId) {
+      return res.status(400).json({
+        message: "Device name, code, hospital and location are required",
+      });
+    }
+
+    const existingDevice = db
+      .prepare("SELECT * FROM devices WHERE deviceCode = ? AND active = 1")
+      .get(deviceCode);
+
+    if (existingDevice) {
+      return res.status(200).json(existingDevice);
+    }
+
+    const result = db
+      .prepare(`
+        INSERT INTO devices
+        (
+          deviceName,
+          deviceCode,
+          hospitalId,
+          hospitalName,
+          locationId,
+          locationName,
+          deviceType,
+          active
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      `)
+      .run(
+        deviceName,
+        deviceCode,
+        Number(hospitalId),
+        hospitalName || "",
+        Number(locationId),
+        locationName || "",
+        deviceType || "iPad"
+      );
+
+    const device = db
+      .prepare("SELECT * FROM devices WHERE id = ?")
+      .get(result.lastInsertRowid);
+
+    return res.status(201).json(device);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
 
 /* ================= DEFAULT ADMIN USER ================= */
 
@@ -372,6 +607,166 @@ app.delete("/drugs/:id", verifyUser, adminOnly, (req, res) => {
   db.prepare("DELETE FROM drugs WHERE id = ?").run(Number(req.params.id));
 
   return res.status(204).end();
+});
+
+/* ================= PATIENT LIST ROUTES ================= */
+
+app.get("/patients", verifyUser, (req, res) => {
+  try {
+    const { hospitalId, locationId } = req.query;
+
+    if (!hospitalId || !locationId) {
+      return res.status(400).json({
+        message: "Hospital and location are required",
+      });
+    }
+
+    const patients = db
+      .prepare(`
+        SELECT *
+        FROM patients
+        WHERE active = 1
+          AND hospitalId = ?
+          AND locationId = ?
+        ORDER BY patientName ASC
+      `)
+      .all(Number(hospitalId), Number(locationId));
+
+    return res.json(patients);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/patients", verifyUser, (req, res) => {
+  try {
+    const {
+      hospitalId,
+      hospitalName,
+      locationId,
+      locationName,
+      patientName,
+      hospitalNumber,
+      speciality,
+      procedure,
+      listDate,
+    } = req.body;
+
+    if (!hospitalId || !locationId || !patientName || !hospitalNumber) {
+      return res.status(400).json({
+        message: "Hospital, location, patient name and MRN / NHS number are required",
+      });
+    }
+
+    const result = db
+      .prepare(`
+        INSERT INTO patients
+        (
+          hospitalId,
+          hospitalName,
+          locationId,
+          locationName,
+          patientName,
+          hospitalNumber,
+          speciality,
+          procedure,
+          listDate,
+          active
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      `)
+      .run(
+        Number(hospitalId),
+        hospitalName || "",
+        Number(locationId),
+        locationName || "",
+        patientName.trim(),
+        hospitalNumber.trim(),
+        speciality || "",
+        procedure || "",
+        listDate || new Date().toISOString().slice(0, 10)
+      );
+
+    const patient = db
+      .prepare("SELECT * FROM patients WHERE id = ?")
+      .get(result.lastInsertRowid);
+
+    return res.status(201).json(patient);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/patients/bulk", verifyUser, (req, res) => {
+  try {
+    const {
+      hospitalId,
+      hospitalName,
+      locationId,
+      locationName,
+      patients,
+    } = req.body;
+
+    if (!hospitalId || !locationId) {
+      return res.status(400).json({
+        message: "Hospital and location are required",
+      });
+    }
+
+    if (!Array.isArray(patients) || patients.length === 0) {
+      return res.status(400).json({
+        message: "No patients to upload",
+      });
+    }
+
+    const insertPatient = db.prepare(`
+      INSERT INTO patients
+      (
+        hospitalId,
+        hospitalName,
+        locationId,
+        locationName,
+        patientName,
+        hospitalNumber,
+        speciality,
+        procedure,
+        listDate,
+        active
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `);
+
+    let created = 0;
+
+    const savePatients = db.transaction(() => {
+      patients.forEach((patient) => {
+        if (!patient.patientName || !patient.hospitalNumber) return;
+
+        insertPatient.run(
+          Number(hospitalId),
+          hospitalName || "",
+          Number(locationId),
+          locationName || "",
+          String(patient.patientName).trim(),
+          String(patient.hospitalNumber).trim(),
+          patient.speciality || "",
+          patient.procedure || "",
+          patient.listDate || new Date().toISOString().slice(0, 10)
+        );
+
+        created += 1;
+      });
+    });
+
+    savePatients();
+
+    return res.status(201).json({
+      message: `${created} patients uploaded`,
+      created,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
 });
 
 /* ================= OLD ENTRY ROUTES ================= */

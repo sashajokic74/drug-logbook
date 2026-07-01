@@ -3,7 +3,7 @@ import DrugRegister from "./DrugRegister";
 
 const API_URL = "http://localhost:8000";
 
-function ControlledDrugLogbook() {
+function ControlledDrugLogbook({ device }) {
   const AUTHORISED_DELETE_ID = "112233";
 
   const [inventory, setInventory] = useState([]);
@@ -167,6 +167,7 @@ function ControlledDrugLogbook() {
       <main className="page">
         <DrugRegister
           drug={selectedDrug}
+          device={device}
           onClose={() => {
             setSelectedDrug(null);
             loadDrugs();
