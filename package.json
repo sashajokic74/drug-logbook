@@ -4,7 +4,8 @@
   "description": "A drug log inventory",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint . --ext .js"
   },
   "repository": {
     "type": "git",
