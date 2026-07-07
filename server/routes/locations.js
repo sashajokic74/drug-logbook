@@ -1,6 +1,6 @@
 import express from "express";
-import db from "./database.js";
-import { verifyUser, adminOnly } from "./auth.js";
+import db from "../database.js";
+import { verifyUser, adminOnly } from "../auth.js";
 
 const router = express.Router();
 

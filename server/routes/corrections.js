@@ -1,89 +1,48 @@
 import express from "express";
-import db from "./database.js";
-import { verifyUser } from "./auth.js";
-import { createSignatureHash } from "./signature.js";
+import db from "../database.js";
+import { verifyUser } from "../auth.js";
+import { createSignatureHash } from "../signature.js";
 
 const router = express.Router();
 
-
-db.prepare(`
-CREATE TABLE IF NOT EXISTS corrections (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-  originalTransactionId INTEGER NOT NULL,
-
-  correctionType TEXT NOT NULL,
-  reason TEXT NOT NULL,
-  correctionText TEXT NOT NULL,
-
-  stockAdjustment REAL DEFAULT 0,
-
-  correctedById TEXT,
-  correctedByName TEXT,
-  correctedByRole TEXT,
-  correctedSignedAt TEXT,
-  correctedSignatureHash TEXT,
-
-  checkedById TEXT,
-  checkedByName TEXT,
-  checkedByRole TEXT,
-  checkedSignedAt TEXT,
-  checkedSignatureHash TEXT,
-
-  createdAt TEXT DEFAULT CURRENT_TIMESTAMP
-)
-`).run();
-
-
-function addColumn(column, type) {
-  try {
-    db.prepare(
-      `ALTER TABLE corrections ADD COLUMN ${column} ${type}`
-    ).run();
-  } catch {}
-}
-
-addColumn("correctionType", "TEXT DEFAULT 'documentation'");
-addColumn("stockAdjustment", "REAL DEFAULT 0");
-
-
 function getStaff(id) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT *
     FROM users
     WHERE id = ?
-  `).get(Number(id));
+  `,
+    )
+    .get(Number(id));
 }
-
 
 /* ================= GET ================= */
 
 router.get("/", verifyUser, (req, res) => {
   try {
-
-    const rows = db.prepare(`
+    const rows = db
+      .prepare(
+        `
       SELECT *
       FROM corrections
       ORDER BY id DESC
-    `).all();
+    `,
+      )
+      .all();
 
     return res.json(rows);
-
   } catch (error) {
-
     return res.status(500).json({
       message: error.message,
     });
-
   }
 });
-
 
 /* ================= CREATE ================= */
 
 router.post("/", verifyUser, (req, res) => {
   try {
-
     const {
       originalTransactionId,
       correctionType,
@@ -93,13 +52,11 @@ router.post("/", verifyUser, (req, res) => {
       checkedById,
     } = req.body;
 
-
     if (!originalTransactionId) {
       return res.status(400).json({
         message: "Original entry required",
       });
     }
-
 
     if (!correctedById || !checkedById) {
       return res.status(400).json({
@@ -107,20 +64,21 @@ router.post("/", verifyUser, (req, res) => {
       });
     }
 
-
     if (Number(correctedById) === Number(checkedById)) {
       return res.status(400).json({
         message: "Two different staff required",
       });
     }
 
-
-    const original = db.prepare(`
+    const original = db
+      .prepare(
+        `
       SELECT *
       FROM drug_transactions
       WHERE id = ?
-    `).get(Number(originalTransactionId));
-
+    `,
+      )
+      .get(Number(originalTransactionId));
 
     if (!original) {
       return res.status(404).json({
@@ -128,10 +86,8 @@ router.post("/", verifyUser, (req, res) => {
       });
     }
 
-
     const staff1 = getStaff(correctedById);
     const staff2 = getStaff(checkedById);
-
 
     if (!staff1 || !staff2) {
       return res.status(400).json({
@@ -139,33 +95,23 @@ router.post("/", verifyUser, (req, res) => {
       });
     }
 
-
-    if (
-      staff1.role === "admin" ||
-      staff2.role === "admin"
-    ) {
+    if (staff1.role === "admin" || staff2.role === "admin") {
       return res.status(400).json({
         message: "Admin cannot sign clinical corrections",
       });
     }
 
-
     let stockAdjustment = 0;
-
 
     // AUTOMATIC REVERSAL
     if (correctionType === "entry_error") {
-
       stockAdjustment =
         Number(original.ampoulesUsed || 0) -
         Number(original.ampoulesSupplied || 0);
-
     }
-
 
     const time1 = new Date().toISOString();
     const time2 = new Date().toISOString();
-
 
     const hash1 = createSignatureHash({
       userId: staff1.id,
@@ -177,7 +123,6 @@ router.post("/", verifyUser, (req, res) => {
       timestamp: time1,
     });
 
-
     const hash2 = createSignatureHash({
       userId: staff2.id,
       username: staff2.username,
@@ -188,8 +133,9 @@ router.post("/", verifyUser, (req, res) => {
       timestamp: time2,
     });
 
-
-    const result = db.prepare(`
+    const result = db
+      .prepare(
+        `
       INSERT INTO corrections
       (
         originalTransactionId,
@@ -215,61 +161,57 @@ router.post("/", verifyUser, (req, res) => {
 
       VALUES
       (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      originalTransactionId,
+    `,
+      )
+      .run(
+        originalTransactionId,
 
-      correctionType,
-      reason,
-      correctionText,
+        correctionType,
+        reason,
+        correctionText,
 
-      stockAdjustment,
+        stockAdjustment,
 
-      staff1.id,
-      staff1.fullName || staff1.username,
-      staff1.role,
-      time1,
-      hash1,
+        staff1.id,
+        staff1.fullName || staff1.username,
+        staff1.role,
+        time1,
+        hash1,
 
-      staff2.id,
-      staff2.fullName || staff2.username,
-      staff2.role,
-      time2,
-      hash2
-    );
-
+        staff2.id,
+        staff2.fullName || staff2.username,
+        staff2.role,
+        time2,
+        hash2,
+      );
 
     // ONLY AFTER BOTH SIGNATURES → CHANGE STOCK
 
     if (stockAdjustment !== 0) {
-
-      const drug = db.prepare(`
+      const drug = db
+        .prepare(
+          `
         SELECT *
         FROM drugs
         WHERE id = ?
-      `).get(original.drugId);
+      `,
+        )
+        .get(original.drugId);
 
+      const before = Number(drug.quantity || 0);
 
-      const before =
-        Number(drug.quantity || 0);
+      const after = before + stockAdjustment;
 
-
-      const after =
-        before + stockAdjustment;
-
-
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE drugs
         SET quantity = ?
         WHERE id = ?
-      `)
-      .run(
-        after,
-        original.drugId
-      );
+      `,
+      ).run(after, original.drugId);
 
-
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO drug_transactions
         (
           transactionType,
@@ -286,8 +228,8 @@ router.post("/", verifyUser, (req, res) => {
         )
 
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `)
-      .run(
+      `,
+      ).run(
         "CORRECTION",
 
         original.drugId,
@@ -298,11 +240,9 @@ router.post("/", verifyUser, (req, res) => {
         before,
         after,
 
-        `Automatic correction reversal for entry #${originalTransactionId}`
+        `Automatic correction reversal for entry #${originalTransactionId}`,
       );
-
     }
-
 
     return res.status(201).json({
       id: result.lastInsertRowid,
@@ -312,16 +252,11 @@ router.post("/", verifyUser, (req, res) => {
           ? "Correction saved"
           : `Correction saved. Stock adjusted by ${stockAdjustment}`,
     });
-
-
   } catch (error) {
-
     return res.status(500).json({
       message: error.message,
     });
-
   }
 });
-
 
 export default router;

@@ -1,7 +1,7 @@
 import express from "express";
-import db from "./database.js";
-import { verifyUser } from "./auth.js";
-import { createSignatureHash } from "./signature.js";
+import db from "../database.js";
+import { verifyUser } from "../auth.js";
+import { createSignatureHash } from "../signature.js";
 
 const router = express.Router();
 

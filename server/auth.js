@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import db from "./database.js";
 
-const JWT_SECRET = "change-this-secret-later";
+const JWT_SECRET = process.env.JWT_SECRET || "change-this-secret-later";
 
 /* ================= LOGIN USER ================= */
 
