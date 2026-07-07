@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const API_URL = "http://localhost:8000";
 
-function Corrections() {
+function Corrections({ device }) {
   const [drugs, setDrugs] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [corrections, setCorrections] = useState([]);
@@ -32,7 +32,7 @@ function Corrections() {
   useEffect(() => {
     loadDrugs();
     loadCorrections();
-  }, []);
+  }, [device?.hospitalId, device?.locationId]);
 
   useEffect(() => {
     if (form.drugId) {
@@ -40,11 +40,23 @@ function Corrections() {
     } else {
       setTransactions([]);
     }
-  }, [form.drugId]);
+  }, [form.drugId, device?.hospitalId, device?.locationId]);
+
+  function deviceQuery() {
+    const params = new URLSearchParams();
+
+    if (device?.hospitalId) params.set("hospitalId", device.hospitalId);
+    if (device?.hospitalName) params.set("hospitalName", device.hospitalName);
+    if (device?.locationId) params.set("locationId", device.locationId);
+    if (device?.locationName) params.set("locationName", device.locationName);
+
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  }
 
   async function loadDrugs() {
     try {
-      const response = await fetch(`${API_URL}/drugs`);
+      const response = await fetch(`${API_URL}/drugs${deviceQuery()}`);
       const data = await response.json();
       setDrugs(Array.isArray(data) ? data : []);
     } catch {
@@ -56,7 +68,7 @@ function Corrections() {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await fetch(`${API_URL}/transactions/${drugId}`, {
+      const response = await fetch(`${API_URL}/transactions/${drugId}${deviceQuery()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -73,7 +85,7 @@ function Corrections() {
     try {
       const token = localStorage.getItem("token");
 
-      const response = await fetch(`${API_URL}/corrections`, {
+      const response = await fetch(`${API_URL}/corrections${deviceQuery()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -111,6 +123,20 @@ function Corrections() {
     (entry) => Number(entry.id) === Number(form.originalTransactionId)
   );
 
+  function isBlockedClinicalRole(roleValue) {
+    const role = String(roleValue || "").toLowerCase();
+
+    return (
+      role === "admin" ||
+      role === "doctor" ||
+      role === "dr" ||
+      role.startsWith("dr ") ||
+      role.includes(" doctor") ||
+      role.includes("surgeon") ||
+      role.includes("anaesthetist")
+    );
+  }
+
   function automaticStockAdjustment() {
     if (!selectedTransaction) return 0;
 
@@ -145,9 +171,9 @@ function Corrections() {
       return;
     }
 
-    if (result.role === "admin") {
+    if (isBlockedClinicalRole(result.role)) {
       setCorrectedBy(null);
-      setMessage("Admin account cannot sign clinical correction");
+      setMessage("Admin, doctor and anaesthetist accounts cannot sign clinical correction");
       return;
     }
 
@@ -183,9 +209,9 @@ function Corrections() {
       return;
     }
 
-    if (result.role === "admin") {
+    if (isBlockedClinicalRole(result.role)) {
       setCheckedBy(null);
-      setMessage("Admin account cannot sign clinical correction");
+      setMessage("Admin, doctor and anaesthetist accounts cannot sign clinical correction");
       return;
     }
 
@@ -224,6 +250,10 @@ function Corrections() {
         correctionType: form.correctionType,
         reason: form.reason,
         correctionText: form.correctionText,
+        hospitalId: device?.hospitalId,
+        hospitalName: device?.hospitalName,
+        locationId: device?.locationId,
+        locationName: device?.locationName,
         correctedById: correctedBy.id,
         checkedById: checkedBy.id,
       }),

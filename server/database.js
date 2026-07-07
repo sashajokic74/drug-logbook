@@ -96,6 +96,29 @@ addColumnIfMissing("users", "locationName", "TEXT");
 addColumnIfMissing("users", "deviceId", "INTEGER");
 addColumnIfMissing("users", "deviceName", "TEXT");
 
+/* ================= LOCATION STOCK ================= */
+
+db.prepare(`
+CREATE TABLE IF NOT EXISTS location_drug_stock (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+  hospitalId INTEGER NOT NULL,
+  hospitalName TEXT,
+  locationId INTEGER NOT NULL,
+  locationName TEXT,
+
+  drugId INTEGER NOT NULL,
+  quantity REAL DEFAULT 0,
+  minimumStock REAL DEFAULT 5,
+  maximumStock REAL DEFAULT 20,
+
+  createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(hospitalId, locationId, drugId)
+)
+`).run();
+
 /* ================= PATIENT LISTS ================= */
 
 db.prepare(`

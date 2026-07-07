@@ -26,14 +26,22 @@ function ControlledDrugLogbook({ device }) {
   }
 
   async function loadDrugs() {
-    const response = await fetch(`${API_URL}/drugs`);
+    const params = new URLSearchParams();
+
+    if (device?.hospitalId) params.set("hospitalId", device.hospitalId);
+    if (device?.hospitalName) params.set("hospitalName", device.hospitalName);
+    if (device?.locationId) params.set("locationId", device.locationId);
+    if (device?.locationName) params.set("locationName", device.locationName);
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const response = await fetch(`${API_URL}/drugs${query}`);
     const data = await response.json();
     setInventory(data.map(normaliseDrug));
   }
 
   useEffect(() => {
     loadDrugs();
-  }, []);
+  }, [device?.hospitalId, device?.locationId]);
 
   function handleNewDrugChange(event) {
     const { name, value } = event.target;
@@ -55,16 +63,23 @@ function ControlledDrugLogbook({ device }) {
       return;
     }
 
+    const token = localStorage.getItem("token");
+
     await fetch(`${API_URL}/drugs`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         name: newDrug.name.trim(),
         size: newDrug.size.trim(),
         concentration: newDrug.concentration.trim(),
         quantity: Number(newDrug.quantity),
+        hospitalId: device?.hospitalId,
+        hospitalName: device?.hospitalName,
+        locationId: device?.locationId,
+        locationName: device?.locationName,
       }),
     });
 
@@ -108,16 +123,23 @@ function ControlledDrugLogbook({ device }) {
       return;
     }
 
+    const token = localStorage.getItem("token");
+
     await fetch(`${API_URL}/drugs/${drugId}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         name: updatedName.trim(),
         size: updatedSize.trim(),
         concentration: updatedConcentration.trim(),
         quantity: Number(updatedQuantity),
+        hospitalId: device?.hospitalId,
+        hospitalName: device?.hospitalName,
+        locationId: device?.locationId,
+        locationName: device?.locationName,
       }),
     });
 
@@ -158,6 +180,23 @@ function ControlledDrugLogbook({ device }) {
     return "fentanyl-card";
   }
 
+  const totalAmpoules = inventory.reduce(
+    (total, drug) => total + Number(drug.quantity || 0),
+    0
+  );
+
+  const lowStockCount = inventory.filter(
+    (drug) => Number(drug.quantity || 0) < 5
+  ).length;
+
+  function stockStatus(drug) {
+    const quantity = Number(drug.quantity || 0);
+
+    if (quantity === 0) return "No stock";
+    if (quantity < 5) return "Low stock";
+    return "In stock";
+  }
+
   if (selectedDrug) {
     return (
       <main className="page">
@@ -175,7 +214,33 @@ function ControlledDrugLogbook({ device }) {
 
   return (
     <main className="page">
-      <h1>Controlled Drug Digital Logbook</h1>
+      <section className="register-hero">
+        <div>
+          <span className="eyebrow">Controlled drug register</span>
+          <h1>Digital Logbook</h1>
+          <p>
+            {device?.locationName || "Clinical area"} ·{" "}
+            {device?.hospitalName || "Hospital"}
+          </p>
+        </div>
+
+        <div className="register-stats" aria-label="Stock summary">
+          <div>
+            <strong>{inventory.length}</strong>
+            <span>Drugs</span>
+          </div>
+
+          <div>
+            <strong>{totalAmpoules}</strong>
+            <span>Ampoules</span>
+          </div>
+
+          <div className={lowStockCount > 0 ? "stat-alert" : ""}>
+            <strong>{lowStockCount}</strong>
+            <span>Low stock</span>
+          </div>
+        </div>
+      </section>
 
       <div className="prototype-warning">
         <strong>Prototype Notice:</strong> This application is a prototype/demo
@@ -185,37 +250,54 @@ function ControlledDrugLogbook({ device }) {
       </div>
 
       <div className="add-drug-box">
-        <h2>➕ Add New Drug</h2>
+        <div className="panel-heading">
+          <div>
+            <h2>Add controlled drug</h2>
+            <p>New stock is added to this selected hospital area.</p>
+          </div>
+        </div>
 
         <div className="add-drug-grid">
-          <input
-            name="name"
-            placeholder="Drug name"
-            value={newDrug.name}
-            onChange={handleNewDrugChange}
-          />
+          <label>
+            Drug name
+            <input
+              name="name"
+              placeholder="Midazolam"
+              value={newDrug.name}
+              onChange={handleNewDrugChange}
+            />
+          </label>
 
-          <input
-            name="size"
-            placeholder="Size"
-            value={newDrug.size}
-            onChange={handleNewDrugChange}
-          />
+          <label>
+            Size
+            <input
+              name="size"
+              placeholder="2ml ampoule"
+              value={newDrug.size}
+              onChange={handleNewDrugChange}
+            />
+          </label>
 
-          <input
-            name="concentration"
-            placeholder="Concentration"
-            value={newDrug.concentration}
-            onChange={handleNewDrugChange}
-          />
+          <label>
+            Concentration
+            <input
+              name="concentration"
+              placeholder="5mg/ml"
+              value={newDrug.concentration}
+              onChange={handleNewDrugChange}
+            />
+          </label>
 
-          <input
-            type="number"
-            name="quantity"
-            placeholder="Quantity"
-            value={newDrug.quantity}
-            onChange={handleNewDrugChange}
-          />
+          <label>
+            Quantity
+            <input
+              type="number"
+              name="quantity"
+              placeholder="10"
+              value={newDrug.quantity}
+              onChange={handleNewDrugChange}
+            />
+          </label>
 
           <button type="button" onClick={addDrug}>
             Add Drug
@@ -223,71 +305,68 @@ function ControlledDrugLogbook({ device }) {
         </div>
       </div>
 
-      <h2 className="section-title">📦 Drug Stock</h2>
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">Current stock</span>
+          <h2 className="section-title">Drug Stock</h2>
+        </div>
+      </div>
 
       <section className="stock-grid">
         {inventory.map((drug) => (
-          <div className={`flip-card ${getDrugClass(drug.name)}`} key={drug.id}>
-            <div className="flip-card-inner">
-              <div
-                className="flip-card-front"
-                onClick={() => setSelectedDrug(drug)}
-                style={{ cursor: "pointer" }}
-              >
-                <h3>{drug.name}</h3>
-                <div className="pill-icon">💊</div>
-                <strong>{drug.quantity}</strong>
-                <small>Click to open register</small>
-              </div>
+          <div className="drug-tile" key={drug.id}>
+            <div className={`flip-card ${getDrugClass(drug.name)}`}>
+              <div className="flip-card-inner">
+                <div className="flip-card-front">
+                  <h3>{drug.name}</h3>
+                  <span className="stock-status">{stockStatus(drug)}</span>
+                  <strong>{drug.quantity}</strong>
+                  <small>ampoules available</small>
+                </div>
 
-              <div className="flip-card-back">
-                <h3>{drug.name}</h3>
+                <div className="flip-card-back">
+                  <h3>{drug.name}</h3>
 
-                <p>
-                  <strong>Size</strong>
-                  <br />
-                  {drug.size}
-                </p>
+                  <p>
+                    <strong>Size</strong>
+                    <br />
+                    {drug.size}
+                  </p>
 
-                <p>
-                  <strong>Concentration</strong>
-                  <br />
-                  {drug.concentration}
-                </p>
+                  <p>
+                    <strong>Concentration</strong>
+                    <br />
+                    {drug.concentration}
+                  </p>
 
-                <p>
-                  <strong>Available Quantity</strong>
-                  <br />
-                  {drug.quantity}
-                </p>
+                  <div className="drug-card-actions">
+                    <button
+                      type="button"
+                      className="edit-btn"
+                      onClick={() => editDrug(drug.id)}
+                    >
+                      Edit
+                    </button>
 
-                <div className="drug-card-actions">
-                  <button
-                    type="button"
-                    className="edit-btn"
-                    onClick={() => editDrug(drug.id)}
-                  >
-                    Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    className="delete-btn"
-                    onClick={() => deleteDrug(drug.id)}
-                  >
-                    Delete
-                  </button>
-
-                  <button
-                    type="button"
-                    className="edit-btn"
-                    onClick={() => setSelectedDrug(drug)}
-                  >
-                    Register
-                  </button>
+                    <button
+                      type="button"
+                      className="delete-btn"
+                      onClick={() => deleteDrug(drug.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
+
+            <button
+              type="button"
+              className="register-card-btn"
+              onClick={() => setSelectedDrug(drug)}
+            >
+              Register
+            </button>
           </div>
         ))}
       </section>

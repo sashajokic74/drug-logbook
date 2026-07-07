@@ -15,6 +15,10 @@ function isAuthorisedRequester(roleValue) {
 
   if (
     role === "admin" ||
+    role === "doctor" ||
+    role === "dr" ||
+    role.startsWith("dr ") ||
+    role.includes(" doctor") ||
     role.includes("surgeon") ||
     role.includes("anaesthetist")
   ) {

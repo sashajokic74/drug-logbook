@@ -151,31 +151,32 @@ function App() {
   return (
     <div className="app">
 
-      <header>
-        Logged in as:
+      <header className="app-header">
+        <div className="location-banner">
+          <div>
+            <span className="location-label">Current clinical area</span>
+            <h1>{device.locationName}</h1>
+            <p>{device.hospitalName}</p>
+          </div>
 
-        <strong>
-          {" "}
-          {user.fullName || user.username}
-        </strong>
+          <div className="session-panel">
+            <span>Logged in as</span>
+            <strong>{user.fullName || user.username}</strong>
+            <small>{user.role}</small>
 
-        {" "}({user.role})
+            <div className="session-actions">
+              <button onClick={logout}>
+                Logout
+              </button>
 
-        {" "}
-        <span>
-          | {device.locationName}, {device.hospitalName}
-        </span>
+              <button type="button" onClick={changeDevice}>
+                Change Device
+              </button>
+            </div>
+          </div>
+        </div>
 
-        <button onClick={logout}>
-          Logout
-        </button>
-
-        <button type="button" onClick={changeDevice}>
-          Change Device
-        </button>
-
-        <br />
-        <br />
+        <div className="header-actions">
 
         {user.role === "admin" && (
           <>
@@ -221,6 +222,8 @@ function App() {
           Corrections
         </button>
 
+        </div>
+
       </header>
 
 
@@ -237,12 +240,12 @@ function App() {
 
 
       {showStockChecks && (
-        <StockChecks />
+        <StockChecks device={device} />
       )}
 
 
       {showCorrections && (
-        <Corrections />
+        <Corrections device={device} />
       )}
 
 

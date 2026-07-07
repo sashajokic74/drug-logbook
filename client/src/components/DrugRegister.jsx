@@ -78,15 +78,32 @@ function DrugRegister({ drug, device, onClose }) {
   async function loadTransactions() {
     try {
       const token = localStorage.getItem("token");
+      const params = new URLSearchParams();
 
-      const transactionsResponse = await fetch(`${API_URL}/transactions/${drug.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      if (device?.hospitalId) params.set("hospitalId", device.hospitalId);
+      if (device?.locationId) params.set("locationId", device.locationId);
+
+      const query = params.toString() ? `?${params.toString()}` : "";
+      const transactionsResponse = await fetch(
+        `${API_URL}/transactions/${drug.id}${query}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       const transactionsData = await transactionsResponse.json();
       setTransactions(Array.isArray(transactionsData) ? transactionsData : []);
 
-      const drugsResponse = await fetch(`${API_URL}/drugs`);
+      const drugParams = new URLSearchParams();
+      if (device?.hospitalId) drugParams.set("hospitalId", device.hospitalId);
+      if (device?.hospitalName) drugParams.set("hospitalName", device.hospitalName);
+      if (device?.locationId) drugParams.set("locationId", device.locationId);
+      if (device?.locationName) drugParams.set("locationName", device.locationName);
+
+      const drugsQuery = drugParams.toString()
+        ? `?${drugParams.toString()}`
+        : "";
+      const drugsResponse = await fetch(`${API_URL}/drugs${drugsQuery}`);
       const drugsData = await drugsResponse.json();
 
       const currentDrug = drugsData.find(
@@ -305,6 +322,10 @@ function DrugRegister({ drug, device, onClose }) {
 
     if (
       role === "admin" ||
+      role === "doctor" ||
+      role === "dr" ||
+      role.startsWith("dr ") ||
+      role.includes(" doctor") ||
       role.includes("surgeon") ||
       role.includes("anaesthetist")
     ) {
@@ -596,6 +617,10 @@ function DrugRegister({ drug, device, onClose }) {
       body: JSON.stringify({
         drugId: drug.id,
         drugName: drug.name,
+        hospitalId: device?.hospitalId,
+        hospitalName: device?.hospitalName,
+        locationId: device?.locationId,
+        locationName: device?.locationName,
         patientName: "",
         hospitalNumber: "",
         ampoulesSupplied: received,
@@ -754,6 +779,10 @@ function DrugRegister({ drug, device, onClose }) {
       body: JSON.stringify({
         drugId: drug.id,
         drugName: drug.name,
+        hospitalId: device?.hospitalId,
+        hospitalName: device?.hospitalName,
+        locationId: device?.locationId,
+        locationName: device?.locationName,
         patientName: form.patientName,
         hospitalNumber: form.hospitalNumber,
         ampoulesSupplied: 0,

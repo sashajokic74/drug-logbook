@@ -25,22 +25,55 @@ function getActiveVerifiedStaff(id, label) {
   if (staff.staffType !== "Permanent" && isExpired(staff.expiryDate)) {
     return { ok: false, message: `${label} staff access has expired` };
   }
-  if (staff.role === "admin") {
-    return { ok: false, message: `Admin account cannot be used for ${label} stock check` };
+  if (isBlockedClinicalRole(staff.role)) {
+    return {
+      ok: false,
+      message: `Admin, doctor and anaesthetist accounts cannot be used for ${label} stock check`,
+    };
   }
 
   return { ok: true, staff };
 }
 
+function isBlockedClinicalRole(roleValue) {
+  const role = String(roleValue || "").toLowerCase();
+
+  return (
+    role === "admin" ||
+    role === "doctor" ||
+    role === "dr" ||
+    role.startsWith("dr ") ||
+    role.includes(" doctor") ||
+    role.includes("surgeon") ||
+    role.includes("anaesthetist")
+  );
+}
+
 router.get("/", verifyUser, (req, res) => {
   try {
-    const rows = db
-      .prepare(`
+    const { hospitalId, locationId } = req.query;
+    const params = [];
+    let sql = `
         SELECT *
         FROM cd_stock_checks
+        WHERE 1 = 1
+      `;
+
+    if (hospitalId) {
+      sql += " AND hospitalId = ?";
+      params.push(Number(hospitalId));
+    }
+
+    if (locationId) {
+      sql += " AND locationId = ?";
+      params.push(Number(locationId));
+    }
+
+    sql += `
         ORDER BY id DESC
-      `)
-      .all();
+      `;
+
+    const rows = db.prepare(sql).all(...params);
 
     return res.json(rows);
   } catch (error) {
@@ -54,6 +87,10 @@ router.post("/", verifyUser, (req, res) => {
       drugId,
       checkType,
       actualBalance,
+      hospitalId,
+      hospitalName,
+      locationId,
+      locationName,
       staffOneId,
       staffTwoId,
       notes,
@@ -95,7 +132,22 @@ router.post("/", verifyUser, (req, res) => {
       return res.status(404).json({ message: "Drug not found" });
     }
 
-    const expectedBalance = Number(drug.quantity || 0);
+    let expectedBalance = Number(drug.quantity || 0);
+
+    if (hospitalId && locationId) {
+      const locationStock = db
+        .prepare(`
+          SELECT quantity
+          FROM location_drug_stock
+          WHERE hospitalId = ?
+            AND locationId = ?
+            AND drugId = ?
+        `)
+        .get(Number(hospitalId), Number(locationId), Number(drugId));
+
+      expectedBalance = Number(locationStock?.quantity || 0);
+    }
+
     const countedBalance = Number(actualBalance);
     const difference = countedBalance - expectedBalance;
 
@@ -128,6 +180,10 @@ router.post("/", verifyUser, (req, res) => {
         (
           drugId,
           drugName,
+          hospitalId,
+          hospitalName,
+          locationId,
+          locationName,
           checkType,
           expectedBalance,
           actualBalance,
@@ -147,11 +203,15 @@ router.post("/", verifyUser, (req, res) => {
           notes,
           createdByUsername
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         Number(drugId),
         drug.name,
+        hospitalId ? Number(hospitalId) : null,
+        hospitalName || "",
+        locationId ? Number(locationId) : null,
+        locationName || "",
         checkType,
         expectedBalance,
         countedBalance,

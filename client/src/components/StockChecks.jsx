@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 const API_URL = "http://localhost:8000";
 
-function StockChecks() {
+function StockChecks({ device }) {
   const [drugs, setDrugs] = useState([]);
   const [checks, setChecks] = useState([]);
   const [message, setMessage] = useState("");
@@ -30,10 +30,22 @@ function StockChecks() {
   useEffect(() => {
     loadDrugs();
     loadChecks();
-  }, []);
+  }, [device?.hospitalId, device?.locationId]);
+
+  function deviceQuery() {
+    const params = new URLSearchParams();
+
+    if (device?.hospitalId) params.set("hospitalId", device.hospitalId);
+    if (device?.hospitalName) params.set("hospitalName", device.hospitalName);
+    if (device?.locationId) params.set("locationId", device.locationId);
+    if (device?.locationName) params.set("locationName", device.locationName);
+
+    const query = params.toString();
+    return query ? `?${query}` : "";
+  }
 
   async function loadDrugs() {
-    const response = await fetch(`${API_URL}/drugs`);
+    const response = await fetch(`${API_URL}/drugs${deviceQuery()}`);
     const data = await response.json();
     setDrugs(data);
   }
@@ -41,7 +53,7 @@ function StockChecks() {
   async function loadChecks() {
     const token = localStorage.getItem("token");
 
-    const response = await fetch(`${API_URL}/stock-checks`, {
+    const response = await fetch(`${API_URL}/stock-checks${deviceQuery()}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -76,6 +88,20 @@ function StockChecks() {
     (drug) => Number(drug.id) === Number(form.drugId)
   );
 
+  function isBlockedClinicalRole(roleValue) {
+    const role = String(roleValue || "").toLowerCase();
+
+    return (
+      role === "admin" ||
+      role === "doctor" ||
+      role === "dr" ||
+      role.startsWith("dr ") ||
+      role.includes(" doctor") ||
+      role.includes("surgeon") ||
+      role.includes("anaesthetist")
+    );
+  }
+
   async function verifyStaffOne() {
     setMessage("");
 
@@ -99,9 +125,9 @@ function StockChecks() {
       return;
     }
 
-    if (result.role === "admin") {
+    if (isBlockedClinicalRole(result.role)) {
       setStaffOne(null);
-      setMessage("Admin account cannot complete CD stock check");
+      setMessage("Admin, doctor and anaesthetist accounts cannot complete CD stock check");
       return;
     }
 
@@ -137,9 +163,9 @@ function StockChecks() {
       return;
     }
 
-    if (result.role === "admin") {
+    if (isBlockedClinicalRole(result.role)) {
       setStaffTwo(null);
-      setMessage("Admin account cannot complete CD stock check");
+      setMessage("Admin, doctor and anaesthetist accounts cannot complete CD stock check");
       return;
     }
 
@@ -177,6 +203,10 @@ function StockChecks() {
         drugId: Number(form.drugId),
         checkType: form.checkType,
         actualBalance: Number(form.actualBalance),
+        hospitalId: device?.hospitalId,
+        hospitalName: device?.hospitalName,
+        locationId: device?.locationId,
+        locationName: device?.locationName,
         staffOneId: staffOne.id,
         staffTwoId: staffTwo.id,
         notes: form.notes,

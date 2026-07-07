@@ -45,6 +45,10 @@ function addColumn(column, type) {
 
 addColumn("correctionType", "TEXT DEFAULT 'documentation'");
 addColumn("stockAdjustment", "REAL DEFAULT 0");
+addColumn("hospitalId", "INTEGER");
+addColumn("hospitalName", "TEXT");
+addColumn("locationId", "INTEGER");
+addColumn("locationName", "TEXT");
 
 
 function getStaff(id) {
@@ -55,17 +59,46 @@ function getStaff(id) {
   `).get(Number(id));
 }
 
+function isBlockedClinicalRole(roleValue) {
+  const role = String(roleValue || "").toLowerCase();
+
+  return (
+    role === "admin" ||
+    role === "doctor" ||
+    role === "dr" ||
+    role.startsWith("dr ") ||
+    role.includes(" doctor") ||
+    role.includes("surgeon") ||
+    role.includes("anaesthetist")
+  );
+}
+
 
 /* ================= GET ================= */
 
 router.get("/", verifyUser, (req, res) => {
   try {
-
-    const rows = db.prepare(`
+    const { hospitalId, locationId } = req.query;
+    const params = [];
+    let sql = `
       SELECT *
       FROM corrections
-      ORDER BY id DESC
-    `).all();
+      WHERE 1 = 1
+    `;
+
+    if (hospitalId) {
+      sql += " AND hospitalId = ?";
+      params.push(Number(hospitalId));
+    }
+
+    if (locationId) {
+      sql += " AND locationId = ?";
+      params.push(Number(locationId));
+    }
+
+    sql += " ORDER BY id DESC";
+
+    const rows = db.prepare(sql).all(...params);
 
     return res.json(rows);
 
@@ -89,6 +122,10 @@ router.post("/", verifyUser, (req, res) => {
       correctionType,
       reason,
       correctionText,
+      hospitalId,
+      hospitalName,
+      locationId,
+      locationName,
       correctedById,
       checkedById,
     } = req.body;
@@ -140,12 +177,9 @@ router.post("/", verifyUser, (req, res) => {
     }
 
 
-    if (
-      staff1.role === "admin" ||
-      staff2.role === "admin"
-    ) {
+    if (isBlockedClinicalRole(staff1.role) || isBlockedClinicalRole(staff2.role)) {
       return res.status(400).json({
-        message: "Admin cannot sign clinical corrections",
+        message: "Admin, doctor and anaesthetist accounts cannot sign clinical corrections",
       });
     }
 
@@ -193,6 +227,10 @@ router.post("/", verifyUser, (req, res) => {
       INSERT INTO corrections
       (
         originalTransactionId,
+        hospitalId,
+        hospitalName,
+        locationId,
+        locationName,
 
         correctionType,
         reason,
@@ -214,10 +252,14 @@ router.post("/", verifyUser, (req, res) => {
       )
 
       VALUES
-      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     .run(
       originalTransactionId,
+      original.hospitalId || hospitalId || null,
+      original.hospitalName || hospitalName || "",
+      original.locationId || locationId || null,
+      original.locationName || locationName || "",
 
       correctionType,
       reason,
@@ -243,36 +285,79 @@ router.post("/", verifyUser, (req, res) => {
 
     if (stockAdjustment !== 0) {
 
+      const locationStock = db.prepare(`
+        SELECT *
+        FROM location_drug_stock
+        WHERE hospitalId = ?
+          AND locationId = ?
+          AND drugId = ?
+      `).get(
+        Number(original.hospitalId || hospitalId),
+        Number(original.locationId || locationId),
+        Number(original.drugId)
+      );
+
       const drug = db.prepare(`
         SELECT *
         FROM drugs
         WHERE id = ?
       `).get(original.drugId);
 
-
-      const before =
-        Number(drug.quantity || 0);
+      const before = Number(locationStock?.quantity ?? drug.quantity ?? 0);
 
 
       const after =
         before + stockAdjustment;
 
 
-      db.prepare(`
-        UPDATE drugs
-        SET quantity = ?
-        WHERE id = ?
-      `)
-      .run(
-        after,
-        original.drugId
-      );
+      if (original.hospitalId || hospitalId) {
+        db.prepare(`
+          INSERT INTO location_drug_stock
+          (
+            hospitalId,
+            hospitalName,
+            locationId,
+            locationName,
+            drugId,
+            quantity,
+            minimumStock,
+            maximumStock
+          )
+          VALUES (?, ?, ?, ?, ?, ?, 5, 50)
+          ON CONFLICT(hospitalId, locationId, drugId)
+          DO UPDATE SET
+            quantity = excluded.quantity,
+            updatedAt = CURRENT_TIMESTAMP
+        `)
+        .run(
+          Number(original.hospitalId || hospitalId),
+          original.hospitalName || hospitalName || "",
+          Number(original.locationId || locationId),
+          original.locationName || locationName || "",
+          Number(original.drugId),
+          after
+        );
+      } else {
+        db.prepare(`
+          UPDATE drugs
+          SET quantity = ?
+          WHERE id = ?
+        `)
+        .run(
+          after,
+          original.drugId
+        );
+      }
 
 
       db.prepare(`
         INSERT INTO drug_transactions
         (
           transactionType,
+          hospitalId,
+          hospitalName,
+          locationId,
+          locationName,
 
           drugId,
           drugName,
@@ -285,10 +370,14 @@ router.post("/", verifyUser, (req, res) => {
           notes
         )
 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
       .run(
         "CORRECTION",
+        original.hospitalId || hospitalId || null,
+        original.hospitalName || hospitalName || "",
+        original.locationId || locationId || null,
+        original.locationName || locationName || "",
 
         original.drugId,
         original.drugName,

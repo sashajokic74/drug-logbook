@@ -47,16 +47,44 @@ function getStaffById(id) {
     .get(Number(id));
 }
 
+function isBlockedClinicalRole(roleValue) {
+  const role = String(roleValue || "").toLowerCase();
+
+  return (
+    role === "admin" ||
+    role === "doctor" ||
+    role === "dr" ||
+    role.startsWith("dr ") ||
+    role.includes(" doctor") ||
+    role.includes("surgeon") ||
+    role.includes("anaesthetist")
+  );
+}
+
 router.get("/:drugId", verifyUser, (req, res) => {
   try {
-    const rows = db
-      .prepare(`
-        SELECT *
-        FROM drug_transactions
-        WHERE drugId = ?
-        ORDER BY id DESC
-      `)
-      .all(Number(req.params.drugId));
+    const { hospitalId, locationId } = req.query;
+    const params = [Number(req.params.drugId)];
+
+    let sql = `
+      SELECT *
+      FROM drug_transactions
+      WHERE drugId = ?
+    `;
+
+    if (hospitalId) {
+      sql += " AND hospitalId = ?";
+      params.push(Number(hospitalId));
+    }
+
+    if (locationId) {
+      sql += " AND locationId = ?";
+      params.push(Number(locationId));
+    }
+
+    sql += " ORDER BY id DESC";
+
+    const rows = db.prepare(sql).all(...params);
 
     return res.status(200).json(rows);
   } catch (error) {
@@ -83,6 +111,10 @@ router.post("/", verifyUser, (req, res) => {
       witnessId,
       witnessName,
       witnessSignature,
+      hospitalId,
+      hospitalName,
+      locationId,
+      locationName,
       notes,
     } = req.body;
 
@@ -93,6 +125,46 @@ router.post("/", verifyUser, (req, res) => {
     if (!drug) {
       return res.status(404).json({ message: "Drug not found" });
     }
+
+    if (!hospitalId || !locationId) {
+      return res.status(400).json({
+        message: "Device hospital and location are required",
+      });
+    }
+
+    db.prepare(`
+      INSERT OR IGNORE INTO location_drug_stock
+      (
+        hospitalId,
+        hospitalName,
+        locationId,
+        locationName,
+        drugId,
+        quantity,
+        minimumStock,
+        maximumStock
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      Number(hospitalId),
+      hospitalName || "",
+      Number(locationId),
+      locationName || "",
+      Number(drugId),
+      Number(drug.quantity || 0),
+      Number(drug.minimumStock || 5),
+      Number(drug.maximumStock || 20)
+    );
+
+    const locationStock = db
+      .prepare(`
+        SELECT *
+        FROM location_drug_stock
+        WHERE hospitalId = ?
+          AND locationId = ?
+          AND drugId = ?
+      `)
+      .get(Number(hospitalId), Number(locationId), Number(drugId));
 
     const received = Number(ampoulesSupplied || 0);
     const used = Number(ampoulesUsed || 0);
@@ -141,9 +213,12 @@ router.post("/", verifyUser, (req, res) => {
       });
     }
 
-    if (administeredStaff.role === "admin" || witnessStaff.role === "admin") {
+    if (
+      isBlockedClinicalRole(administeredStaff.role) ||
+      isBlockedClinicalRole(witnessStaff.role)
+    ) {
       return res.status(400).json({
-        message: "Admin account cannot sign controlled drug transactions",
+        message: "Admin, doctor and anaesthetist accounts cannot sign controlled drug transactions",
       });
     }
 
@@ -173,7 +248,7 @@ router.post("/", verifyUser, (req, res) => {
       }
     }
 
-    const previousBalance = Number(drug.quantity || 0);
+    const previousBalance = Number(locationStock.quantity || 0);
     const newBalance = previousBalance + received - used;
 
     if (newBalance < 0) {
@@ -211,9 +286,13 @@ router.post("/", verifyUser, (req, res) => {
         .prepare(`
           INSERT INTO drug_transactions
           (
-            transactionType,
-            drugId,
-            drugName,
+          transactionType,
+          hospitalId,
+          hospitalName,
+          locationId,
+          locationName,
+          drugId,
+          drugName,
             patientName,
             hospitalNumber,
             ampoulesSupplied,
@@ -251,11 +330,15 @@ router.post("/", verifyUser, (req, res) => {
             ?,?,?,?,?,?,?,?,?,?,
             ?,?,?,?,?,?,?,?,?,?,
             ?,?,?,?,?,?,?,?,?,?,
-            ?
+            ?,?,?,?,?
           )
         `)
         .run(
           transactionType,
+          Number(hospitalId),
+          hospitalName || "",
+          Number(locationId),
+          locationName || "",
           Number(drugId),
           drugName || drug.name,
           patientName || "",
@@ -297,16 +380,24 @@ router.post("/", verifyUser, (req, res) => {
         );
 
       db.prepare(`
-        UPDATE drugs
+        UPDATE location_drug_stock
         SET quantity = ?
-        WHERE id = ?
-      `).run(newBalance, Number(drugId));
+          , updatedAt = CURRENT_TIMESTAMP
+        WHERE hospitalId = ?
+          AND locationId = ?
+          AND drugId = ?
+      `).run(
+        newBalance,
+        Number(hospitalId),
+        Number(locationId),
+        Number(drugId)
+      );
 
       db.prepare(`
         INSERT INTO audit (action, username, role)
         VALUES (?, ?, ?)
       `).run(
-        `${transactionType}: ${drug.name} ${previousBalance} -> ${newBalance}`,
+        `${transactionType}: ${drug.name} ${previousBalance} -> ${newBalance} (${locationName || "location"})`,
         req.user.username,
         req.user.role
       );

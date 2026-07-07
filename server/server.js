@@ -530,30 +530,124 @@ app.put("/users/:id/reactivate", verifyUser, adminOnly, (req, res) => {
 /* ================= DRUG ROUTES ================= */
 
 app.get("/drugs", (req, res) => {
-  const drugs = db.prepare("SELECT * FROM drugs").all();
-  return res.status(200).json(drugs);
+  try {
+    const { hospitalId, hospitalName, locationId, locationName } = req.query;
+
+    if (!hospitalId || !locationId) {
+      const drugs = db.prepare("SELECT * FROM drugs").all();
+      return res.status(200).json(drugs);
+    }
+
+    const drugs = db.prepare("SELECT * FROM drugs ORDER BY name ASC").all();
+    const insertStock = db.prepare(`
+      INSERT OR IGNORE INTO location_drug_stock
+      (
+        hospitalId,
+        hospitalName,
+        locationId,
+        locationName,
+        drugId,
+        quantity,
+        minimumStock,
+        maximumStock
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const ensureStockRows = db.transaction(() => {
+      drugs.forEach((drug) => {
+        insertStock.run(
+          Number(hospitalId),
+          hospitalName || "",
+          Number(locationId),
+          locationName || "",
+          drug.id,
+          Number(drug.quantity || 0),
+          Number(drug.minimumStock || 5),
+          Number(drug.maximumStock || 20)
+        );
+      });
+    });
+
+    ensureStockRows();
+
+    const locationDrugs = db
+      .prepare(`
+        SELECT
+          drugs.*,
+          location_drug_stock.quantity AS quantity,
+          location_drug_stock.minimumStock AS minimumStock,
+          location_drug_stock.maximumStock AS maximumStock,
+          location_drug_stock.hospitalId AS hospitalId,
+          location_drug_stock.hospitalName AS hospitalName,
+          location_drug_stock.locationId AS locationId,
+          location_drug_stock.locationName AS locationName
+        FROM drugs
+        JOIN location_drug_stock
+          ON location_drug_stock.drugId = drugs.id
+        WHERE location_drug_stock.hospitalId = ?
+          AND location_drug_stock.locationId = ?
+        ORDER BY drugs.name ASC
+      `)
+      .all(Number(hospitalId), Number(locationId));
+
+    return res.status(200).json(locationDrugs);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
 });
 
 app.post("/drugs", verifyUser, adminOnly, (req, res) => {
-  const result = db
-    .prepare(`
-      INSERT INTO drugs
-      (name, category, size, concentration, quantity)
-      VALUES (?, ?, ?, ?, ?)
-    `)
-    .run(
-      req.body.name,
-      req.body.category || "",
-      req.body.size || "",
-      req.body.concentration || "",
-      Number(req.body.quantity || 0)
-    );
+  try {
+    const result = db
+      .prepare(`
+        INSERT INTO drugs
+        (name, category, size, concentration, quantity)
+        VALUES (?, ?, ?, ?, ?)
+      `)
+      .run(
+        req.body.name,
+        req.body.category || "",
+        req.body.size || "",
+        req.body.concentration || "",
+        Number(req.body.quantity || 0)
+      );
 
-  const newDrug = db
-    .prepare("SELECT * FROM drugs WHERE id = ?")
-    .get(result.lastInsertRowid);
+    if (req.body.hospitalId && req.body.locationId) {
+      db.prepare(`
+        INSERT OR REPLACE INTO location_drug_stock
+        (
+          hospitalId,
+          hospitalName,
+          locationId,
+          locationName,
+          drugId,
+          quantity,
+          minimumStock,
+          maximumStock,
+          updatedAt
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      `).run(
+        Number(req.body.hospitalId),
+        req.body.hospitalName || "",
+        Number(req.body.locationId),
+        req.body.locationName || "",
+        result.lastInsertRowid,
+        Number(req.body.quantity || 0),
+        Number(req.body.minimumStock || 5),
+        Number(req.body.maximumStock || 20)
+      );
+    }
 
-  return res.status(201).json(newDrug);
+    const newDrug = db
+      .prepare("SELECT * FROM drugs WHERE id = ?")
+      .get(result.lastInsertRowid);
+
+    return res.status(201).json(newDrug);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
 });
 
 app.put("/drugs/:id", verifyUser, adminOnly, (req, res) => {
@@ -592,6 +686,39 @@ app.put("/drugs/:id", verifyUser, adminOnly, (req, res) => {
   const savedDrug = db
     .prepare("SELECT * FROM drugs WHERE id = ?")
     .get(Number(req.params.id));
+
+  if (req.body.hospitalId && req.body.locationId && req.body.quantity !== undefined) {
+    db.prepare(`
+      INSERT INTO location_drug_stock
+      (
+        hospitalId,
+        hospitalName,
+        locationId,
+        locationName,
+        drugId,
+        quantity,
+        minimumStock,
+        maximumStock,
+        updatedAt
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(hospitalId, locationId, drugId)
+      DO UPDATE SET
+        quantity = excluded.quantity,
+        hospitalName = excluded.hospitalName,
+        locationName = excluded.locationName,
+        updatedAt = CURRENT_TIMESTAMP
+    `).run(
+      Number(req.body.hospitalId),
+      req.body.hospitalName || "",
+      Number(req.body.locationId),
+      req.body.locationName || "",
+      Number(req.params.id),
+      Number(req.body.quantity),
+      Number(savedDrug.minimumStock || 5),
+      Number(savedDrug.maximumStock || 20)
+    );
+  }
 
   return res.status(200).json(savedDrug);
 });
