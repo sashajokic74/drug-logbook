@@ -3,7 +3,7 @@ import {
   getPharmacyRequests,
   approvePharmacyRequest,
   rejectPharmacyRequest,
-} from "../api/pharmacy";
+} from "../pharmacy";
 
 function PharmacyDashboard() {
   const [requests, setRequests] = useState([]);

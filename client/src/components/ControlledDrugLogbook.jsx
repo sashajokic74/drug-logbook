@@ -4,8 +4,6 @@ import DrugRegister from "./DrugRegister";
 const API_URL = "http://localhost:8000";
 
 function ControlledDrugLogbook({ device }) {
-  const AUTHORISED_DELETE_ID = "112233";
-
   const [inventory, setInventory] = useState([]);
   const [selectedDrug, setSelectedDrug] = useState(null);
 
@@ -127,21 +125,19 @@ function ControlledDrugLogbook({ device }) {
   }
 
   async function deleteDrug(drugId) {
-    const enteredId = prompt("Enter authorised staff ID to delete drug:");
-
-    if (enteredId !== AUTHORISED_DELETE_ID) {
-      alert("Not authorised");
-      return;
-    }
-
     const confirmDelete = window.confirm(
       "Are you sure you want to delete this drug?"
     );
 
     if (!confirmDelete) return;
 
+    const token = localStorage.getItem("token");
+
     await fetch(`${API_URL}/drugs/${drugId}`, {
       method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     loadDrugs();
@@ -295,8 +291,6 @@ function ControlledDrugLogbook({ device }) {
           </div>
         ))}
       </section>
-
-      <p className="auth-note">🔐 Authorised delete ID required: 112233</p>
     </main>
   );
 }

@@ -10,6 +10,7 @@ import stockCheckRoutes from "./stockChecks.js";
 import correctionRoutes from "./corrections.js";
 import locationRoutes from "./locations.js";
 import pharmacyRequestRoutes from "./pharmacyRequests.js";
+import { config } from "./config.js";
 
 const app = express();
 
@@ -33,7 +34,7 @@ addColumnIfMissing(`
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: config.corsOrigin,
   })
 );
 
@@ -44,7 +45,7 @@ app.use("/checker", checkerRoutes);
 app.use("/stock-checks", stockCheckRoutes);
 app.use("/corrections", correctionRoutes);
 app.use("/locations", locationRoutes);
-app.use("/pharmacy-requests", pharmacyRequestRoutes);
+app.use("/pharmacy-requests", verifyUser, pharmacyRequestRoutes);
 
 /* ================= DEVICE SETUP ROUTES ================= */
 
@@ -286,7 +287,7 @@ const existingAdmin = db
   .get("admin");
 
 if (!existingAdmin) {
-  const hashedPassword = bcrypt.hashSync("admin123", 10);
+  const hashedPassword = bcrypt.hashSync(config.defaultAdminPassword, 10);
 
   db.prepare(`
     INSERT INTO users
@@ -769,101 +770,6 @@ app.post("/patients/bulk", verifyUser, (req, res) => {
   }
 });
 
-/* ================= OLD ENTRY ROUTES ================= */
-
-app.get("/entries", verifyUser, (req, res) => {
-  const entries = db.prepare("SELECT * FROM entries ORDER BY id DESC").all();
-  return res.status(200).json(entries);
-});
-
-app.post("/entries", verifyUser, (req, res) => {
-  const selectedDrug = db
-    .prepare("SELECT * FROM drugs WHERE name = ?")
-    .get(req.body.drugName);
-
-  if (!selectedDrug) {
-    return res.status(404).json({ message: "Drug not found" });
-  }
-
-  const quantityUsed = Number(req.body.quantityUsed);
-
-  if (!quantityUsed || quantityUsed <= 0) {
-    return res.status(400).json({ message: "Invalid quantity used" });
-  }
-
-  if (quantityUsed > selectedDrug.quantity) {
-    return res.status(400).json({ message: "Not enough stock" });
-  }
-
-  const balance = selectedDrug.quantity - quantityUsed;
-
-  db.prepare("UPDATE drugs SET quantity = ? WHERE id = ?").run(
-    balance,
-    selectedDrug.id
-  );
-
-  const result = db
-    .prepare(`
-      INSERT INTO entries
-      (
-        patientName,
-        hospitalNumber,
-        drugName,
-        doseGiven,
-        quantityUsed,
-        balance,
-        staffId,
-        staffName,
-        checkerId,
-        checkerName,
-        staffSignature,
-        checkerSignature,
-        dateTime
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `)
-    .run(
-      req.body.patientName,
-      req.body.hospitalNumber,
-      req.body.drugName,
-      req.body.doseGiven,
-      quantityUsed,
-      balance,
-      req.body.staffId,
-      req.body.staffName,
-      req.body.checkerId,
-      req.body.checkerName,
-      req.body.staffSignature,
-      req.body.checkerSignature,
-      new Date().toLocaleString()
-    );
-
-  const entry = db
-    .prepare("SELECT * FROM entries WHERE id = ?")
-    .get(result.lastInsertRowid);
-
-  const drugs = db.prepare("SELECT * FROM drugs").all();
-
-  return res.status(201).json({
-    entry,
-    drugs,
-  });
-});
-
-app.delete("/entries/:id", verifyUser, adminOnly, (req, res) => {
-  const existingEntry = db
-    .prepare("SELECT * FROM entries WHERE id = ?")
-    .get(Number(req.params.id));
-
-  if (!existingEntry) {
-    return res.status(404).json({ message: "Entry not found" });
-  }
-
-  db.prepare("DELETE FROM entries WHERE id = ?").run(Number(req.params.id));
-
-  return res.status(204).end();
-});
-
 /* ================= AUDIT ROUTE ================= */
 
 app.get("/audit", verifyUser, adminOnly, (req, res) => {
@@ -871,91 +777,8 @@ app.get("/audit", verifyUser, adminOnly, (req, res) => {
   return res.status(200).json(audit);
 });
 
-/* ================= OLD REGISTER ROUTE ================= */
-
-app.post("/register", verifyUser, (req, res) => {
-  const {
-    drugId,
-    patientName,
-    hospitalNumber,
-    supplied,
-    administered,
-    destroyed,
-    staffId,
-    staffName,
-    staffSignature,
-    checkerId,
-    checkerName,
-    checkerSignature,
-  } = req.body;
-
-  const drug = db.prepare("SELECT * FROM drugs WHERE id = ?").get(drugId);
-
-  if (!drug) {
-    return res.status(404).json({
-      message: "Drug not found",
-    });
-  }
-
-  const newBalance =
-    Number(drug.quantity) +
-    Number(supplied || 0) -
-    Number(administered || 0) -
-    Number(destroyed || 0);
-
-  db.prepare(`
-    INSERT INTO drug_register
-    (
-      drug_id,
-      patient_name,
-      hospital_number,
-      supplied,
-      administered,
-      destroyed,
-      balance,
-      staff_id,
-      staff_name,
-      staff_signature,
-      checker_id,
-      checker_name,
-      checker_signature
-    )
-    VALUES
-    (
-      ?,?,?,?,?,?,?,?,?,?,?,?,?
-    )
-  `).run(
-    drugId,
-    patientName,
-    hospitalNumber,
-    supplied || 0,
-    administered || 0,
-    destroyed || 0,
-    newBalance,
-    staffId,
-    staffName,
-    staffSignature,
-    checkerId,
-    checkerName,
-    checkerSignature
-  );
-
-  db.prepare(`
-    UPDATE drugs
-    SET quantity = ?
-    WHERE id = ?
-  `).run(newBalance, drugId);
-
-  res.json({
-    message: "Entry saved",
-    balance: newBalance,
-  });
-});
-
 /* ================= SERVER ================= */
 
-const PORT = 8000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(config.port, () => {
+  console.log(`Server running on port ${config.port}`);
 });

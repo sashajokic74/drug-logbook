@@ -1,8 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import db from "./database.js";
-
-const JWT_SECRET = "change-this-secret-later";
+import { config } from "./config.js";
 
 /* ================= LOGIN USER ================= */
 
@@ -43,7 +42,7 @@ export function loginUser(req, res) {
       role: user.role,
       fullName: user.fullName,
     },
-    JWT_SECRET,
+    config.jwtSecret,
     {
       expiresIn: "8h",
     }
@@ -77,7 +76,7 @@ export function verifyUser(req, res, next) {
   try {
     const decoded = jwt.verify(
       token,
-      JWT_SECRET
+      config.jwtSecret
     );
 
     req.user = decoded;
