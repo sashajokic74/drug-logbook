@@ -320,6 +320,16 @@ header button {
   font-weight: 800;
 }
 
+.patient-list-warning {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-left: 6px solid #d97706;
+  border-radius: 8px;
+  color: #9a3412;
+  display: block;
+  padding: 10px;
+}
+
 .patient-list-toolbar button,
 .patient-card {
   border-radius: 8px;

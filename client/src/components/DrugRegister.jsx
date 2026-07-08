@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const API_URL = "http://localhost:8000";
 const REORDER_LEVEL = 5;
@@ -71,6 +71,7 @@ function DrugRegister({ drug, device, onClose }) {
     wastedUnit: "mcg",
     notes: "",
   });
+  const patientEntryRef = useRef(null);
 
   useEffect(() => {
     loadTransactions();
@@ -208,6 +209,12 @@ function DrugRegister({ drug, device, onClose }) {
         ? `Speciality: ${patient.speciality}${patient.procedure ? `; Procedure: ${patient.procedure}` : ""}`
         : form.notes,
     });
+    window.setTimeout(() => {
+      patientEntryRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
   }
 
   function parseCsvLine(line) {
@@ -237,35 +244,88 @@ function DrugRegister({ drug, device, onClose }) {
   }
 
   function parsePatientCsv(text) {
-    return text
+    const rows = text
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
-      .map(parseCsvLine)
-      .filter((columns, index) => {
-        if (index !== 0) return true;
-        return !columns.join(" ").toLowerCase().includes("patient");
+      .map(parseCsvLine);
+
+    if (rows.length === 0) return [];
+
+    const firstRowText = rows[0].join(" ").toLowerCase();
+    const hasHeader =
+      firstRowText.includes("patient") ||
+      firstRowText.includes("mrn") ||
+      firstRowText.includes("nhs");
+    const headers = hasHeader
+      ? rows[0].map((header) => header.toLowerCase().replace(/[^a-z0-9]+/g, ""))
+      : [];
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+    const locationKey = String(device?.locationName || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+
+    function valueByHeader(row, names, fallbackIndex) {
+      const index = headers.findIndex((header) =>
+        names.some((name) => header.includes(name))
+      );
+
+      if (index >= 0) return row[index] || "";
+      return row[fallbackIndex] || "";
+    }
+
+    return dataRows
+      .map((row) => {
+        const theatre = hasHeader
+          ? valueByHeader(row, ["theatre", "location", "room"], 0)
+          : "";
+        const patientName = hasHeader
+          ? valueByHeader(row, ["patientname", "patient"], theatre ? 1 : 0)
+          : row[0];
+        const hospitalNumber = hasHeader
+          ? valueByHeader(row, ["mrn", "nhs", "hospitalnumber", "number"], theatre ? 2 : 1)
+          : row[1];
+        const speciality = hasHeader
+          ? valueByHeader(row, ["speciality", "specialty"], theatre ? 3 : 2)
+          : row[2];
+        const procedure = hasHeader
+          ? valueByHeader(row, ["procedure", "operation"], theatre ? 4 : 3)
+          : row[3];
+        const listDate = hasHeader
+          ? valueByHeader(row, ["listdate", "date"], theatre ? 5 : 4)
+          : row[4];
+        const theatreKey = String(theatre || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "");
+
+        if (theatreKey && locationKey && theatreKey !== locationKey) {
+          return null;
+        }
+
+        return {
+          patientName,
+          hospitalNumber,
+          speciality: speciality || "",
+          procedure: procedure || "",
+          listDate: listDate || newPatient.listDate,
+        };
       })
-      .map(([patientName, hospitalNumber, speciality, procedure, listDate]) => ({
-        patientName,
-        hospitalNumber,
-        speciality: speciality || "",
-        procedure: procedure || "",
-        listDate: listDate || newPatient.listDate,
-      }))
+      .filter(Boolean)
       .filter((patient) => patient.patientName && patient.hospitalNumber);
   }
 
   function downloadSamplePatientCsv() {
     const today = new Date().toISOString().slice(0, 10);
+    const theatre = device?.locationName || "TH5";
+    const speciality = "Orthopaedics";
     const rows = [
-      ["patient name", "MRN / NHS number", "speciality", "procedure", "list date"],
-      ["Amelia Roberts", "JR-100245", "Orthopaedics", "Total hip replacement", today],
-      ["George Williams", "JR-100246", "ENT", "Tonsillectomy", today],
-      ["Priya Shah", "JR-100247", "Gynaecology", "Laparoscopy", today],
-      ["Michael Brown", "JR-100248", "General Surgery", "Laparoscopic cholecystectomy", today],
-      ["Grace Taylor", "JR-100249", "Urology", "Flexible cystoscopy", today],
-      ["Daniel Evans", "JR-100250", "Trauma", "Wrist fixation", today],
+      ["theatre", "patient name", "MRN / NHS number", "speciality", "procedure", "list date"],
+      [theatre, "Amelia Roberts", "JR-100245", speciality, "Total hip replacement", today],
+      [theatre, "Noah Wilson", "JR-100246", speciality, "Knee arthroscopy", today],
+      [theatre, "Olivia Martin", "JR-100247", speciality, "Shoulder arthroscopy", today],
+      [theatre, "Harry Thompson", "JR-100248", speciality, "Ankle fixation", today],
+      [theatre, "Isla Walker", "JR-100249", speciality, "Carpal tunnel release", today],
+      [theatre, "Daniel Evans", "JR-100250", speciality, "Wrist fixation", today],
     ];
     const csv = rows
       .map((row) =>
@@ -297,6 +357,17 @@ function DrugRegister({ drug, device, onClose }) {
 
     return searchText.includes(patientSearch.toLowerCase());
   });
+  const patientSpecialities = [
+    ...new Set(
+      patients
+        .map((patient) => String(patient.speciality || "").trim())
+        .filter(Boolean)
+    ),
+  ];
+  const patientListTitle =
+    patientSpecialities.length === 1
+      ? `${device?.locationName || "Location"} - ${patientSpecialities[0]} List`
+      : `${device?.locationName || "Current location"} Patient List`;
 
   async function addPatient(event) {
     event.preventDefault();
@@ -921,7 +992,7 @@ function DrugRegister({ drug, device, onClose }) {
       <section className="patient-list-panel">
         <div className="patient-list-toolbar">
           <div>
-            <strong>{device?.locationName || "Current location"} patient list</strong>
+            <strong>{patientListTitle}</strong>
             <span>{patients.length} patient{patients.length === 1 ? "" : "s"} loaded</span>
           </div>
 
@@ -931,9 +1002,17 @@ function DrugRegister({ drug, device, onClose }) {
         </div>
 
         <p>
-          CSV columns: patient name, MRN / NHS number, speciality, procedure,
-          list date. This list is saved only for the current hospital/location.
+          CSV columns: theatre, patient name, MRN / NHS number, speciality,
+          procedure, list date. This list is saved only for the current
+          hospital/location.
         </p>
+
+        {patientSpecialities.length > 1 && (
+          <strong className="patient-list-warning">
+            This uploaded list has more than one speciality. Upload one theatre
+            session/speciality at a time.
+          </strong>
+        )}
 
         <input type="file" accept=".csv,text/csv" onChange={uploadPatientList} />
 
@@ -1021,7 +1100,7 @@ function DrugRegister({ drug, device, onClose }) {
               onClick={() => selectPatient(patient)}
             >
               <strong>{patient.patientName}</strong>
-              <span>{patient.hospitalNumber}</span>
+              <span>{device?.locationName || "Location"} · {patient.hospitalNumber}</span>
               <small>{patient.speciality || "Speciality not set"}</small>
               <small>{patient.procedure || "Procedure not set"}</small>
               <em>{patient.listDate || "-"}</em>
@@ -1235,11 +1314,12 @@ function DrugRegister({ drug, device, onClose }) {
         </>
       )}
 
-      <h3>👤 Patient Entry</h3>
+      <h3 ref={patientEntryRef}>👤 Patient Drug Register Entry</h3>
 
       {selectedPatient && (
         <p className="selected-patient-inline">
-          Using {selectedPatient.patientName} for this entry.
+          Using {selectedPatient.patientName} for this entry. Complete the drug
+          details below, then verify with two different authorised staff.
         </p>
       )}
 
