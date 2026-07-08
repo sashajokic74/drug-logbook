@@ -4,6 +4,7 @@ const API_URL = "http://localhost:8000";
 const REORDER_LEVEL = 5;
 
 function DrugRegister({ drug, device, onClose }) {
+  const today = new Date().toISOString().slice(0, 10);
   const [transactions, setTransactions] = useState([]);
   const [patients, setPatients] = useState([]);
   const [patientMessage, setPatientMessage] = useState("");
@@ -52,7 +53,7 @@ function DrugRegister({ drug, device, onClose }) {
     hospitalNumber: "",
     speciality: "",
     procedure: "",
-    listDate: new Date().toISOString().slice(0, 10),
+    listDate: today,
   });
 
   const [administeredUser, setAdministeredUser] = useState(null);
@@ -127,7 +128,7 @@ function DrugRegister({ drug, device, onClose }) {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `${API_URL}/patients?hospitalId=${device.hospitalId}&locationId=${device.locationId}`,
+        `${API_URL}/patients?hospitalId=${device.hospitalId}&locationId=${device.locationId}&listDate=${today}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -408,12 +409,12 @@ function DrugRegister({ drug, device, onClose }) {
 
     setPatientMessage("Patient added");
     setNewPatient({
-      patientName: "",
-      hospitalNumber: "",
-      speciality: "",
-      procedure: "",
-      listDate: new Date().toISOString().slice(0, 10),
-    });
+        patientName: "",
+        hospitalNumber: "",
+        speciality: "",
+        procedure: "",
+        listDate: today,
+      });
     await loadPatients();
   }
 
@@ -457,6 +458,47 @@ function DrugRegister({ drug, device, onClose }) {
     setPatientMessage(result.message || "Patient list uploaded");
     event.target.value = "";
     await loadPatients();
+  }
+
+  async function archiveTodayPatientList() {
+    if (!patients.length) {
+      setPatientMessage("No patients to archive for today");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Archive today's patient list for ${device?.locationName || "this location"}?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/patients/archive`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          hospitalId: device.hospitalId,
+          locationId: device.locationId,
+          listDate: today,
+        }),
+      });
+      const result = await response.json();
+
+      if (!response.ok) {
+        setPatientMessage(result.message || "Could not archive patient list");
+        return;
+      }
+
+      setSelectedPatient(null);
+      setPatients([]);
+      setPatientMessage(result.message || "Patient list archived");
+    } catch {
+      setPatientMessage("Could not archive patient list");
+    }
   }
 
   function isAuthorisedClinicalStaff(roleValue) {
@@ -970,6 +1012,7 @@ function DrugRegister({ drug, device, onClose }) {
     setCheckerForm({ username: "", password: "" });
     setAdministeredUser(null);
     setCheckerUser(null);
+    setSelectedPatient(null);
 
     await loadTransactions();
   }
@@ -993,18 +1036,31 @@ function DrugRegister({ drug, device, onClose }) {
         <div className="patient-list-toolbar">
           <div>
             <strong>{patientListTitle}</strong>
-            <span>{patients.length} patient{patients.length === 1 ? "" : "s"} loaded</span>
+            <span>
+              Today: {today} · {patients.length} patient{patients.length === 1 ? "" : "s"} loaded
+            </span>
           </div>
 
-          <button type="button" onClick={downloadSamplePatientCsv}>
-            Download Sample CSV
-          </button>
+          <div className="patient-list-actions">
+            <button type="button" onClick={downloadSamplePatientCsv}>
+              Download Sample CSV
+            </button>
+
+            <button
+              type="button"
+              className="archive-list-btn"
+              onClick={archiveTodayPatientList}
+            >
+              Archive Today’s List
+            </button>
+          </div>
         </div>
 
         <p>
           CSV columns: theatre, patient name, MRN / NHS number, speciality,
           procedure, list date. This list is saved only for the current
-          hospital/location.
+          hospital/location. Old dated lists disappear automatically from the
+          normal view after their list date.
         </p>
 
         {patientSpecialities.length > 1 && (

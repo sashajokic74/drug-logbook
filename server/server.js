@@ -533,7 +533,8 @@ app.delete("/drugs/:id", verifyUser, adminOnly, (req, res) => {
 
 app.get("/patients", verifyUser, (req, res) => {
   try {
-    const { hospitalId, locationId } = req.query;
+    const { hospitalId, locationId, listDate } = req.query;
+    const selectedDate = listDate || new Date().toISOString().slice(0, 10);
 
     if (!hospitalId || !locationId) {
       return res.status(400).json({
@@ -548,9 +549,10 @@ app.get("/patients", verifyUser, (req, res) => {
         WHERE active = 1
           AND hospitalId = ?
           AND locationId = ?
+          AND listDate = ?
         ORDER BY patientName ASC
       `)
-      .all(Number(hospitalId), Number(locationId));
+      .all(Number(hospitalId), Number(locationId), selectedDate);
 
     return res.json(patients);
   } catch (error) {
@@ -683,6 +685,37 @@ app.post("/patients/bulk", verifyUser, (req, res) => {
     return res.status(201).json({
       message: `${created} patients uploaded`,
       created,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.put("/patients/archive", verifyUser, (req, res) => {
+  try {
+    const { hospitalId, locationId, listDate } = req.body;
+    const selectedDate = listDate || new Date().toISOString().slice(0, 10);
+
+    if (!hospitalId || !locationId) {
+      return res.status(400).json({
+        message: "Hospital and location are required",
+      });
+    }
+
+    const result = db
+      .prepare(`
+        UPDATE patients
+        SET active = 0
+        WHERE hospitalId = ?
+          AND locationId = ?
+          AND listDate = ?
+          AND active = 1
+      `)
+      .run(Number(hospitalId), Number(locationId), selectedDate);
+
+    return res.json({
+      archived: result.changes,
+      message: `${result.changes} patients archived from ${selectedDate}`,
     });
   } catch (error) {
     return res.status(500).json({ message: error.message });

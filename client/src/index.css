@@ -303,10 +303,16 @@ header button {
   justify-content: space-between;
 }
 
-.patient-list-toolbar div {
+.patient-list-toolbar > div {
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+.patient-list-toolbar .patient-list-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .patient-list-toolbar strong {
@@ -341,6 +347,10 @@ header button {
   color: #ffffff;
   font-weight: 900;
   padding: 10px 12px;
+}
+
+.patient-list-toolbar .archive-list-btn {
+  background: #b45309;
 }
 
 .patient-card-grid {
