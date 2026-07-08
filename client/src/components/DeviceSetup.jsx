@@ -2,7 +2,12 @@ import { useEffect, useState } from "react";
 
 const API_URL = "http://localhost:8000";
 
-function DeviceSetup({ onDeviceSaved }) {
+function DeviceSetup({
+  heading = "Device Setup",
+  intro = "",
+  onCancel,
+  onDeviceSaved,
+}) {
   const [hospitals, setHospitals] = useState([]);
   const [locations, setLocations] = useState([]);
   const [devices, setDevices] = useState([]);
@@ -303,8 +308,14 @@ function DeviceSetup({ onDeviceSaved }) {
       }}
     >
       <h1 style={{ textAlign: "left", marginTop: 0 }}>
-        Device Setup
+        {heading}
       </h1>
+
+      {intro && (
+        <p style={{ color: "#486174", fontWeight: 700 }}>
+          {intro}
+        </p>
+      )}
 
       <label>
         Hospital
@@ -441,6 +452,16 @@ function DeviceSetup({ onDeviceSaved }) {
         >
           Continue
         </button>
+
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{ width: "100%", marginTop: "8px" }}
+          >
+            Cancel
+          </button>
+        )}
       </form>
 
       {message && (

@@ -27,8 +27,15 @@ function App() {
   const [showStockChecks, setShowStockChecks] = useState(false);
   const [showCorrections, setShowCorrections] = useState(false);
   const [showLocations, setShowLocations] = useState(false);
+  const [showDeviceSetup, setShowDeviceSetup] = useState(false);
+  const [showLocationAuth, setShowLocationAuth] = useState(false);
+  const [locationAuthForm, setLocationAuthForm] = useState({
+    username: "",
+    password: "",
+  });
 
   const [error, setError] = useState("");
+  const [locationAuthError, setLocationAuthError] = useState("");
 
   function showOnly(panel) {
     setShowStaffPanel(panel === "staff");
@@ -41,10 +48,57 @@ function App() {
     setDevice(deviceData);
   }
 
-  function changeDevice() {
-    localStorage.removeItem("device");
-    setDevice(null);
+  function saveChangedDevice(deviceData) {
+    localStorage.setItem("device", JSON.stringify(deviceData));
+    setDevice(deviceData);
+    setShowDeviceSetup(false);
+    setShowLocationAuth(false);
+    setLocationAuthForm({ username: "", password: "" });
     logout();
+  }
+
+  function openLocationChange() {
+    setLocationAuthError("");
+
+    if (user?.role === "admin") {
+      setShowDeviceSetup(true);
+      return;
+    }
+
+    setShowLocationAuth(true);
+  }
+
+  async function verifyLocationChangeAdmin(event) {
+    event.preventDefault();
+    setLocationAuthError("");
+
+    try {
+      const response = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(locationAuthForm),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setLocationAuthError(data.message || "Admin verification failed");
+        return;
+      }
+
+      if (data.user?.role !== "admin") {
+        setLocationAuthError("Only admin can change this device location");
+        return;
+      }
+
+      setShowLocationAuth(false);
+      setShowDeviceSetup(true);
+      setLocationAuthForm({ username: "", password: "" });
+    } catch {
+      setLocationAuthError("Server not running");
+    }
   }
 
   async function login(event) {
@@ -96,6 +150,17 @@ function App() {
     return <DeviceSetup onDeviceSaved={saveDevice} />;
   }
 
+  if (showDeviceSetup) {
+    return (
+      <DeviceSetup
+        heading="Change Device Location"
+        intro="Select the hospital, clinical area and iPad/device this screen should use."
+        onCancel={() => setShowDeviceSetup(false)}
+        onDeviceSaved={saveChangedDevice}
+      />
+    );
+  }
+
   if (!user) {
     return (
       <div className="app">
@@ -106,9 +171,48 @@ function App() {
           {device.hospitalName}
         </p>
 
-        <button type="button" onClick={changeDevice}>
-          Change Device
+        <button type="button" onClick={openLocationChange}>
+          Change Location
         </button>
+
+        {showLocationAuth && (
+          <form className="location-auth-panel" onSubmit={verifyLocationChangeAdmin}>
+            <h3>Admin confirmation</h3>
+            <p>Admin approval is required before changing this device location.</p>
+
+            <input
+              placeholder="Admin username"
+              value={locationAuthForm.username}
+              onChange={(event) =>
+                setLocationAuthForm({
+                  ...locationAuthForm,
+                  username: event.target.value,
+                })
+              }
+            />
+
+            <input
+              type="password"
+              placeholder="Admin password"
+              value={locationAuthForm.password}
+              onChange={(event) =>
+                setLocationAuthForm({
+                  ...locationAuthForm,
+                  password: event.target.value,
+                })
+              }
+            />
+
+            <div>
+              <button type="submit">Confirm</button>
+              <button type="button" onClick={() => setShowLocationAuth(false)}>
+                Cancel
+              </button>
+            </div>
+
+            {locationAuthError && <strong>{locationAuthError}</strong>}
+          </form>
+        )}
 
         <form onSubmit={login}>
           <input
@@ -169,12 +273,51 @@ function App() {
                 Logout
               </button>
 
-              <button type="button" onClick={changeDevice}>
-                Change Device
+              <button type="button" onClick={openLocationChange}>
+                Change Location
               </button>
             </div>
           </div>
         </div>
+
+        {showLocationAuth && (
+          <form className="location-auth-panel" onSubmit={verifyLocationChangeAdmin}>
+            <h3>Admin confirmation</h3>
+            <p>Admin approval is required before changing this device location.</p>
+
+            <input
+              placeholder="Admin username"
+              value={locationAuthForm.username}
+              onChange={(event) =>
+                setLocationAuthForm({
+                  ...locationAuthForm,
+                  username: event.target.value,
+                })
+              }
+            />
+
+            <input
+              type="password"
+              placeholder="Admin password"
+              value={locationAuthForm.password}
+              onChange={(event) =>
+                setLocationAuthForm({
+                  ...locationAuthForm,
+                  password: event.target.value,
+                })
+              }
+            />
+
+            <div>
+              <button type="submit">Confirm</button>
+              <button type="button" onClick={() => setShowLocationAuth(false)}>
+                Cancel
+              </button>
+            </div>
+
+            {locationAuthError && <strong>{locationAuthError}</strong>}
+          </form>
+        )}
 
         <div className="header-actions">
 

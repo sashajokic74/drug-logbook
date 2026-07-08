@@ -130,6 +130,50 @@ header button {
   margin-top: 14px;
 }
 
+.location-auth-panel {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-left: 8px solid #d97706;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 0;
+  max-width: 480px;
+  padding: 16px;
+}
+
+.location-auth-panel h3 {
+  color: #082f5f;
+  margin: 0;
+}
+
+.location-auth-panel p {
+  color: #486174;
+  font-weight: 700;
+  margin: 0;
+}
+
+.location-auth-panel input {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  padding: 11px;
+}
+
+.location-auth-panel div {
+  display: flex;
+  gap: 8px;
+}
+
+.location-auth-panel button {
+  margin-right: 0;
+}
+
+.location-auth-panel strong {
+  color: #b91c1c;
+}
+
 @media (max-width: 720px) {
   .location-banner {
     flex-direction: column;
