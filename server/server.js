@@ -6,19 +6,18 @@ import bcrypt from "bcrypt";
 import seedDrugs from "./drugData.js";
 import db from "./database.js";
 import { loginUser, verifyUser, adminOnly } from "./auth.js";
-import checkerRoutes from "./routes/checker.js";
-import stockCheckRoutes from "./routes/stockChecks.js";
-import correctionRoutes from "./routes/corrections.js";
-import locationRoutes from "./routes/locations.js";
-import pharmacyRequestRoutes from "./routes/pharmacyRequests.js";
-import deviceSetupRoutes from "./routes/deviceSetup.js";
-import userRoutes from "./routes/users.js";
+import checkerRoutes from "./checker.js";
+import stockCheckRoutes from "./stockChecks.js";
+import correctionRoutes from "./corrections.js";
+import locationRoutes from "./locations.js";
+import pharmacyRequestRoutes from "./pharmacyRequests.js";
+import { config } from "./config.js";
 
 const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: config.corsOrigin,
   })
 );
 
@@ -29,9 +28,240 @@ app.use("/checker", checkerRoutes);
 app.use("/stock-checks", stockCheckRoutes);
 app.use("/corrections", correctionRoutes);
 app.use("/locations", locationRoutes);
-app.use("/pharmacy-requests", pharmacyRequestRoutes);
-app.use("/device-setup", deviceSetupRoutes);
-app.use("/users", userRoutes);
+app.use("/pharmacy-requests", verifyUser, pharmacyRequestRoutes);
+
+/* ================= DEVICE SETUP ROUTES ================= */
+
+app.get("/device-setup/hospitals", (req, res) => {
+  try {
+    const hospitals = db
+      .prepare(`
+        SELECT *
+        FROM hospitals
+        WHERE active = 1
+        ORDER BY name ASC
+      `)
+      .all();
+
+    return res.json(hospitals);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/device-setup/hospitals", (req, res) => {
+  try {
+    const { name } = req.body;
+    const hospitalName = String(name || "").trim();
+
+    if (!hospitalName) {
+      return res.status(400).json({ message: "Hospital name is required" });
+    }
+
+    const existingHospital = db
+      .prepare(
+        "SELECT * FROM hospitals WHERE lower(name) = lower(?) AND active = 1"
+      )
+      .get(hospitalName);
+
+    if (existingHospital) {
+      return res.status(200).json(existingHospital);
+    }
+
+    const result = db
+      .prepare(`
+        INSERT INTO hospitals (name, active)
+        VALUES (?, 1)
+      `)
+      .run(hospitalName);
+
+    const hospital = db
+      .prepare("SELECT * FROM hospitals WHERE id = ?")
+      .get(result.lastInsertRowid);
+
+    return res.status(201).json(hospital);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/device-setup/locations", (req, res) => {
+  try {
+    const { hospitalId } = req.query;
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital is required" });
+    }
+
+    const locations = db
+      .prepare(`
+        SELECT *
+        FROM locations
+        WHERE active = 1
+          AND hospitalId = ?
+        ORDER BY name ASC
+      `)
+      .all(Number(hospitalId));
+
+    return res.json(locations);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/device-setup/locations", (req, res) => {
+  try {
+    const { hospitalId, name, type } = req.body;
+    const locationName = String(name || "").trim();
+
+    if (!hospitalId || !locationName) {
+      return res.status(400).json({
+        message: "Hospital and location name are required",
+      });
+    }
+
+    const hospital = db
+      .prepare("SELECT * FROM hospitals WHERE id = ? AND active = 1")
+      .get(Number(hospitalId));
+
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+
+    const existingLocation = db
+      .prepare(`
+        SELECT *
+        FROM locations
+        WHERE hospitalId = ?
+          AND lower(name) = lower(?)
+          AND active = 1
+      `)
+      .get(Number(hospitalId), locationName);
+
+    if (existingLocation) {
+      return res.status(200).json(existingLocation);
+    }
+
+    const result = db
+      .prepare(`
+        INSERT INTO locations
+        (
+          hospitalId,
+          hospitalName,
+          name,
+          type,
+          active
+        )
+        VALUES (?, ?, ?, ?, 1)
+      `)
+      .run(
+        hospital.id,
+        hospital.name,
+        locationName,
+        type || "Theatre"
+      );
+
+    const location = db
+      .prepare("SELECT * FROM locations WHERE id = ?")
+      .get(result.lastInsertRowid);
+
+    return res.status(201).json(location);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.get("/device-setup/devices", (req, res) => {
+  try {
+    const { hospitalId, locationId } = req.query;
+    const params = [];
+
+    let sql = `
+      SELECT *
+      FROM devices
+      WHERE active = 1
+    `;
+
+    if (hospitalId) {
+      sql += " AND hospitalId = ?";
+      params.push(Number(hospitalId));
+    }
+
+    if (locationId) {
+      sql += " AND locationId = ?";
+      params.push(Number(locationId));
+    }
+
+    sql += " ORDER BY hospitalName ASC, locationName ASC, deviceName ASC";
+
+    const devices = db.prepare(sql).all(...params);
+
+    return res.json(devices);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
+app.post("/device-setup/devices", (req, res) => {
+  try {
+    const {
+      deviceName,
+      deviceCode,
+      hospitalId,
+      hospitalName,
+      locationId,
+      locationName,
+      deviceType,
+    } = req.body;
+
+    if (!deviceName || !deviceCode || !hospitalId || !locationId) {
+      return res.status(400).json({
+        message: "Device name, code, hospital and location are required",
+      });
+    }
+
+    const existingDevice = db
+      .prepare("SELECT * FROM devices WHERE deviceCode = ? AND active = 1")
+      .get(deviceCode);
+
+    if (existingDevice) {
+      return res.status(200).json(existingDevice);
+    }
+
+    const result = db
+      .prepare(`
+        INSERT INTO devices
+        (
+          deviceName,
+          deviceCode,
+          hospitalId,
+          hospitalName,
+          locationId,
+          locationName,
+          deviceType,
+          active
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      `)
+      .run(
+        deviceName,
+        deviceCode,
+        Number(hospitalId),
+        hospitalName || "",
+        Number(locationId),
+        locationName || "",
+        deviceType || "iPad"
+      );
+
+    const device = db
+      .prepare("SELECT * FROM devices WHERE id = ?")
+      .get(result.lastInsertRowid);
+
+    return res.status(201).json(device);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
 
 /* ================= DEFAULT ADMIN USER ================= */
 
@@ -40,7 +270,7 @@ const existingAdmin = db
   .get("admin");
 
 if (!existingAdmin) {
-  const hashedPassword = bcrypt.hashSync("admin123", 10);
+  const hashedPassword = bcrypt.hashSync(config.defaultAdminPassword, 10);
 
   db.prepare(`
     INSERT INTO users
@@ -333,6 +563,7 @@ app.post("/patients/bulk", verifyUser, (req, res) => {
   }
 });
 
+/* ================= AUDIT ROUTE ================= */
 
 app.get("/audit", verifyUser, adminOnly, (req, res) => {
   const audit = db.prepare("SELECT * FROM audit ORDER BY id DESC").all();
@@ -341,8 +572,6 @@ app.get("/audit", verifyUser, adminOnly, (req, res) => {
 
 /* ================= SERVER ================= */
 
-const PORT = 8000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(config.port, () => {
+  console.log(`Server running on port ${config.port}`);
 });

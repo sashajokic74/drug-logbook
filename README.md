@@ -1,16 +1,83 @@
-# React + Vite
+# Controlled Drug Logbook
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Digital controlled-drug logbook prototype for hospital and private clinical areas.
 
-Currently, two official plugins are available:
+The app keeps the drug-card/register workflow while adding:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- device setup for one iPad/computer per clinical area
+- hospital and location setup
+- controlled-drug stock cards
+- patient administration register
+- two-person verification
+- pharmacy requests and pharmacy supply
+- stock checks and corrections
+- location-specific patient lists
 
-## React Compiler
+## Run Locally
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Start the backend:
 
-## Expanding the ESLint configuration
+```bash
+cd server
+npm install
+npm start
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Start the frontend in another terminal:
+
+```bash
+cd client
+npm install
+npm run dev
+```
+
+Open the frontend URL shown by Vite, usually:
+
+```text
+http://localhost:5173
+```
+
+The backend defaults to:
+
+```text
+http://localhost:8000
+```
+
+## Backend Environment
+
+Copy the example environment file:
+
+```bash
+cd server
+cp .env.example .env
+```
+
+Set these values before production use:
+
+```text
+PORT=8000
+CORS_ORIGIN=http://localhost:5173
+JWT_SECRET=replace-with-a-long-random-secret
+DEFAULT_ADMIN_PASSWORD=change-this-admin-password
+```
+
+If no environment is set during local development, the backend uses development fallbacks and prints a warning.
+
+## Important Notes
+
+This is still a prototype. Real clinical use needs governance, information security review, backup policy, audit review, and local controlled-drug process approval.
+
+The SQLite database is stored in:
+
+```text
+server/druglog.db
+```
+
+Back it up before major changes.
+
+## Current Development Focus
+
+- Keep the original drug-card style and register workflow.
+- Make every iPad/computer locked to one clinical area.
+- Keep separate stock and patient lists per location.
+- Continue cleaning routing and moving configuration out of source code.

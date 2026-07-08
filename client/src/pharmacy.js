@@ -1,4 +1,4 @@
-import apiFetch from "./client";
+import apiFetch from "./components/client";
 
 export function getPharmacyRequests() {
   return apiFetch("/pharmacy-requests");

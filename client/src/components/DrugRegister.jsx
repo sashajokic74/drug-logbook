@@ -410,10 +410,14 @@ function DrugRegister({ drug, device, onClose }) {
   async function verifySupplyRequisition() {
     setSupplyMessage("");
     setVerifiedRequisition(null);
+    const token = localStorage.getItem("token");
 
     const response = await fetch(`${API_URL}/pharmacy-requests/verify-requisition`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         requisitionNumber: supplyForm.requisitionNumber,
         drugId: drug.id,
@@ -619,7 +623,12 @@ function DrugRegister({ drug, device, onClose }) {
 
     const completeResponse = await fetch(
       `${API_URL}/pharmacy-requests/${verifiedRequisition.id}/complete`,
-      { method: "PUT" }
+      {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
     );
 
     const completeResult = await completeResponse.json();
