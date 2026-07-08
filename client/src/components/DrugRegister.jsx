@@ -7,6 +7,8 @@ function DrugRegister({ drug, device, onClose }) {
   const [transactions, setTransactions] = useState([]);
   const [patients, setPatients] = useState([]);
   const [patientMessage, setPatientMessage] = useState("");
+  const [patientSearch, setPatientSearch] = useState("");
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [balance, setBalance] = useState(Number(drug.quantity || 0));
 
   const [showPharmacyRequest, setShowPharmacyRequest] = useState(false);
@@ -197,6 +199,7 @@ function DrugRegister({ drug, device, onClose }) {
   }
 
   function selectPatient(patient) {
+    setSelectedPatient(patient);
     setForm({
       ...form,
       patientName: patient.patientName,
@@ -207,12 +210,38 @@ function DrugRegister({ drug, device, onClose }) {
     });
   }
 
+  function parseCsvLine(line) {
+    const cells = [];
+    let current = "";
+    let inQuotes = false;
+
+    for (let index = 0; index < line.length; index += 1) {
+      const character = line[index];
+      const nextCharacter = line[index + 1];
+
+      if (character === "\"" && inQuotes && nextCharacter === "\"") {
+        current += "\"";
+        index += 1;
+      } else if (character === "\"") {
+        inQuotes = !inQuotes;
+      } else if (character === "," && !inQuotes) {
+        cells.push(current.trim());
+        current = "";
+      } else {
+        current += character;
+      }
+    }
+
+    cells.push(current.trim());
+    return cells;
+  }
+
   function parsePatientCsv(text) {
     return text
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
-      .map((line) => line.split(",").map((cell) => cell.trim()))
+      .map(parseCsvLine)
       .filter((columns, index) => {
         if (index !== 0) return true;
         return !columns.join(" ").toLowerCase().includes("patient");
@@ -226,6 +255,48 @@ function DrugRegister({ drug, device, onClose }) {
       }))
       .filter((patient) => patient.patientName && patient.hospitalNumber);
   }
+
+  function downloadSamplePatientCsv() {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = [
+      ["patient name", "MRN / NHS number", "speciality", "procedure", "list date"],
+      ["Amelia Roberts", "JR-100245", "Orthopaedics", "Total hip replacement", today],
+      ["George Williams", "JR-100246", "ENT", "Tonsillectomy", today],
+      ["Priya Shah", "JR-100247", "Gynaecology", "Laparoscopy", today],
+      ["Michael Brown", "JR-100248", "General Surgery", "Laparoscopic cholecystectomy", today],
+      ["Grace Taylor", "JR-100249", "Urology", "Flexible cystoscopy", today],
+      ["Daniel Evans", "JR-100250", "Trauma", "Wrist fixation", today],
+    ];
+    const csv = rows
+      .map((row) =>
+        row
+          .map((cell) => `"${String(cell).replaceAll("\"", "\"\"")}"`)
+          .join(",")
+      )
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = "sample-theatre-patient-list.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const filteredPatients = patients.filter((patient) => {
+    const searchText = [
+      patient.patientName,
+      patient.hospitalNumber,
+      patient.speciality,
+      patient.procedure,
+      patient.listDate,
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return searchText.includes(patientSearch.toLowerCase());
+  });
 
   async function addPatient(event) {
     event.preventDefault();
@@ -847,12 +918,31 @@ function DrugRegister({ drug, device, onClose }) {
 
       <h3>Patient List - {device?.locationName || "Current Location"}</h3>
 
-      <p>
-        CSV columns: patient name, MRN / NHS number, speciality, procedure,
-        list date.
-      </p>
+      <section className="patient-list-panel">
+        <div className="patient-list-toolbar">
+          <div>
+            <strong>{device?.locationName || "Current location"} patient list</strong>
+            <span>{patients.length} patient{patients.length === 1 ? "" : "s"} loaded</span>
+          </div>
 
-      <input type="file" accept=".csv,text/csv" onChange={uploadPatientList} />
+          <button type="button" onClick={downloadSamplePatientCsv}>
+            Download Sample CSV
+          </button>
+        </div>
+
+        <p>
+          CSV columns: patient name, MRN / NHS number, speciality, procedure,
+          list date. This list is saved only for the current hospital/location.
+        </p>
+
+        <input type="file" accept=".csv,text/csv" onChange={uploadPatientList} />
+
+        <input
+          placeholder="Search patient, MRN, speciality or procedure"
+          value={patientSearch}
+          onChange={(event) => setPatientSearch(event.target.value)}
+        />
+      </section>
 
       <form onSubmit={addPatient}>
         <input
@@ -906,35 +996,44 @@ function DrugRegister({ drug, device, onClose }) {
         </p>
       )}
 
+      {selectedPatient && (
+        <div className="selected-patient-banner">
+          <span>Selected patient</span>
+          <strong>{selectedPatient.patientName}</strong>
+          <small>
+            {selectedPatient.hospitalNumber} · {selectedPatient.speciality || "Speciality not set"}
+            {selectedPatient.procedure ? ` · ${selectedPatient.procedure}` : ""}
+          </small>
+        </div>
+      )}
+
       {patients.length > 0 && (
-        <table>
-          <thead>
-            <tr>
-              <th>Patient</th>
-              <th>MRN / NHS No.</th>
-              <th>Speciality</th>
-              <th>Procedure</th>
-              <th>List Date</th>
-              <th>Select</th>
-            </tr>
-          </thead>
-          <tbody>
-            {patients.map((patient) => (
-              <tr key={patient.id}>
-                <td>{patient.patientName}</td>
-                <td>{patient.hospitalNumber}</td>
-                <td>{patient.speciality || "-"}</td>
-                <td>{patient.procedure || "-"}</td>
-                <td>{patient.listDate || "-"}</td>
-                <td>
-                  <button type="button" onClick={() => selectPatient(patient)}>
-                    Use Patient
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="patient-card-grid">
+          {filteredPatients.map((patient) => (
+            <button
+              key={patient.id}
+              type="button"
+              className={
+                selectedPatient?.id === patient.id
+                  ? "patient-card selected"
+                  : "patient-card"
+              }
+              onClick={() => selectPatient(patient)}
+            >
+              <strong>{patient.patientName}</strong>
+              <span>{patient.hospitalNumber}</span>
+              <small>{patient.speciality || "Speciality not set"}</small>
+              <small>{patient.procedure || "Procedure not set"}</small>
+              <em>{patient.listDate || "-"}</em>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {patients.length > 0 && filteredPatients.length === 0 && (
+        <p style={{ fontWeight: "bold" }}>
+          No patients match this search.
+        </p>
       )}
 
       {balance < REORDER_LEVEL && (
@@ -1137,6 +1236,12 @@ function DrugRegister({ drug, device, onClose }) {
       )}
 
       <h3>👤 Patient Entry</h3>
+
+      {selectedPatient && (
+        <p className="selected-patient-inline">
+          Using {selectedPatient.patientName} for this entry.
+        </p>
+      )}
 
       <input
         name="patientName"
