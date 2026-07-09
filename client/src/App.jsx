@@ -6,6 +6,7 @@ import Corrections from "./components/Corrections";
 import LocationManagement from "./components/LocationManagement";
 import DeviceSetup from "./components/DeviceSetup";
 import PharmacyDashboard from "./components/PharmacyDashboard";
+import AuditTrail from "./components/AuditTrail";
 import "./index.css";
 
 const API_URL = "http://localhost:8000";
@@ -29,6 +30,7 @@ function App() {
   const [showCorrections, setShowCorrections] = useState(false);
   const [showLocations, setShowLocations] = useState(false);
   const [showPharmacyDashboard, setShowPharmacyDashboard] = useState(false);
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
   const [showDeviceSetup, setShowDeviceSetup] = useState(false);
   const [showLocationAuth, setShowLocationAuth] = useState(false);
   const [locationAuthForm, setLocationAuthForm] = useState({
@@ -45,6 +47,7 @@ function App() {
     setShowCorrections(panel === "corrections");
     setShowLocations(panel === "locations");
     setShowPharmacyDashboard(panel === "pharmacy");
+    setShowAuditTrail(panel === "audit");
   }
 
   function saveDevice(deviceData) {
@@ -148,6 +151,7 @@ function App() {
     setShowCorrections(false);
     setShowLocations(false);
     setShowPharmacyDashboard(false);
+    setShowAuditTrail(false);
   }
 
   if (!device) {
@@ -346,6 +350,16 @@ function App() {
             >
               Hospital / Locations
             </button>
+
+            <button
+              onClick={() =>
+                showAuditTrail
+                  ? showOnly("")
+                  : showOnly("audit")
+              }
+            >
+              Audit Trail
+            </button>
           </>
         )}
 
@@ -411,11 +425,18 @@ function App() {
       )}
 
 
+      {user.role === "admin" &&
+        showAuditTrail && (
+          <AuditTrail device={device} />
+        )}
+
+
       {!showStaffPanel &&
         !showLocations &&
         !showStockChecks &&
         !showCorrections &&
-        !showPharmacyDashboard && (
+        !showPharmacyDashboard &&
+        !showAuditTrail && (
           <ControlledDrugLogbook device={device} />
         )}
 

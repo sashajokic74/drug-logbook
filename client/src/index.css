@@ -596,6 +596,155 @@ header button {
   font-weight: 800;
 }
 
+.audit-header {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-left: 8px solid #4f46e5;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.audit-header h2 {
+  color: #082f5f;
+  margin: 0;
+}
+
+.audit-header p {
+  color: #486174;
+  font-weight: 800;
+  margin: 6px 0 0;
+}
+
+.audit-header button,
+.audit-filter-panel button {
+  background: #4f46e5;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 900;
+  padding: 10px 14px;
+}
+
+.audit-header button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.audit-filter-panel {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 180px 150px 150px minmax(220px, 1fr) auto;
+  margin-bottom: 16px;
+  padding: 12px;
+}
+
+.audit-filter-panel input,
+.audit-filter-panel select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  padding: 10px;
+}
+
+.audit-summary-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  margin-bottom: 16px;
+}
+
+.audit-summary-grid div {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+}
+
+.audit-summary-grid strong {
+  color: #082f5f;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.audit-summary-grid span {
+  color: #486174;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.audit-timeline {
+  display: grid;
+  gap: 12px;
+}
+
+.audit-row {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(210px, 0.8fr) 2fr;
+  padding: 14px;
+}
+
+.audit-row > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.audit-row span {
+  color: #4f46e5;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.audit-row strong {
+  color: #082f5f;
+}
+
+.audit-row small {
+  color: #64748b;
+  font-weight: 800;
+}
+
+.audit-row dl {
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  margin: 0;
+}
+
+.audit-row dt {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.audit-row dd {
+  color: #102033;
+  font-weight: 800;
+  margin: 3px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.audit-row p {
+  color: #334155;
+  font-weight: 700;
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 /* ADD DRUG */
 
 .add-drug-box {
@@ -987,11 +1136,15 @@ background:linear-gradient(135deg,#06b6d4,#0891b2);
   }
 
   .pharmacy-dashboard-header,
-  .pharmacy-request-card {
+  .pharmacy-request-card,
+  .audit-header,
+  .audit-row,
+  .audit-filter-panel {
     grid-template-columns: 1fr;
   }
 
-  .pharmacy-dashboard-header {
+  .pharmacy-dashboard-header,
+  .audit-header {
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;

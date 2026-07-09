@@ -729,6 +729,211 @@ app.get("/audit", verifyUser, adminOnly, (req, res) => {
   return res.status(200).json(audit);
 });
 
+app.get("/audit-trail", verifyUser, adminOnly, (req, res) => {
+  try {
+    const { hospitalId, locationId, fromDate, toDate, type, search } = req.query;
+    const locationFilter = {
+      hospitalId: hospitalId ? Number(hospitalId) : null,
+      locationId: locationId ? Number(locationId) : null,
+    };
+
+    function inDateRange(row) {
+      const createdAt = String(row.createdAt || "").slice(0, 10);
+      if (fromDate && createdAt < fromDate) return false;
+      if (toDate && createdAt > toDate) return false;
+      return true;
+    }
+
+    function matchesSearch(row) {
+      if (!search) return true;
+      return JSON.stringify(row).toLowerCase().includes(String(search).toLowerCase());
+    }
+
+    function matchesType(row) {
+      if (!type || type === "ALL") return true;
+      return row.type === type;
+    }
+
+    function matchesLocation(row) {
+      if (locationFilter.hospitalId && Number(row.hospitalId) !== locationFilter.hospitalId) {
+        return false;
+      }
+      if (locationFilter.locationId && Number(row.locationId) !== locationFilter.locationId) {
+        return false;
+      }
+      return true;
+    }
+
+    const transactions = db
+      .prepare(`
+        SELECT *
+        FROM drug_transactions
+        ORDER BY createdAt DESC
+        LIMIT 500
+      `)
+      .all()
+      .map((entry) => ({
+        id: `transaction-${entry.id}`,
+        recordId: entry.id,
+        type: "TRANSACTION",
+        category: entry.transactionType || "transaction",
+        action:
+          entry.transactionType === "pharmacy_supply"
+            ? "Pharmacy stock received"
+            : entry.transactionType === "CORRECTION"
+              ? "Correction stock adjustment"
+              : "Patient drug administration",
+        createdAt: entry.createdAt,
+        hospitalId: entry.hospitalId,
+        hospitalName: entry.hospitalName,
+        locationId: entry.locationId,
+        locationName: entry.locationName,
+        drugName: entry.drugName,
+        patientName: entry.patientName,
+        hospitalNumber: entry.hospitalNumber,
+        beforeBalance: entry.stockBalanceBefore,
+        afterBalance: entry.stockBalanceAfter,
+        quantity:
+          Number(entry.ampoulesUsed || 0) > 0
+            ? Number(entry.ampoulesUsed || 0)
+            : Number(entry.ampoulesSupplied || 0),
+        staff: [entry.administeredByName, entry.witnessName].filter(Boolean).join(" / "),
+        signatureHash: [entry.administeredSignatureHash, entry.witnessSignatureHash]
+          .filter(Boolean)
+          .join(" / "),
+        notes: entry.notes || "",
+      }));
+
+    const stockChecks = db
+      .prepare(`
+        SELECT *
+        FROM cd_stock_checks
+        ORDER BY createdAt DESC
+        LIMIT 500
+      `)
+      .all()
+      .map((check) => ({
+        id: `stock-check-${check.id}`,
+        recordId: check.id,
+        type: "STOCK_CHECK",
+        category: check.checkType,
+        action: `CD stock check: ${check.checkType}`,
+        createdAt: check.createdAt,
+        hospitalId: check.hospitalId,
+        hospitalName: check.hospitalName,
+        locationId: check.locationId,
+        locationName: check.locationName,
+        drugName: check.drugName,
+        beforeBalance: check.expectedBalance,
+        afterBalance: check.actualBalance,
+        quantity: check.difference,
+        staff: [check.staffOneName, check.staffTwoName].filter(Boolean).join(" / "),
+        signatureHash: [check.staffOneSignatureHash, check.staffTwoSignatureHash]
+          .filter(Boolean)
+          .join(" / "),
+        notes: check.notes || "",
+      }));
+
+    const corrections = db
+      .prepare(`
+        SELECT *
+        FROM corrections
+        ORDER BY createdAt DESC
+        LIMIT 500
+      `)
+      .all()
+      .map((correction) => ({
+        id: `correction-${correction.id}`,
+        recordId: correction.id,
+        type: "CORRECTION",
+        category: correction.correctionType,
+        action:
+          correction.correctionType === "entry_error"
+            ? "Correction with stock reversal"
+            : "Documentation correction",
+        createdAt: correction.createdAt,
+        hospitalId: correction.hospitalId,
+        hospitalName: correction.hospitalName,
+        locationId: correction.locationId,
+        locationName: correction.locationName,
+        quantity: correction.stockAdjustment,
+        staff: [correction.correctedByName, correction.checkedByName]
+          .filter(Boolean)
+          .join(" / "),
+        signatureHash: [correction.correctedSignatureHash, correction.checkedSignatureHash]
+          .filter(Boolean)
+          .join(" / "),
+        notes: `${correction.reason || ""}${correction.correctionText ? ` - ${correction.correctionText}` : ""}`,
+      }));
+
+    const pharmacyRequests = db
+      .prepare(`
+        SELECT *
+        FROM pharmacy_requests
+        ORDER BY createdAt DESC
+        LIMIT 500
+      `)
+      .all()
+      .map((request) => ({
+        id: `pharmacy-${request.id}`,
+        recordId: request.id,
+        type: "PHARMACY",
+        category: request.status,
+        action: `Pharmacy requisition ${request.status || ""}`.trim(),
+        createdAt: request.createdAt,
+        hospitalId: request.hospitalId,
+        hospitalName: request.hospitalName,
+        locationId: request.locationId,
+        locationName: request.locationName,
+        drugName: request.drugName,
+        quantity: request.quantityRequested,
+        staff: request.requestedByName,
+        signatureHash: request.requestedSignatureHash || "",
+        notes: `Requisition ${request.requisitionNumber}${request.reason ? ` - ${request.reason}` : ""}`,
+      }));
+
+    const genericAudit =
+      locationFilter.hospitalId || locationFilter.locationId
+        ? []
+        : db
+            .prepare(`
+              SELECT *
+              FROM audit
+              ORDER BY createdAt DESC
+              LIMIT 500
+            `)
+            .all()
+            .map((entry) => ({
+              id: `audit-${entry.id}`,
+              recordId: entry.id,
+              type: "SYSTEM",
+              category: entry.role || "system",
+              action: entry.action,
+              createdAt: entry.createdAt,
+              staff: entry.username,
+              notes: entry.role || "",
+            }));
+
+    const rows = [
+      ...transactions,
+      ...stockChecks,
+      ...corrections,
+      ...pharmacyRequests,
+      ...genericAudit,
+    ]
+      .filter(matchesLocation)
+      .filter(inDateRange)
+      .filter(matchesType)
+      .filter(matchesSearch)
+      .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+      .slice(0, 300);
+
+    return res.json(rows);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
 /* ================= SERVER ================= */
 
 app.listen(config.port, () => {
