@@ -32,6 +32,7 @@ function App() {
   const [showPharmacyDashboard, setShowPharmacyDashboard] = useState(false);
   const [showAuditTrail, setShowAuditTrail] = useState(false);
   const [showDeviceSetup, setShowDeviceSetup] = useState(false);
+  const [locationSetupAdmin, setLocationSetupAdmin] = useState(false);
   const [showLocationAuth, setShowLocationAuth] = useState(false);
   const [locationAuthForm, setLocationAuthForm] = useState({
     username: "",
@@ -59,6 +60,7 @@ function App() {
     setDevice(deviceData);
     setShowDeviceSetup(false);
     setShowLocationAuth(false);
+    setLocationSetupAdmin(false);
     setLocationAuthForm({ username: "", password: "" });
     logout();
   }
@@ -67,6 +69,7 @@ function App() {
     setLocationAuthError("");
 
     if (user?.role === "admin") {
+      setLocationSetupAdmin(true);
       setShowDeviceSetup(true);
       return;
     }
@@ -99,6 +102,9 @@ function App() {
         return;
       }
 
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      setLocationSetupAdmin(true);
       setShowLocationAuth(false);
       setShowDeviceSetup(true);
       setLocationAuthForm({ username: "", password: "" });
@@ -163,7 +169,15 @@ function App() {
       <DeviceSetup
         heading="Change Device Location"
         intro="Select the hospital, clinical area and iPad/device this screen should use."
-        onCancel={() => setShowDeviceSetup(false)}
+        canManageSetup={user?.role === "admin" || locationSetupAdmin}
+        onCancel={() => {
+          if (!user) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+          }
+          setShowDeviceSetup(false);
+          setLocationSetupAdmin(false);
+        }}
         onDeviceSaved={saveChangedDevice}
       />
     );

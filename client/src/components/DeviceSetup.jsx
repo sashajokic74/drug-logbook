@@ -5,6 +5,7 @@ const API_URL = "http://localhost:8000";
 function DeviceSetup({
   heading = "Device Setup",
   intro = "",
+  canManageSetup = false,
   onCancel,
   onDeviceSaved,
 }) {
@@ -28,6 +29,16 @@ function DeviceSetup({
     locationName: "",
     deviceType: "iPad",
   });
+
+  function getAuthHeaders() {
+    const token = localStorage.getItem("token");
+
+    return token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : {};
+  }
 
   useEffect(() => {
     loadHospitals();
@@ -139,7 +150,10 @@ function DeviceSetup({
     try {
       const response = await fetch(`${API_URL}/device-setup/hospitals`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify({ name }),
       });
       const hospital = await response.json();
@@ -190,7 +204,10 @@ function DeviceSetup({
       for (const name of names) {
         const response = await fetch(`${API_URL}/device-setup/locations`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
           body: JSON.stringify({
             hospitalId: Number(form.hospitalId),
             name,
@@ -280,7 +297,10 @@ function DeviceSetup({
     try {
       const response = await fetch(`${API_URL}/device-setup/devices`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
         body: JSON.stringify(deviceData),
       });
       const device = await response.json();
@@ -329,17 +349,19 @@ function DeviceSetup({
         </select>
       </label>
 
-      <form
-        onSubmit={addHospital}
-        style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "8px" }}
-      >
-        <input
-          placeholder="Add hospital"
-          value={newHospitalName}
-          onChange={(event) => setNewHospitalName(event.target.value)}
-        />
-        <button type="submit">Add</button>
-      </form>
+      {canManageSetup && (
+        <form
+          onSubmit={addHospital}
+          style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "8px" }}
+        >
+          <input
+            placeholder="Add hospital"
+            value={newHospitalName}
+            onChange={(event) => setNewHospitalName(event.target.value)}
+          />
+          <button type="submit">Add</button>
+        </form>
+      )}
 
       <label>
         Location
@@ -357,41 +379,43 @@ function DeviceSetup({
         </select>
       </label>
 
-      <form
-        onSubmit={addLocation}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 150px auto",
-          gap: "8px",
-        }}
-      >
-        <input
-          placeholder="Add location e.g. TH1, TH2, Recovery, ICU"
-          value={newLocation.name}
-          onChange={(event) =>
-            setNewLocation({ ...newLocation, name: event.target.value })
-          }
-          disabled={!form.hospitalId}
-        />
-        <select
-          value={newLocation.type}
-          onChange={(event) =>
-            setNewLocation({ ...newLocation, type: event.target.value })
-          }
-          disabled={!form.hospitalId}
+      {canManageSetup && (
+        <form
+          onSubmit={addLocation}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 150px auto",
+            gap: "8px",
+          }}
         >
-          <option>Theatre</option>
-          <option>Recovery</option>
-          <option>ICU</option>
-          <option>Ward</option>
-          <option>Clinic</option>
-          <option>Pharmacy</option>
-          <option>Other</option>
-        </select>
-        <button type="submit" disabled={!form.hospitalId}>
-          Add
-        </button>
-      </form>
+          <input
+            placeholder="Add location e.g. TH1, TH2, Recovery, ICU"
+            value={newLocation.name}
+            onChange={(event) =>
+              setNewLocation({ ...newLocation, name: event.target.value })
+            }
+            disabled={!form.hospitalId}
+          />
+          <select
+            value={newLocation.type}
+            onChange={(event) =>
+              setNewLocation({ ...newLocation, type: event.target.value })
+            }
+            disabled={!form.hospitalId}
+          >
+            <option>Theatre</option>
+            <option>Recovery</option>
+            <option>ICU</option>
+            <option>Ward</option>
+            <option>Clinic</option>
+            <option>Pharmacy</option>
+            <option>Other</option>
+          </select>
+          <button type="submit" disabled={!form.hospitalId}>
+            Add
+          </button>
+        </form>
+      )}
 
       {devices.length > 0 && (
         <>
@@ -414,55 +438,65 @@ function DeviceSetup({
         </>
       )}
 
-      <form onSubmit={saveDevice}>
-        <h3>iPad / Device</h3>
+      {canManageSetup ? (
+        <form onSubmit={saveDevice}>
+          <h3>iPad / Device</h3>
 
-        <input
-          name="deviceName"
-          placeholder="Device name"
-          value={form.deviceName}
-          onChange={updateForm}
-          disabled={!form.locationId}
-        />
+          <input
+            name="deviceName"
+            placeholder="Device name"
+            value={form.deviceName}
+            onChange={updateForm}
+            disabled={!form.locationId}
+          />
 
-        <input
-          name="deviceCode"
-          placeholder="Device code"
-          value={form.deviceCode}
-          onChange={updateForm}
-          disabled={!form.locationId}
-        />
+          <input
+            name="deviceCode"
+            placeholder="Device code"
+            value={form.deviceCode}
+            onChange={updateForm}
+            disabled={!form.locationId}
+          />
 
-        <select
-          name="deviceType"
-          value={form.deviceType}
-          onChange={updateForm}
-          disabled={!form.locationId}
-        >
-          <option>iPad</option>
-          <option>Computer</option>
-          <option>Pharmacy Workstation</option>
-          <option>Tablet</option>
-        </select>
-
-        <button
-          type="submit"
-          disabled={!form.hospitalId || !form.locationId}
-          style={{ width: "100%", marginTop: "10px" }}
-        >
-          Continue
-        </button>
-
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{ width: "100%", marginTop: "8px" }}
+          <select
+            name="deviceType"
+            value={form.deviceType}
+            onChange={updateForm}
+            disabled={!form.locationId}
           >
-            Cancel
+            <option>iPad</option>
+            <option>Computer</option>
+            <option>Pharmacy Workstation</option>
+            <option>Tablet</option>
+          </select>
+
+          <button
+            type="submit"
+            disabled={!form.hospitalId || !form.locationId}
+            style={{ width: "100%", marginTop: "10px" }}
+          >
+            Save New Device
           </button>
-        )}
-      </form>
+        </form>
+      ) : (
+        form.hospitalId &&
+        form.locationId &&
+        devices.length === 0 && (
+          <p style={{ fontWeight: "bold", color: "#7a4c00" }}>
+            No saved device is available for this location. Ask admin to create it.
+          </p>
+        )
+      )}
+
+      {onCancel && (
+        <button
+          type="button"
+          onClick={onCancel}
+          style={{ width: "100%", marginTop: "8px" }}
+        >
+          Cancel
+        </button>
+      )}
 
       {message && (
         <p style={{ fontWeight: "bold", color: "red" }}>

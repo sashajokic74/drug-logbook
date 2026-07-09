@@ -50,7 +50,7 @@ app.get("/device-setup/hospitals", (req, res) => {
   }
 });
 
-app.post("/device-setup/hospitals", (req, res) => {
+app.post("/device-setup/hospitals", verifyUser, adminOnly, (req, res) => {
   try {
     const { name } = req.body;
     const hospitalName = String(name || "").trim();
@@ -110,7 +110,7 @@ app.get("/device-setup/locations", (req, res) => {
   }
 });
 
-app.post("/device-setup/locations", (req, res) => {
+app.post("/device-setup/locations", verifyUser, adminOnly, (req, res) => {
   try {
     const { hospitalId, name, type } = req.body;
     const locationName = String(name || "").trim();
@@ -203,7 +203,7 @@ app.get("/device-setup/devices", (req, res) => {
   }
 });
 
-app.post("/device-setup/devices", (req, res) => {
+app.post("/device-setup/devices", verifyUser, adminOnly, (req, res) => {
   try {
     const {
       deviceName,
