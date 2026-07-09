@@ -596,6 +596,59 @@ header button {
   font-weight: 800;
 }
 
+.drug-request-status-panel {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-left: 8px solid #1565c0;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 14px;
+}
+
+.drug-request-status-panel > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drug-request-status-panel strong {
+  color: #082f5f;
+}
+
+.drug-request-status-panel span {
+  color: #486174;
+  font-weight: 800;
+}
+
+.drug-request-status-list {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.drug-request-status-list article {
+  background: #f7fafc;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+}
+
+.drug-request-status-list article span {
+  color: #1565c0;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.drug-request-status-list article small {
+  color: #334155;
+  font-weight: 800;
+}
+
 .audit-header {
   align-items: center;
   background: #ffffff;

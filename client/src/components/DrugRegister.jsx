@@ -17,6 +17,7 @@ function DrugRegister({ drug, device, onClose }) {
 
   const [pharmacyRequestMessage, setPharmacyRequestMessage] = useState("");
   const [pharmacyRequestUser, setPharmacyRequestUser] = useState(null);
+  const [locationPharmacyRequests, setLocationPharmacyRequests] = useState([]);
 
   const [verifiedRequisition, setVerifiedRequisition] = useState(null);
   const [supplyMessage, setSupplyMessage] = useState("");
@@ -77,6 +78,7 @@ function DrugRegister({ drug, device, onClose }) {
   useEffect(() => {
     loadTransactions();
     loadPatients();
+    loadLocationPharmacyRequests();
   }, [drug.id, device?.locationId]);
 
   async function loadTransactions() {
@@ -144,6 +146,30 @@ function DrugRegister({ drug, device, onClose }) {
       setPatients(Array.isArray(data) ? data : []);
     } catch {
       setPatientMessage("Could not load patient list");
+    }
+  }
+
+  async function loadLocationPharmacyRequests() {
+    if (!device?.hospitalId || !device?.locationId) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const params = new URLSearchParams({
+        hospitalId: device.hospitalId,
+        locationId: device.locationId,
+      });
+      const response = await fetch(`${API_URL}/pharmacy-requests?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+
+      if (response.ok) {
+        setLocationPharmacyRequests(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setLocationPharmacyRequests([]);
     }
   }
 
@@ -369,6 +395,12 @@ function DrugRegister({ drug, device, onClose }) {
     patientSpecialities.length === 1
       ? `${device?.locationName || "Location"} - ${patientSpecialities[0]} List`
       : `${device?.locationName || "Current location"} Patient List`;
+  const currentDrugRequests = locationPharmacyRequests.filter(
+    (request) => Number(request.drugId) === Number(drug.id)
+  );
+  const openDrugRequests = currentDrugRequests.filter((request) =>
+    ["REQUESTED", "APPROVED"].includes(String(request.status || "").toUpperCase())
+  );
 
   async function addPatient(event) {
     event.preventDefault();
@@ -610,6 +642,7 @@ function DrugRegister({ drug, device, onClose }) {
     setPharmacyRequestForm({ quantityRequested: "", reason: "Routine top up" });
     setPharmacyRequestLogin({ username: "", password: "" });
     setPharmacyRequestUser(null);
+    await loadLocationPharmacyRequests();
   }
 
   async function verifySupplyRequisition() {
@@ -862,6 +895,7 @@ function DrugRegister({ drug, device, onClose }) {
     setShowSupplyForm(false);
 
     await loadTransactions();
+    await loadLocationPharmacyRequests();
   }
     async function verifyAdministeredBy() {
     const response = await fetch(`${API_URL}/checker/verify`, {
@@ -1178,6 +1212,34 @@ function DrugRegister({ drug, device, onClose }) {
           ⚠️ LOW STOCK — order from pharmacy
         </p>
       )}
+
+      <section className="drug-request-status-panel">
+        <div>
+          <strong>Pharmacy requests for {drug.name}</strong>
+          <span>
+            {openDrugRequests.length > 0
+              ? `${openDrugRequests.length} pending/approved request${openDrugRequests.length === 1 ? "" : "s"}`
+              : "No pending or approved request for this drug"}
+          </span>
+        </div>
+
+        {openDrugRequests.length > 0 && (
+          <div className="drug-request-status-list">
+            {openDrugRequests.map((request) => (
+              <article key={request.id}>
+                <strong>{request.requisitionNumber}</strong>
+                <span>{request.status}</span>
+                <small>
+                  {request.quantityRequested} ampoules ·{" "}
+                  {request.createdAt
+                    ? new Date(request.createdAt).toLocaleString()
+                    : "-"}
+                </small>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       <button
         type="button"

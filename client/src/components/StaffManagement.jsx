@@ -22,7 +22,7 @@ function StaffManagement() {
     {
       value: "admin",
       label: "Admin / Super user",
-      note: "Can manage staff, locations, audit and settings.",
+      note: "Can manage staff, locations, audit and settings; cannot approve pharmacy requests.",
     },
     {
       value: "odp",

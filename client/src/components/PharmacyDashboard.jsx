@@ -75,7 +75,6 @@ function PharmacyDashboard({ device, user }) {
       ).length,
     }));
   const canActionRequests =
-    user?.role === "admin" ||
     user?.role === "pharmacy" ||
     user?.role === "pharmacist";
 
@@ -206,7 +205,7 @@ function PharmacyDashboard({ device, user }) {
                       </button>
                     </>
                   ) : (
-                    <small>Admin/pharmacy user can approve or reject.</small>
+                    <small>Only Pharmacy can approve or reject.</small>
                   )}
                 </div>
               )}
