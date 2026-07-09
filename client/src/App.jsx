@@ -5,6 +5,7 @@ import StockChecks from "./components/StockChecks";
 import Corrections from "./components/Corrections";
 import LocationManagement from "./components/LocationManagement";
 import DeviceSetup from "./components/DeviceSetup";
+import PharmacyDashboard from "./components/PharmacyDashboard";
 import "./index.css";
 
 const API_URL = "http://localhost:8000";
@@ -27,6 +28,7 @@ function App() {
   const [showStockChecks, setShowStockChecks] = useState(false);
   const [showCorrections, setShowCorrections] = useState(false);
   const [showLocations, setShowLocations] = useState(false);
+  const [showPharmacyDashboard, setShowPharmacyDashboard] = useState(false);
   const [showDeviceSetup, setShowDeviceSetup] = useState(false);
   const [showLocationAuth, setShowLocationAuth] = useState(false);
   const [locationAuthForm, setLocationAuthForm] = useState({
@@ -42,6 +44,7 @@ function App() {
     setShowStockChecks(panel === "stock");
     setShowCorrections(panel === "corrections");
     setShowLocations(panel === "locations");
+    setShowPharmacyDashboard(panel === "pharmacy");
   }
 
   function saveDevice(deviceData) {
@@ -144,6 +147,7 @@ function App() {
     setShowStockChecks(false);
     setShowCorrections(false);
     setShowLocations(false);
+    setShowPharmacyDashboard(false);
   }
 
   if (!device) {
@@ -365,6 +369,16 @@ function App() {
           Corrections
         </button>
 
+        <button
+          onClick={() =>
+            showPharmacyDashboard
+              ? showOnly("")
+              : showOnly("pharmacy")
+          }
+        >
+          Pharmacy Requests
+        </button>
+
         </div>
 
       </header>
@@ -392,10 +406,16 @@ function App() {
       )}
 
 
+      {showPharmacyDashboard && (
+        <PharmacyDashboard device={device} user={user} />
+      )}
+
+
       {!showStaffPanel &&
         !showLocations &&
         !showStockChecks &&
-        !showCorrections && (
+        !showCorrections &&
+        !showPharmacyDashboard && (
           <ControlledDrugLogbook device={device} />
         )}
 

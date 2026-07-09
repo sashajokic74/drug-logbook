@@ -5,20 +5,23 @@ import {
   rejectPharmacyRequest,
 } from "../pharmacy";
 
-function PharmacyDashboard() {
+function PharmacyDashboard({ device, user }) {
   const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
 
   useEffect(() => {
     loadRequests();
-  }, []);
+  }, [device?.hospitalId, device?.locationId]);
 
   async function loadRequests() {
     setMessage("");
 
     try {
-      const data = await getPharmacyRequests();
+      const data = await getPharmacyRequests({
+        hospitalId: device?.hospitalId,
+        locationId: device?.locationId,
+      });
       setRequests(Array.isArray(data) ? data : []);
     } catch (error) {
       setMessage(error.message);
@@ -29,7 +32,7 @@ function PharmacyDashboard() {
     try {
       await approvePharmacyRequest(id);
       await loadRequests();
-      setMessage("✅ Pharmacy request approved.");
+      setMessage("Pharmacy request approved.");
     } catch (error) {
       setMessage(error.message);
     }
@@ -42,7 +45,7 @@ function PharmacyDashboard() {
     try {
       await rejectPharmacyRequest(id, reason);
       await loadRequests();
-      setMessage("❌ Pharmacy request rejected.");
+      setMessage("Pharmacy request rejected.");
     } catch (error) {
       setMessage(error.message);
     }
@@ -64,19 +67,41 @@ function PharmacyDashboard() {
     return String(request.status || "").toUpperCase() === selectedStatus;
   });
 
+  const statusCounts = ["REQUESTED", "APPROVED", "COMPLETED", "REJECTED"]
+    .map((status) => ({
+      status,
+      count: requests.filter(
+        (request) => String(request.status || "").toUpperCase() === status
+      ).length,
+    }));
+  const canActionRequests = user?.role === "admin" || user?.role === "pharmacy";
+
   return (
     <div className="register-box">
-      <h2>📦 Pharmacy Dashboard</h2>
+      <section className="pharmacy-dashboard-header">
+        <div>
+          <span className="eyebrow">Controlled drug requisitions</span>
+          <h2>Pharmacy Dashboard</h2>
+          <p>
+            {device?.locationName || "Current location"} ·{" "}
+            {device?.hospitalName || "Hospital"}
+          </p>
+        </div>
+
+        <button type="button" onClick={loadRequests}>
+          Refresh
+        </button>
+      </section>
 
       <p>
-        Controlled drug pharmacy requests received from theatres, recovery and
-        clinical locations.
+        Requisitions are location-specific. Stock can only be received when the
+        requisition number, drug and quantity match.
       </p>
 
       {message && (
         <p
           style={{
-            color: message.includes("✅") || message.includes("❌")
+            color: message.includes("approved") || message.includes("rejected")
               ? "green"
               : "red",
             fontWeight: "bold",
@@ -86,32 +111,28 @@ function PharmacyDashboard() {
         </p>
       )}
 
-      <button type="button" onClick={loadRequests}>
-        🔄 Refresh Requests
-      </button>
+      <div className="pharmacy-status-grid">
+        {statusCounts.map((item) => (
+          <button
+            key={item.status}
+            type="button"
+            className={selectedStatus === item.status ? "selected" : ""}
+            onClick={() => setSelectedStatus(item.status)}
+          >
+            <strong>{item.count}</strong>
+            <span>{item.status}</span>
+          </button>
+        ))}
+      </div>
 
-      <h3>Pharmacy Requests</h3>
-
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          marginTop: "15px",
-          marginBottom: "15px",
-          flexWrap: "wrap",
-        }}
-      >
+      <div className="pharmacy-filter-row">
         {["ALL", "REQUESTED", "APPROVED", "COMPLETED", "REJECTED"].map(
           (status) => (
             <button
               key={status}
               type="button"
               onClick={() => setSelectedStatus(status)}
-              style={{
-                background: selectedStatus === status ? "#2563eb" : "#e5e7eb",
-                color: selectedStatus === status ? "white" : "black",
-                fontWeight: "bold",
-              }}
+              className={selectedStatus === status ? "selected" : ""}
             >
               {status}
             </button>
@@ -122,77 +143,73 @@ function PharmacyDashboard() {
       {filteredRequests.length === 0 ? (
         <p>No pharmacy requests found.</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Requisition No.</th>
-              <th>Drug</th>
-              <th>Quantity</th>
-              <th>Reason</th>
-              <th>Requested By</th>
-              <th>Role</th>
-              <th>Hospital</th>
-              <th>Location</th>
-              <th>Status</th>
-              <th>Completed</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
+        <div className="pharmacy-request-list">
+          {filteredRequests.map((request) => (
+            <article className="pharmacy-request-card" key={request.id}>
+              <div>
+                <span className="pharmacy-requisition">
+                  {request.requisitionNumber}
+                </span>
+                <h3>{request.drugName}</h3>
+                <p>
+                  {request.quantityRequested} ampoules · {request.reason || "No reason recorded"}
+                </p>
+              </div>
 
-          <tbody>
-            {filteredRequests.map((request) => (
-              <tr key={request.id}>
-                <td>
-                  {request.createdAt
-                    ? new Date(request.createdAt).toLocaleString()
-                    : "-"}
-                </td>
+              <dl>
+                <div>
+                  <dt>Status</dt>
+                  <dd style={statusStyle(request.status)}>{request.status || "-"}</dd>
+                </div>
 
-                <td>{request.requisitionNumber}</td>
-                <td>{request.drugName}</td>
-                <td>{request.quantityRequested}</td>
-                <td>{request.reason || "-"}</td>
-                <td>{request.requestedByName}</td>
-                <td>{request.requestedByRole}</td>
-                <td>{request.hospitalName || "-"}</td>
-                <td>{request.locationName || "-"}</td>
+                <div>
+                  <dt>Requested by</dt>
+                  <dd>{request.requestedByName}</dd>
+                </div>
 
-                <td style={statusStyle(request.status)}>
-                  {request.status || "-"}
-                </td>
+                <div>
+                  <dt>Location</dt>
+                  <dd>{request.locationName || "-"}</dd>
+                </div>
 
-                <td>
-                  {request.completedAt
-                    ? new Date(request.completedAt).toLocaleString()
-                    : "-"}
-                </td>
+                <div>
+                  <dt>Created</dt>
+                  <dd>
+                    {request.createdAt
+                      ? new Date(request.createdAt).toLocaleString()
+                      : "-"}
+                  </dd>
+                </div>
 
-                <td>
-                  {String(request.status || "").toUpperCase() ===
-                    "REQUESTED" && (
+                <div>
+                  <dt>Completed</dt>
+                  <dd>
+                    {request.completedAt
+                      ? new Date(request.completedAt).toLocaleString()
+                      : "-"}
+                  </dd>
+                </div>
+              </dl>
+
+              {String(request.status || "").toUpperCase() === "REQUESTED" && (
+                <div className="pharmacy-card-actions">
+                  {canActionRequests ? (
                     <>
-                      <button
-                        type="button"
-                        onClick={() => approveRequest(request.id)}
-                      >
+                      <button type="button" onClick={() => approveRequest(request.id)}>
                         Approve
                       </button>
-
-                      <button
-                        type="button"
-                        onClick={() => rejectRequest(request.id)}
-                        style={{ marginLeft: "8px" }}
-                      >
+                      <button type="button" onClick={() => rejectRequest(request.id)}>
                         Reject
                       </button>
                     </>
+                  ) : (
+                    <small>Admin/pharmacy user can approve or reject.</small>
                   )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
       )}
     </div>
   );

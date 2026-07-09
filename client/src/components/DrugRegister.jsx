@@ -627,6 +627,8 @@ function DrugRegister({ drug, device, onClose }) {
         requisitionNumber: supplyForm.requisitionNumber,
         drugId: drug.id,
         quantityReceived: Number(supplyForm.ampoulesReceived || 0),
+        hospitalId: device?.hospitalId,
+        locationId: device?.locationId,
       }),
     });
 

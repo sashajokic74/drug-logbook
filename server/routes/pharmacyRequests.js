@@ -135,9 +135,32 @@ router.post("/", (req, res) => {
 
 router.get("/", (req, res) => {
   try {
-    const requests = db
-      .prepare("SELECT * FROM pharmacy_requests ORDER BY createdAt DESC")
-      .all();
+    const { hospitalId, locationId, status } = req.query;
+    const params = [];
+    let sql = `
+      SELECT *
+      FROM pharmacy_requests
+      WHERE 1 = 1
+    `;
+
+    if (hospitalId) {
+      sql += " AND hospitalId = ?";
+      params.push(Number(hospitalId));
+    }
+
+    if (locationId) {
+      sql += " AND locationId = ?";
+      params.push(Number(locationId));
+    }
+
+    if (status && status !== "ALL") {
+      sql += " AND upper(status) = ?";
+      params.push(String(status).toUpperCase());
+    }
+
+    sql += " ORDER BY createdAt DESC";
+
+    const requests = db.prepare(sql).all(...params);
 
     return res.json(requests);
   } catch (error) {
@@ -252,7 +275,7 @@ router.put("/:id/reject", (req, res) => {
 
 router.post("/verify-requisition", (req, res) => {
   try {
-    const { requisitionNumber, drugId, quantityReceived } = req.body;
+    const { requisitionNumber, drugId, quantityReceived, hospitalId, locationId } = req.body;
 
     if (!requisitionNumber) {
       return res.status(400).json({
@@ -285,6 +308,26 @@ router.post("/verify-requisition", (req, res) => {
     if (Number(request.drugId) !== Number(drugId)) {
       return res.status(400).json({
         message: "Requisition number does not match this drug",
+      });
+    }
+
+    if (
+      hospitalId &&
+      request.hospitalId &&
+      Number(request.hospitalId) !== Number(hospitalId)
+    ) {
+      return res.status(400).json({
+        message: "Requisition number does not match this hospital",
+      });
+    }
+
+    if (
+      locationId &&
+      request.locationId &&
+      Number(request.locationId) !== Number(locationId)
+    ) {
+      return res.status(400).json({
+        message: "Requisition number does not match this location",
       });
     }
 
