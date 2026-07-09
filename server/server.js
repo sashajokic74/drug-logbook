@@ -10,6 +10,7 @@ import stockCheckRoutes from "./routes/stockChecks.js";
 import correctionRoutes from "./routes/corrections.js";
 import locationRoutes from "./routes/locations.js";
 import pharmacyRequestRoutes from "./routes/pharmacyRequests.js";
+import userRoutes from "./routes/users.js";
 import { config } from "./config.js";
 
 const app = express();
@@ -28,6 +29,7 @@ app.use("/stock-checks", stockCheckRoutes);
 app.use("/corrections", correctionRoutes);
 app.use("/locations", locationRoutes);
 app.use("/pharmacy-requests", verifyUser, pharmacyRequestRoutes);
+app.use("/users", userRoutes);
 
 /* ================= DEVICE SETUP ROUTES ================= */
 
