@@ -6,6 +6,8 @@ function StaffManagement() {
   const [staffUsers, setStaffUsers] = useState([]);
   const [staffMessage, setStaffMessage] = useState("");
   const [staffView, setStaffView] = useState("active");
+  const [staffSearch, setStaffSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
 
   const [newStaff, setNewStaff] = useState({
     fullName: "",
@@ -15,6 +17,49 @@ function StaffManagement() {
     staffType: "Permanent",
     expiryDate: "",
   });
+
+  const roleOptions = [
+    {
+      value: "admin",
+      label: "Admin / Super user",
+      note: "Can manage staff, locations, audit and settings.",
+    },
+    {
+      value: "odp",
+      label: "ODP",
+      note: "Can request, receive, check and administer controlled drugs.",
+    },
+    {
+      value: "nurse",
+      label: "Nurse",
+      note: "Can request, receive, check and administer controlled drugs.",
+    },
+    {
+      value: "theatre_practitioner",
+      label: "Theatre practitioner",
+      note: "Can request, receive, check and administer controlled drugs.",
+    },
+    {
+      value: "pharmacy",
+      label: "Pharmacy",
+      note: "Can approve/reject requisitions; cannot administer drugs.",
+    },
+    {
+      value: "viewer",
+      label: "Read-only / auditor",
+      note: "Can be recorded for access, but cannot sign clinical actions.",
+    },
+    {
+      value: "anaesthetist",
+      label: "Anaesthetist",
+      note: "Recorded staff role; blocked from CD signing in this workflow.",
+    },
+    {
+      value: "doctor",
+      label: "Doctor",
+      note: "Recorded staff role; blocked from CD signing in this workflow.",
+    },
+  ];
 
   useEffect(() => {
     loadStaffUsers();
@@ -203,6 +248,22 @@ function StaffManagement() {
     return staff.expiryDate < today;
   }
 
+  function roleLabel(roleValue) {
+    const role = roleOptions.find((item) => item.value === roleValue);
+    return role ? role.label : roleValue;
+  }
+
+  function permissionSummary(roleValue) {
+    const role = roleOptions.find((item) => item.value === roleValue);
+    return role ? role.note : "Custom role";
+  }
+
+  function statusLabel(staff) {
+    if (isExpired(staff)) return "Expired";
+    if (Number(staff.active) === 0) return "Inactive";
+    return "Active";
+  }
+
   const activeStaff = staffUsers.filter(
     (staff) => Number(staff.active) !== 0 && !isExpired(staff)
   );
@@ -211,7 +272,22 @@ function StaffManagement() {
     (staff) => Number(staff.active) === 0 || isExpired(staff)
   );
 
-  const visibleStaff = staffView === "active" ? activeStaff : inactiveStaff;
+  const selectedStaff = staffView === "active" ? activeStaff : inactiveStaff;
+  const visibleStaff = selectedStaff.filter((staff) => {
+    const searchText = [
+      staff.fullName,
+      staff.username,
+      staff.role,
+      staff.staffType,
+      statusLabel(staff),
+    ]
+      .join(" ")
+      .toLowerCase();
+    const matchesSearch = searchText.includes(staffSearch.toLowerCase());
+    const matchesRole = roleFilter === "ALL" || staff.role === roleFilter;
+
+    return matchesSearch && matchesRole;
+  });
 
   return (
     <section
@@ -224,15 +300,25 @@ function StaffManagement() {
         background: "#ffffff",
       }}
     >
-      <h2>👥 Staff Management</h2>
+      <div className="staff-management-header">
+        <div>
+          <span className="eyebrow">Admin controls</span>
+          <h2>Staff Management</h2>
+          <p>Set who can sign, check, request, approve and audit controlled drug records.</p>
+        </div>
+      </div>
+
+      <div className="permission-guide">
+        {roleOptions.map((role) => (
+          <div key={role.value}>
+            <strong>{role.label}</strong>
+            <span>{role.note}</span>
+          </div>
+        ))}
+      </div>
 
       <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(7, 1fr)",
-          gap: "10px",
-          marginBottom: "20px",
-        }}
+        className="staff-create-grid"
       >
         <input
           name="fullName"
@@ -257,13 +343,11 @@ function StaffManagement() {
         />
 
         <select name="role" value={newStaff.role} onChange={handleStaffChange}>
-          <option value="admin">Admin</option>
-          <option value="odp">ODP</option>
-          <option value="anaesthetist">Anaesthetist</option>
-          <option value="doctor">Doctor</option>
-          <option value="nurse">Nurse</option>
-          <option value="pharmacist">Pharmacist</option>
-          <option value="viewer">Viewer</option>
+          {roleOptions.map((role) => (
+            <option key={role.value} value={role.value}>
+              {role.label}
+            </option>
+          ))}
         </select>
 
         <select
@@ -326,12 +410,33 @@ function StaffManagement() {
         </button>
       </div>
 
+      <div className="staff-filter-row">
+        <input
+          placeholder="Search staff, username, role or status"
+          value={staffSearch}
+          onChange={(event) => setStaffSearch(event.target.value)}
+        />
+
+        <select
+          value={roleFilter}
+          onChange={(event) => setRoleFilter(event.target.value)}
+        >
+          <option value="ALL">All roles</option>
+          {roleOptions.map((role) => (
+            <option key={role.value} value={role.value}>
+              {role.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <table style={{ width: "100%" }}>
         <thead>
           <tr>
             <th>Full Name</th>
             <th>Username</th>
             <th>Role</th>
+            <th>Permission</th>
             <th>Staff Type</th>
             <th>Expiry</th>
             <th>Status</th>
@@ -345,16 +450,11 @@ function StaffManagement() {
             <tr key={staff.id}>
               <td>{staff.fullName || "-"}</td>
               <td>{staff.username}</td>
-              <td>{staff.role}</td>
+              <td>{roleLabel(staff.role)}</td>
+              <td>{permissionSummary(staff.role)}</td>
               <td>{staff.staffType || "Permanent"}</td>
               <td>{staff.expiryDate || "-"}</td>
-              <td>
-                {isExpired(staff)
-                  ? "Expired"
-                  : Number(staff.active) === 0
-                  ? "Inactive"
-                  : "Active"}
-              </td>
+              <td>{statusLabel(staff)}</td>
               <td>{staff.createdAt || "-"}</td>
               <td>
                 {staff.username === "admin" ? (

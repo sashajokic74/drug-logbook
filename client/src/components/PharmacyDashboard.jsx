@@ -74,7 +74,10 @@ function PharmacyDashboard({ device, user }) {
         (request) => String(request.status || "").toUpperCase() === status
       ).length,
     }));
-  const canActionRequests = user?.role === "admin" || user?.role === "pharmacy";
+  const canActionRequests =
+    user?.role === "admin" ||
+    user?.role === "pharmacy" ||
+    user?.role === "pharmacist";
 
   return (
     <div className="register-box">

@@ -34,6 +34,11 @@ function isAuthorisedRequester(roleValue) {
   );
 }
 
+function canManagePharmacyRequests(roleValue) {
+  const role = String(roleValue || "").toLowerCase();
+  return role === "admin" || role === "pharmacy" || role === "pharmacist";
+}
+
 router.post("/", (req, res) => {
   try {
     const {
@@ -193,6 +198,12 @@ router.put("/:id/approve", (req, res) => {
   try {
     const { id } = req.params;
 
+    if (!canManagePharmacyRequests(req.user?.role)) {
+      return res.status(403).json({
+        message: "Only admin or pharmacy users can approve pharmacy requests",
+      });
+    }
+
     const request = db
       .prepare("SELECT * FROM pharmacy_requests WHERE id = ?")
       .get(id);
@@ -234,6 +245,12 @@ router.put("/:id/reject", (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
+
+    if (!canManagePharmacyRequests(req.user?.role)) {
+      return res.status(403).json({
+        message: "Only admin or pharmacy users can reject pharmacy requests",
+      });
+    }
 
     const request = db
       .prepare("SELECT * FROM pharmacy_requests WHERE id = ?")

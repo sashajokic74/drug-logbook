@@ -3,6 +3,13 @@ import jwt from "jsonwebtoken";
 import db from "./database.js";
 import { config } from "./config.js";
 
+function isExpired(expiryDate) {
+  if (!expiryDate) return false;
+
+  const today = new Date().toISOString().slice(0, 10);
+  return expiryDate < today;
+}
+
 /* ================= LOGIN USER ================= */
 
 export function loginUser(req, res) {
@@ -21,6 +28,12 @@ export function loginUser(req, res) {
   if (user.active === 0) {
     return res.status(403).json({
       message: "This staff account is inactive",
+    });
+  }
+
+  if (user.staffType !== "Permanent" && isExpired(user.expiryDate)) {
+    return res.status(403).json({
+      message: "This temporary staff account has expired",
     });
   }
 

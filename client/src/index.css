@@ -745,6 +745,87 @@ header button {
   margin: 0;
 }
 
+.staff-management-header {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-left: 8px solid #0f766e;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 16px;
+}
+
+.staff-management-header h2 {
+  color: #082f5f;
+  margin: 0;
+}
+
+.staff-management-header p {
+  color: #486174;
+  font-weight: 800;
+  margin: 6px 0 0;
+}
+
+.permission-guide {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  margin-bottom: 18px;
+}
+
+.permission-guide div {
+  background: #f7fafc;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+}
+
+.permission-guide strong {
+  color: #082f5f;
+}
+
+.permission-guide span {
+  color: #486174;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.staff-create-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin-bottom: 20px;
+}
+
+.staff-create-grid input,
+.staff-create-grid select,
+.staff-filter-row input,
+.staff-filter-row select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  padding: 10px;
+}
+
+.staff-create-grid button,
+.staff-filter-row button {
+  background: #0f766e;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 900;
+  padding: 10px 12px;
+}
+
+.staff-filter-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(220px, 1fr) 220px;
+  margin-bottom: 16px;
+}
+
 /* ADD DRUG */
 
 .add-drug-box {
@@ -1139,7 +1220,8 @@ background:linear-gradient(135deg,#06b6d4,#0891b2);
   .pharmacy-request-card,
   .audit-header,
   .audit-row,
-  .audit-filter-panel {
+  .audit-filter-panel,
+  .staff-filter-row {
     grid-template-columns: 1fr;
   }
 
