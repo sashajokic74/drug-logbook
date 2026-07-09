@@ -41,6 +41,7 @@ function App() {
 
   const [error, setError] = useState("");
   const [locationAuthError, setLocationAuthError] = useState("");
+  const isAdmin = String(user?.role || "").toLowerCase() === "admin";
 
   function showOnly(panel) {
     setShowStaffPanel(panel === "staff");
@@ -68,7 +69,7 @@ function App() {
   function openLocationChange() {
     setLocationAuthError("");
 
-    if (user?.role === "admin") {
+    if (isAdmin) {
       setLocationSetupAdmin(true);
       setShowDeviceSetup(true);
       return;
@@ -97,7 +98,7 @@ function App() {
         return;
       }
 
-      if (data.user?.role !== "admin") {
+      if (String(data.user?.role || "").toLowerCase() !== "admin") {
         setLocationAuthError("Only admin can change this device location");
         return;
       }
@@ -169,7 +170,7 @@ function App() {
       <DeviceSetup
         heading="Change Device Location"
         intro="Select the hospital, clinical area and iPad/device this screen should use."
-        canManageSetup={user?.role === "admin" || locationSetupAdmin}
+        canManageSetup={isAdmin || locationSetupAdmin}
         onCancel={() => {
           if (!user) {
             localStorage.removeItem("token");
@@ -295,9 +296,11 @@ function App() {
                 Logout
               </button>
 
-              <button type="button" onClick={openLocationChange}>
-                Change Location
-              </button>
+              {isAdmin && (
+                <button type="button" onClick={openLocationChange}>
+                  Change Location
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -343,7 +346,7 @@ function App() {
 
         <div className="header-actions">
 
-        {user.role === "admin" && (
+        {isAdmin && (
           <>
             <button
               onClick={() =>
@@ -412,13 +415,13 @@ function App() {
       </header>
 
 
-      {user.role === "admin" &&
+      {isAdmin &&
         showStaffPanel && (
           <StaffManagement />
         )}
 
 
-      {user.role === "admin" &&
+      {isAdmin &&
         showLocations && (
           <LocationManagement />
         )}
@@ -439,7 +442,7 @@ function App() {
       )}
 
 
-      {user.role === "admin" &&
+      {isAdmin &&
         showAuditTrail && (
           <AuditTrail device={device} />
         )}

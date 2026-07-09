@@ -108,7 +108,9 @@ export function verifyUser(req, res, next) {
 /* ================= ADMIN ONLY ================= */
 
 export function adminOnly(req, res, next) {
-  if (req.user.role !== "admin") {
+  const role = String(req.user?.role || "").toLowerCase();
+
+  if (role !== "admin") {
     return res.status(403).json({
       message: "Admin access only",
     });
