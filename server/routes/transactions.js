@@ -90,7 +90,27 @@ router.get("/:drugId", verifyUser, (req, res) => {
     const params = [Number(req.params.drugId)];
 
     let sql = `
-      SELECT *
+      SELECT
+        drug_transactions.*,
+        (
+          SELECT COUNT(*)
+          FROM corrections
+          WHERE corrections.originalTransactionId = drug_transactions.id
+        ) AS correctionCount,
+        (
+          SELECT correctionType
+          FROM corrections
+          WHERE corrections.originalTransactionId = drug_transactions.id
+          ORDER BY corrections.id DESC
+          LIMIT 1
+        ) AS latestCorrectionType,
+        (
+          SELECT reason
+          FROM corrections
+          WHERE corrections.originalTransactionId = drug_transactions.id
+          ORDER BY corrections.id DESC
+          LIMIT 1
+        ) AS latestCorrectionReason
       FROM drug_transactions
       WHERE drugId = ?
     `;

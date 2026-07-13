@@ -122,6 +122,23 @@ function Corrections({ device }) {
   const selectedTransaction = transactions.find(
     (entry) => Number(entry.id) === Number(form.originalTransactionId)
   );
+  const correctionByOriginalEntry = corrections.reduce((lookup, correction) => {
+    const entryId = String(correction.originalTransactionId);
+    const existing = lookup[entryId] || {
+      count: 0,
+      hasReversal: false,
+      latestReason: "",
+    };
+
+    lookup[entryId] = {
+      count: existing.count + 1,
+      hasReversal:
+        existing.hasReversal || correction.correctionType === "entry_error",
+      latestReason: existing.latestReason || correction.reason || "",
+    };
+
+    return lookup;
+  }, {});
 
   function isBlockedClinicalRole(roleValue) {
     const role = String(roleValue || "").toLowerCase();
@@ -237,6 +254,14 @@ function Corrections({ device }) {
       return;
     }
 
+    if (
+      form.correctionType === "entry_error" &&
+      correctionByOriginalEntry[String(form.originalTransactionId)]?.hasReversal
+    ) {
+      setMessage("This entry has already been reversed by a correction");
+      return;
+    }
+
     const token = localStorage.getItem("token");
 
     const response = await fetch(`${API_URL}/corrections`, {
@@ -332,6 +357,11 @@ function Corrections({ device }) {
               #{entry.id} — {entry.createdAt} — {entry.patientName || "-"} —{" "}
               Used {entry.ampoulesUsed} — Received {entry.ampoulesSupplied} —{" "}
               Balance {entry.stockBalanceAfter}
+              {correctionByOriginalEntry[String(entry.id)]?.hasReversal
+                ? " — REVERSED"
+                : correctionByOriginalEntry[String(entry.id)]?.count
+                  ? " — CORRECTED"
+                  : ""}
             </option>
           ))}
         </select>
@@ -398,6 +428,18 @@ function Corrections({ device }) {
           <p>
             <strong>Witness:</strong> {selectedTransaction.witnessName}
           </p>
+
+          {correctionByOriginalEntry[String(selectedTransaction.id)] && (
+            <p>
+              <strong>Correction status:</strong>{" "}
+              {correctionByOriginalEntry[String(selectedTransaction.id)].hasReversal
+                ? "Entry reversed by correction"
+                : "Documentation correction recorded"}
+              {correctionByOriginalEntry[String(selectedTransaction.id)].latestReason
+                ? ` - ${correctionByOriginalEntry[String(selectedTransaction.id)].latestReason}`
+                : ""}
+            </p>
+          )}
 
           {form.correctionType === "entry_error" && (
             <p style={{ color: "red", fontWeight: "bold" }}>

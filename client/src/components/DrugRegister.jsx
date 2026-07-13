@@ -1618,6 +1618,7 @@ function DrugRegister({ drug, device, onClose }) {
         <tbody>
           {transactions.map((entry) => {
             const isCorrection = entry.transactionType === "CORRECTION";
+            const hasCorrection = Number(entry.correctionCount || 0) > 0;
 
             const isSupply =
               !isCorrection &&
@@ -1627,7 +1628,25 @@ function DrugRegister({ drug, device, onClose }) {
             return (
               <tr key={entry.id}>
                 <td>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ""}</td>
-                <td>{isCorrection ? "CORRECTION" : isSupply ? "Pharmacy Supply" : "Patient Use"}</td>
+                <td>
+                  {isCorrection ? "CORRECTION" : isSupply ? "Pharmacy Supply" : "Patient Use"}
+                  {hasCorrection && (
+                    <>
+                      <br />
+                      <span
+                        className={
+                          entry.latestCorrectionType === "entry_error"
+                            ? "status-badge danger"
+                            : "status-badge warning"
+                        }
+                      >
+                        {entry.latestCorrectionType === "entry_error"
+                          ? "Reversed"
+                          : "Corrected"}
+                      </span>
+                    </>
+                  )}
+                </td>
                 <td>{isCorrection ? "-" : entry.patientName || "-"}</td>
                 <td>{isCorrection ? "-" : entry.hospitalNumber || "-"}</td>
                 <td>
@@ -1643,7 +1662,17 @@ function DrugRegister({ drug, device, onClose }) {
                 <td>{entry.administeredSignature || "-"}</td>
                 <td>{entry.witnessName}</td>
                 <td>{entry.witnessSignature || "-"}</td>
-                <td>{entry.notes}</td>
+                <td>
+                  {entry.notes}
+                  {hasCorrection && (
+                    <>
+                      <br />
+                      <small>
+                        Correction: {entry.latestCorrectionReason || "See correction history"}
+                      </small>
+                    </>
+                  )}
+                </td>
               </tr>
             );
           })}

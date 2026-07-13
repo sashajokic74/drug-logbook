@@ -176,6 +176,21 @@ router.post("/", verifyUser, (req, res) => {
       });
     }
 
+    if (correctionType === "entry_error") {
+      const existingReversal = db.prepare(`
+        SELECT id
+        FROM corrections
+        WHERE originalTransactionId = ?
+          AND correctionType = 'entry_error'
+        LIMIT 1
+      `).get(Number(originalTransactionId));
+
+      if (existingReversal) {
+        return res.status(400).json({
+          message: "This entry has already been reversed by a correction",
+        });
+      }
+    }
 
     if (isBlockedClinicalRole(staff1.role) || isBlockedClinicalRole(staff2.role)) {
       return res.status(400).json({

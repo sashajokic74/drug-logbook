@@ -838,9 +838,15 @@ app.get("/audit-trail", verifyUser, adminOnly, (req, res) => {
 
     const corrections = db
       .prepare(`
-        SELECT *
+        SELECT
+          corrections.*,
+          drug_transactions.drugName,
+          drug_transactions.patientName,
+          drug_transactions.hospitalNumber
         FROM corrections
-        ORDER BY createdAt DESC
+        LEFT JOIN drug_transactions
+          ON drug_transactions.id = corrections.originalTransactionId
+        ORDER BY corrections.createdAt DESC
         LIMIT 500
       `)
       .all()
@@ -858,6 +864,9 @@ app.get("/audit-trail", verifyUser, adminOnly, (req, res) => {
         hospitalName: correction.hospitalName,
         locationId: correction.locationId,
         locationName: correction.locationName,
+        drugName: correction.drugName,
+        patientName: correction.patientName,
+        hospitalNumber: correction.hospitalNumber,
         quantity: correction.stockAdjustment,
         staff: [correction.correctedByName, correction.checkedByName]
           .filter(Boolean)
@@ -865,7 +874,7 @@ app.get("/audit-trail", verifyUser, adminOnly, (req, res) => {
         signatureHash: [correction.correctedSignatureHash, correction.checkedSignatureHash]
           .filter(Boolean)
           .join(" / "),
-        notes: `${correction.reason || ""}${correction.correctionText ? ` - ${correction.correctionText}` : ""}`,
+        notes: `Original entry #${correction.originalTransactionId}. ${correction.reason || ""}${correction.correctionText ? ` - ${correction.correctionText}` : ""}`,
       }));
 
     const pharmacyRequests = db
