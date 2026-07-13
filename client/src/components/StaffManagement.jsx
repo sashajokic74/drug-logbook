@@ -58,12 +58,17 @@ function StaffManagement() {
     {
       value: "anaesthetist",
       label: "Anaesthetist",
-      note: "Can sign drug administration as first or second signature; cannot stock check or request pharmacy stock.",
+      note: "Can sign drug administration as first or second signature.",
     },
     {
       value: "doctor",
       label: "Doctor",
-      note: "Can sign drug administration as first or second signature; cannot stock check or request pharmacy stock.",
+      note: "Can sign drug administration as first or second signature.",
+    },
+    {
+      value: "surgeon",
+      label: "Surgeon",
+      note: "Can sign drug administration as first or second signature.",
     },
   ];
 

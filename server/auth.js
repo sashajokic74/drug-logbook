@@ -36,6 +36,19 @@ function hasLocationAccess(user, hospitalId, locationId) {
   return true;
 }
 
+function isSignatureOnlyRole(roleValue) {
+  const role = String(roleValue || "").toLowerCase();
+
+  return (
+    role === "doctor" ||
+    role === "dr" ||
+    role.startsWith("dr ") ||
+    role.includes(" doctor") ||
+    role.includes("surgeon") ||
+    role.includes("anaesthetist")
+  );
+}
+
 /* ================= LOGIN USER ================= */
 
 export function loginUser(req, res) {
@@ -71,6 +84,13 @@ export function loginUser(req, res) {
   if (!passwordMatch) {
     return res.status(401).json({
       message: "Invalid username or password",
+    });
+  }
+
+  if (isSignatureOnlyRole(user.role)) {
+    return res.status(403).json({
+      message:
+        "Doctor, anaesthetist and surgeon accounts are for drug administration signatures only. Please ask authorised theatre staff to log into the iPad.",
     });
   }
 
