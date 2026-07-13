@@ -84,7 +84,13 @@ function App() {
   function saveChangedDevice(deviceData) {
     localStorage.setItem("device", JSON.stringify(deviceData));
     setDevice(deviceData);
-    openAdminSetup("devices");
+    setShowDeviceSetup(false);
+    setShowAdminSetup(false);
+    setAdminSetupTab("staff");
+    setLocationSetupAdmin(false);
+    setShowLocationAuth(false);
+    setLocationAuthForm({ username: "", password: "" });
+    logout();
   }
 
   function openLocationChange() {
@@ -386,9 +392,11 @@ function App() {
       <header className="app-header">
         <div className="location-banner">
           <div>
-            <span className="location-label">Current clinical area</span>
-            <h1>{device.locationName}</h1>
-            <p>{device.hospitalName}</p>
+            <span className="location-label">
+              {showAdminSetup ? "Admin setup" : "Current clinical area"}
+            </span>
+            <h1>{showAdminSetup ? "System Administration" : device.locationName}</h1>
+            <p>{showAdminSetup ? "All hospitals, locations, devices and staff" : device.hospitalName}</p>
           </div>
 
           <div className="session-panel">
