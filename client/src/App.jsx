@@ -31,6 +31,8 @@ function App() {
   const [showLocations, setShowLocations] = useState(false);
   const [showPharmacyDashboard, setShowPharmacyDashboard] = useState(false);
   const [showAuditTrail, setShowAuditTrail] = useState(false);
+  const [showAdminSetup, setShowAdminSetup] = useState(false);
+  const [adminSetupTab, setAdminSetupTab] = useState("staff");
   const [showDeviceSetup, setShowDeviceSetup] = useState(false);
   const [locationSetupAdmin, setLocationSetupAdmin] = useState(false);
   const [showLocationAuth, setShowLocationAuth] = useState(false);
@@ -48,7 +50,8 @@ function App() {
     showCorrections ||
     showLocations ||
     showPharmacyDashboard ||
-    showAuditTrail;
+    showAuditTrail ||
+    showAdminSetup;
 
   function showOnly(panel) {
     setShowStaffPanel(panel === "staff");
@@ -57,6 +60,12 @@ function App() {
     setShowLocations(panel === "locations");
     setShowPharmacyDashboard(panel === "pharmacy");
     setShowAuditTrail(panel === "audit");
+    setShowAdminSetup(panel === "admin");
+  }
+
+  function openAdminSetup(tab = "staff") {
+    setAdminSetupTab(tab);
+    showOnly("admin");
   }
 
   function returnToLogbook() {
@@ -179,6 +188,7 @@ function App() {
     setShowLocations(false);
     setShowPharmacyDashboard(false);
     setShowAuditTrail(false);
+    setShowAdminSetup(false);
   }
 
   if (!device) {
@@ -441,27 +451,15 @@ function App() {
         )}
 
         {isAdmin && (
-          <>
-            <button
-              onClick={() =>
-                showStaffPanel
-                  ? showOnly("")
-                  : showOnly("staff")
-              }
-            >
-              Staff Management
-            </button>
-
-            <button
-              onClick={() =>
-                showAuditTrail
-                  ? showOnly("")
-                  : showOnly("audit")
-              }
-            >
-              Audit Trail
-            </button>
-          </>
+          <button
+            onClick={() =>
+              showAdminSetup
+                ? showOnly("")
+                : openAdminSetup("staff")
+            }
+          >
+            Admin Setup
+          </button>
         )}
 
         <button
@@ -500,14 +498,61 @@ function App() {
 
 
       {isAdmin &&
-        showStaffPanel && (
-          <StaffManagement />
-        )}
+        showAdminSetup && (
+          <section className="admin-setup-workspace">
+            <div className="admin-setup-header">
+              <div>
+                <span className="eyebrow">System administration</span>
+                <h2>Admin Setup</h2>
+                <p>Manage staff, hospitals, locations, devices and audit from one place.</p>
+              </div>
+            </div>
 
+            <div className="admin-tabs" role="tablist" aria-label="Admin setup sections">
+              <button
+                type="button"
+                className={adminSetupTab === "staff" ? "active" : ""}
+                onClick={() => setAdminSetupTab("staff")}
+              >
+                Staff
+              </button>
+              <button
+                type="button"
+                className={adminSetupTab === "locations" ? "active" : ""}
+                onClick={() => setAdminSetupTab("locations")}
+              >
+                Hospitals & Locations
+              </button>
+              <button
+                type="button"
+                className={adminSetupTab === "devices" ? "active" : ""}
+                onClick={() => setAdminSetupTab("devices")}
+              >
+                Devices
+              </button>
+              <button
+                type="button"
+                className={adminSetupTab === "audit" ? "active" : ""}
+                onClick={() => setAdminSetupTab("audit")}
+              >
+                Audit
+              </button>
+            </div>
 
-      {isAdmin &&
-        showLocations && (
-          <LocationManagement />
+            {adminSetupTab === "staff" && <StaffManagement />}
+            {adminSetupTab === "locations" && <LocationManagement />}
+            {adminSetupTab === "devices" && (
+              <DeviceSetup
+                heading="Devices & iPad Assignment"
+                intro="Select or create the saved iPad/device for a hospital and clinical area."
+                canManageSetup
+                cancelLabel="Back to Locations"
+                onCancel={() => setAdminSetupTab("locations")}
+                onDeviceSaved={saveChangedDevice}
+              />
+            )}
+            {adminSetupTab === "audit" && <AuditTrail device={device} />}
+          </section>
         )}
 
 
@@ -526,18 +571,13 @@ function App() {
       )}
 
 
-      {isAdmin &&
-        showAuditTrail && (
-          <AuditTrail device={device} />
-        )}
-
-
       {!showStaffPanel &&
         !showLocations &&
         !showStockChecks &&
         !showCorrections &&
         !showPharmacyDashboard &&
-        !showAuditTrail && (
+        !showAuditTrail &&
+        !showAdminSetup && (
           <ControlledDrugLogbook device={device} />
         )}
 

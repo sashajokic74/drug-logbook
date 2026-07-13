@@ -130,6 +130,60 @@ header button {
   margin-top: 14px;
 }
 
+.admin-setup-workspace {
+  margin: 20px auto;
+  max-width: 1500px;
+  padding: 0 28px 28px;
+}
+
+.admin-setup-header {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-left: 8px solid #d97706;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  margin-bottom: 12px;
+  padding: 18px 20px;
+}
+
+.admin-setup-header h2 {
+  color: #082f5f;
+  font-size: 32px;
+  margin: 0;
+}
+
+.admin-setup-header p {
+  color: #486174;
+  font-weight: 800;
+  margin: 8px 0 0;
+}
+
+.admin-tabs {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px;
+}
+
+.admin-tabs button {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #334155;
+  font-weight: 900;
+  padding: 10px 14px;
+}
+
+.admin-tabs button.active {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #ffffff;
+}
+
 .location-auth-panel {
   background: #ffffff;
   border: 1px solid #d7e2ea;
