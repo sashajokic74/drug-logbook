@@ -84,7 +84,7 @@ function App() {
   function saveChangedDevice(deviceData) {
     localStorage.setItem("device", JSON.stringify(deviceData));
     setDevice(deviceData);
-    returnToLogbook();
+    openAdminSetup("devices");
   }
 
   function openLocationChange() {
@@ -92,7 +92,7 @@ function App() {
 
     if (isAdmin) {
       setLocationSetupAdmin(true);
-      setShowDeviceSetup(true);
+      openAdminSetup("staff");
       return;
     }
 
@@ -126,9 +126,10 @@ function App() {
 
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
+      setUser(data.user);
       setLocationSetupAdmin(true);
       setShowLocationAuth(false);
-      setShowDeviceSetup(true);
+      openAdminSetup("staff");
       setLocationAuthForm({ username: "", password: "" });
     } catch {
       setLocationAuthError("Server not running");
@@ -325,21 +326,21 @@ function App() {
         <aside className="admin-setup-card">
           <div>
             <span className="eyebrow">Admin setup</span>
-            <h2>Change this device location</h2>
-            <p>
-              Admin can move this screen to another saved hospital, theatre,
-              recovery or ICU area.
-            </p>
+              <h2>Open admin setup</h2>
+              <p>
+                Admin can manage staff, hospitals, locations, devices and audit
+                without entering each clinical area.
+              </p>
           </div>
 
           <button type="button" onClick={openLocationChange}>
-            Admin Setup / Change Location
+            Open Admin Setup
           </button>
 
           {showLocationAuth && (
             <form className="location-auth-panel" onSubmit={verifyLocationChangeAdmin}>
               <h3>Admin confirmation</h3>
-              <p>Admin login is required before changing this device location.</p>
+              <p>Admin login is required before opening setup.</p>
 
               <input
                 placeholder="Admin username"
@@ -402,45 +403,6 @@ function App() {
             </div>
           </div>
         </div>
-
-        {showLocationAuth && (
-          <form className="location-auth-panel" onSubmit={verifyLocationChangeAdmin}>
-            <h3>Admin confirmation</h3>
-            <p>Admin approval is required before changing this device location.</p>
-
-            <input
-              placeholder="Admin username"
-              value={locationAuthForm.username}
-              onChange={(event) =>
-                setLocationAuthForm({
-                  ...locationAuthForm,
-                  username: event.target.value,
-                })
-              }
-            />
-
-            <input
-              type="password"
-              placeholder="Admin password"
-              value={locationAuthForm.password}
-              onChange={(event) =>
-                setLocationAuthForm({
-                  ...locationAuthForm,
-                  password: event.target.value,
-                })
-              }
-            />
-
-            <div>
-              <button type="submit">Confirm</button>
-              <button type="button" onClick={() => setShowLocationAuth(false)}>
-                Cancel
-              </button>
-            </div>
-
-            {locationAuthError && <strong>{locationAuthError}</strong>}
-          </form>
-        )}
 
         <div className="header-actions">
 
@@ -546,8 +508,8 @@ function App() {
                 heading="Devices & iPad Assignment"
                 intro="Select or create the saved iPad/device for a hospital and clinical area."
                 canManageSetup
-                cancelLabel="Back to Locations"
-                onCancel={() => setAdminSetupTab("locations")}
+                cancelLabel="Back to Admin Setup"
+                onCancel={() => setAdminSetupTab("staff")}
                 onDeviceSaved={saveChangedDevice}
               />
             )}
