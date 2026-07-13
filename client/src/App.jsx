@@ -252,12 +252,6 @@ function App() {
               <button onClick={logout}>
                 Logout
               </button>
-
-              {isAdmin && (
-                <button type="button" onClick={openLocationChange}>
-                  Change Location
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -313,16 +307,6 @@ function App() {
               }
             >
               Staff Management
-            </button>
-
-            <button
-              onClick={() =>
-                showLocations
-                  ? showOnly("")
-                  : showOnly("locations")
-              }
-            >
-              Hospital / Locations
             </button>
 
             <button
