@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ControlledDrugLogbook from "./components/ControlledDrugLogbook";
 import StaffManagement from "./components/StaffManagement";
 import StockChecks from "./components/StockChecks";
@@ -10,6 +10,7 @@ import AuditTrail from "./components/AuditTrail";
 import "./index.css";
 
 const API_URL = "http://localhost:8000";
+const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 
 function App() {
   const [device, setDevice] = useState(
@@ -43,6 +44,8 @@ function App() {
 
   const [error, setError] = useState("");
   const [locationAuthError, setLocationAuthError] = useState("");
+  const [connectionOnline, setConnectionOnline] = useState(true);
+  const [sessionNotice, setSessionNotice] = useState("");
   const isAdmin = String(user?.role || "").toLowerCase() === "admin";
   const activeTask = showAdminSetup
     ? "admin"
@@ -53,6 +56,65 @@ function App() {
         : showPharmacyDashboard
           ? "pharmacy"
           : "logbook";
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkConnection() {
+      try {
+        const response = await fetch(`${API_URL}/health`, {
+          cache: "no-store",
+        });
+
+        if (mounted) {
+          setConnectionOnline(response.ok);
+        }
+      } catch {
+        if (mounted) {
+          setConnectionOnline(false);
+        }
+      }
+    }
+
+    checkConnection();
+    const intervalId = window.setInterval(checkConnection, 30000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    let timeoutId;
+
+    function endInactiveSession() {
+      setSessionNotice("Session timed out after inactivity. Please log in again.");
+      logout();
+    }
+
+    function resetTimer() {
+      window.clearTimeout(timeoutId);
+      timeoutId = window.setTimeout(endInactiveSession, INACTIVITY_LIMIT_MS);
+    }
+
+    const activityEvents = ["click", "keydown", "touchstart", "mousemove"];
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, resetTimer, { passive: true });
+    });
+
+    resetTimer();
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, resetTimer);
+      });
+    };
+  }, [user]);
 
   function showOnly(panel) {
     setShowStaffPanel(panel === "staff");
@@ -134,6 +196,7 @@ function App() {
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       setUser(data.user);
+      setSessionNotice("");
       setLocationSetupAdmin(true);
       setShowLocationAuth(false);
       openAdminSetup("staff");
@@ -185,6 +248,7 @@ function App() {
       );
 
       setUser(data.user);
+      setSessionNotice("");
     } catch {
       setError("Server not running");
     }
@@ -208,6 +272,12 @@ function App() {
   if (!device) {
     return (
       <div className="app">
+        {!connectionOnline && (
+          <div className="connection-banner offline">
+            Server connection lost. Setup changes may not save until the server is running.
+          </div>
+        )}
+
         <DeviceSetup
           intro={
             isAdmin
@@ -284,6 +354,18 @@ function App() {
     return (
       <div className="login-shell">
         <section className="device-login-card">
+          {!connectionOnline && (
+            <div className="connection-banner offline">
+              Server connection lost. Login and saving are unavailable.
+            </div>
+          )}
+
+          {sessionNotice && (
+            <div className="connection-banner warning">
+              {sessionNotice}
+            </div>
+          )}
+
           <div className="device-login-header">
             <span className="eyebrow">Controlled drug logbook</span>
             <h1>{device.locationName}</h1>
@@ -395,6 +477,11 @@ function App() {
 
   return (
     <div className="app">
+      {!connectionOnline && (
+        <div className="connection-banner offline">
+          Server connection lost. Do not continue clinical entries until connection is restored.
+        </div>
+      )}
 
       <header className="app-header">
         <div className="location-banner">

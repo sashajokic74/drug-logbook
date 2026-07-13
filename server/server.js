@@ -23,6 +23,14 @@ app.use(
 
 app.use(express.json());
 
+app.get("/health", (req, res) => {
+  res.json({
+    ok: true,
+    service: "drug-logbook-api",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.use("/transactions", transactionRoutes);
 app.use("/checker", checkerRoutes);
 app.use("/stock-checks", stockCheckRoutes);
