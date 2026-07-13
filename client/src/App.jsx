@@ -44,14 +44,15 @@ function App() {
   const [error, setError] = useState("");
   const [locationAuthError, setLocationAuthError] = useState("");
   const isAdmin = String(user?.role || "").toLowerCase() === "admin";
-  const isPanelOpen =
-    showStaffPanel ||
-    showStockChecks ||
-    showCorrections ||
-    showLocations ||
-    showPharmacyDashboard ||
-    showAuditTrail ||
-    showAdminSetup;
+  const activeTask = showAdminSetup
+    ? "admin"
+    : showStockChecks
+      ? "stock"
+      : showCorrections
+        ? "corrections"
+        : showPharmacyDashboard
+          ? "pharmacy"
+          : "logbook";
 
   function showOnly(panel) {
     setShowStaffPanel(panel === "staff");
@@ -403,6 +404,13 @@ function App() {
             </span>
             <h1>{showAdminSetup ? "System Administration" : device.locationName}</h1>
             <p>{showAdminSetup ? "All hospitals, locations, devices and staff" : device.hospitalName}</p>
+            {!showAdminSetup && (
+              <div className="device-context-row">
+                <span>{device.deviceName || `${device.locationName} iPad`}</span>
+                <span>{device.deviceType || "iPad"}</span>
+                <span>{device.deviceCode || "Saved device"}</span>
+              </div>
+            )}
           </div>
 
           <div className="session-panel">
@@ -418,56 +426,74 @@ function App() {
           </div>
         </div>
 
-        <div className="header-actions">
-
-        {isPanelOpen && (
-          <button type="button" onClick={returnToLogbook}>
-            Main Logbook
-          </button>
-        )}
-
-        {isAdmin && (
+        <div className="clinical-task-grid" aria-label="Clinical task navigation">
           <button
+            type="button"
+            className={activeTask === "logbook" ? "active" : ""}
+            onClick={returnToLogbook}
+          >
+            <span>Register</span>
+            <strong>Main Logbook</strong>
+            <small>Drug cards and patient entries</small>
+          </button>
+
+          <button
+            type="button"
+            className={activeTask === "stock" ? "active" : ""}
             onClick={() =>
-              showAdminSetup
+              showStockChecks
                 ? showOnly("")
-                : openAdminSetup("staff")
+                : showOnly("stock")
             }
           >
-            Admin Setup
+            <span>Check</span>
+            <strong>Stock Checks</strong>
+            <small>Daily, shift and discrepancy checks</small>
           </button>
-        )}
 
-        <button
-          onClick={() =>
-            showStockChecks
-              ? showOnly("")
-              : showOnly("stock")
-          }
-        >
-          Stock Checks
-        </button>
+          <button
+            type="button"
+            className={activeTask === "corrections" ? "active" : ""}
+            onClick={() =>
+              showCorrections
+                ? showOnly("")
+                : showOnly("corrections")
+            }
+          >
+            <span>Correct</span>
+            <strong>Corrections</strong>
+            <small>Signed amendments and reversals</small>
+          </button>
 
-        <button
-          onClick={() =>
-            showCorrections
-              ? showOnly("")
-              : showOnly("corrections")
-          }
-        >
-          Corrections
-        </button>
+          <button
+            type="button"
+            className={activeTask === "pharmacy" ? "active" : ""}
+            onClick={() =>
+              showPharmacyDashboard
+                ? showOnly("")
+                : showOnly("pharmacy")
+            }
+          >
+            <span>Supply</span>
+            <strong>Pharmacy Requests</strong>
+            <small>Requests, approvals and status</small>
+          </button>
 
-        <button
-          onClick={() =>
-            showPharmacyDashboard
-              ? showOnly("")
-              : showOnly("pharmacy")
-          }
-        >
-          Pharmacy Requests
-        </button>
-
+          {isAdmin && (
+            <button
+              type="button"
+              className={activeTask === "admin" ? "active admin-task" : "admin-task"}
+              onClick={() =>
+                showAdminSetup
+                  ? showOnly("")
+                  : openAdminSetup("staff")
+              }
+            >
+              <span>Admin</span>
+              <strong>Admin Setup</strong>
+              <small>Staff, locations, devices and audit</small>
+            </button>
+          )}
         </div>
 
       </header>

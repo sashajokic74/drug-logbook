@@ -91,6 +91,24 @@ header button {
   margin: 8px 0 0;
 }
 
+.device-context-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.device-context-row span {
+  background: #ecfdf5;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 6px 10px;
+  text-transform: uppercase;
+}
+
 .session-panel {
   align-items: flex-end;
   color: #334155;
@@ -119,15 +137,60 @@ header button {
 }
 
 .session-actions button,
-.header-actions button {
+.clinical-task-grid button {
   margin-right: 0;
 }
 
-.header-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.clinical-task-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   margin-top: 14px;
+}
+
+.clinical-task-grid button {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  color: #102033;
+  display: grid;
+  gap: 5px;
+  min-height: 92px;
+  padding: 13px;
+  text-align: left;
+}
+
+.clinical-task-grid button span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.clinical-task-grid button strong {
+  color: #082f5f;
+  font-size: 17px;
+  line-height: 1.15;
+}
+
+.clinical-task-grid button small {
+  color: #486174;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.clinical-task-grid button.active {
+  background: #ecfdf5;
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+}
+
+.clinical-task-grid button.admin-task.active {
+  background: #fff7ed;
+  border-color: #d97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.16);
 }
 
 .admin-setup-workspace {
@@ -351,6 +414,40 @@ header button {
   max-width: none;
 }
 
+@media (max-width: 980px) {
+  .app-header,
+  .page,
+  .admin-setup-workspace {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .location-banner {
+    gap: 14px;
+  }
+
+  .location-banner h1 {
+    font-size: 32px;
+  }
+
+  .clinical-task-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .clinical-task-grid button {
+    min-height: 100px;
+    padding: 14px;
+  }
+
+  .add-drug-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .add-drug-grid button {
+    min-height: 48px;
+  }
+}
+
 @media (max-width: 720px) {
   .location-banner {
     flex-direction: column;
@@ -379,6 +476,10 @@ header button {
   .device-lock-panel {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .clinical-task-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1195,6 +1296,7 @@ header button {
   font-size: 13px;
   font-weight: 900;
   margin-top: 7px;
+  min-height: 44px;
   padding: 9px 8px;
   width: 100%;
 }
