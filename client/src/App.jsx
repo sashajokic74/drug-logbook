@@ -258,91 +258,113 @@ function App() {
 
   if (!user) {
     return (
-      <div className="app">
-        <h1>Controlled Drug Logbook</h1>
+      <div className="login-shell">
+        <section className="device-login-card">
+          <div className="device-login-header">
+            <span className="eyebrow">Controlled drug logbook</span>
+            <h1>{device.locationName}</h1>
+            <p>{device.hospitalName}</p>
+          </div>
 
-        <p>
-          Device: <strong>{device.locationName}</strong>,{" "}
-          {device.hospitalName}
-        </p>
+          <div className="device-lock-panel">
+            <div>
+              <span>Device locked to</span>
+              <strong>{device.deviceName || `${device.locationName} iPad`}</strong>
+            </div>
+            <small>{device.deviceType || "iPad"} · {device.deviceCode || "Saved device"}</small>
+          </div>
 
-        <button type="button" onClick={openLocationChange}>
-          Admin Setup / Change Location
-        </button>
-
-        {showLocationAuth && (
-          <form className="location-auth-panel" onSubmit={verifyLocationChangeAdmin}>
-            <h3>Admin setup confirmation</h3>
-            <p>Admin login is required before changing this device location.</p>
+          <form className="login-form" onSubmit={login}>
+            <h2>Staff Login</h2>
 
             <input
-              placeholder="Admin username"
-              value={locationAuthForm.username}
-              onChange={(event) =>
-                setLocationAuthForm({
-                  ...locationAuthForm,
-                  username: event.target.value,
+              placeholder="Username"
+              value={loginForm.username}
+              onChange={(e) =>
+                setLoginForm({
+                  ...loginForm,
+                  username: e.target.value,
                 })
               }
             />
 
             <input
               type="password"
-              placeholder="Admin password"
-              value={locationAuthForm.password}
-              onChange={(event) =>
-                setLocationAuthForm({
-                  ...locationAuthForm,
-                  password: event.target.value,
+              placeholder="Password"
+              value={loginForm.password}
+              onChange={(e) =>
+                setLoginForm({
+                  ...loginForm,
+                  password: e.target.value,
                 })
               }
             />
 
-            <div>
-              <button type="submit">Open Setup</button>
-              <button type="button" onClick={() => setShowLocationAuth(false)}>
-                Cancel
-              </button>
-            </div>
+            <button>
+              Enter Logbook
+            </button>
 
-            {locationAuthError && <strong>{locationAuthError}</strong>}
+            {error && (
+              <p className="form-error">
+                {error}
+              </p>
+            )}
           </form>
-        )}
+        </section>
 
-        <form onSubmit={login}>
-          <input
-            placeholder="Username"
-            value={loginForm.username}
-            onChange={(e) =>
-              setLoginForm({
-                ...loginForm,
-                username: e.target.value,
-              })
-            }
-          />
+        <aside className="admin-setup-card">
+          <div>
+            <span className="eyebrow">Admin setup</span>
+            <h2>Change this device location</h2>
+            <p>
+              Admin can move this screen to another saved hospital, theatre,
+              recovery or ICU area.
+            </p>
+          </div>
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={loginForm.password}
-            onChange={(e) =>
-              setLoginForm({
-                ...loginForm,
-                password: e.target.value,
-              })
-            }
-          />
-
-          <button>
-            Login
+          <button type="button" onClick={openLocationChange}>
+            Admin Setup / Change Location
           </button>
-        </form>
 
-        {error && (
-          <p style={{ color: "red" }}>
-            {error}
-          </p>
-        )}
+          {showLocationAuth && (
+            <form className="location-auth-panel" onSubmit={verifyLocationChangeAdmin}>
+              <h3>Admin confirmation</h3>
+              <p>Admin login is required before changing this device location.</p>
+
+              <input
+                placeholder="Admin username"
+                value={locationAuthForm.username}
+                onChange={(event) =>
+                  setLocationAuthForm({
+                    ...locationAuthForm,
+                    username: event.target.value,
+                  })
+                }
+              />
+
+              <input
+                type="password"
+                placeholder="Admin password"
+                value={locationAuthForm.password}
+                onChange={(event) =>
+                  setLocationAuthForm({
+                    ...locationAuthForm,
+                    password: event.target.value,
+                  })
+                }
+              />
+
+              <div>
+                <button type="submit">Open Setup</button>
+                <button type="button" onClick={() => setShowLocationAuth(false)}>
+                  Cancel
+                </button>
+              </div>
+
+              {locationAuthError && <strong>{locationAuthError}</strong>}
+            </form>
+          )}
+        </aside>
       </div>
     );
   }

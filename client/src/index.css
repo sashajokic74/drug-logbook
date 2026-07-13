@@ -174,6 +174,129 @@ header button {
   color: #b91c1c;
 }
 
+.login-shell {
+  align-items: stretch;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+  margin: 42px auto;
+  max-width: 1080px;
+  padding: 0 24px;
+}
+
+.device-login-card,
+.admin-setup-card {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.1);
+}
+
+.device-login-card {
+  border-left: 8px solid #0f766e;
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+}
+
+.device-login-header h1 {
+  color: #082f5f;
+  font-size: 56px;
+  line-height: 1;
+  margin: 0;
+  text-align: left;
+}
+
+.device-login-header p {
+  color: #334155;
+  font-size: 22px;
+  font-weight: 800;
+  margin: 10px 0 0;
+}
+
+.device-lock-panel {
+  align-items: center;
+  background: #f0fdfa;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+}
+
+.device-lock-panel span,
+.device-lock-panel small {
+  color: #486174;
+  font-size: 13px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.device-lock-panel strong {
+  color: #0f766e;
+  display: block;
+  font-size: 22px;
+  margin-top: 4px;
+}
+
+.login-form {
+  display: grid;
+  gap: 12px;
+}
+
+.login-form h2,
+.admin-setup-card h2 {
+  color: #082f5f;
+  font-size: 24px;
+  margin: 0;
+}
+
+.login-form input {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 16px;
+  padding: 13px;
+}
+
+.login-form button,
+.admin-setup-card > button {
+  background: #0f766e;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 900;
+  padding: 13px 16px;
+}
+
+.form-error {
+  color: #b91c1c;
+  font-weight: 800;
+  margin: 0;
+}
+
+.admin-setup-card {
+  border-left: 8px solid #d97706;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 22px;
+}
+
+.admin-setup-card p {
+  color: #486174;
+  font-weight: 700;
+  line-height: 1.45;
+  margin: 10px 0 0;
+}
+
+.admin-setup-card .location-auth-panel {
+  box-shadow: none;
+  margin: 0;
+  max-width: none;
+}
+
 @media (max-width: 720px) {
   .location-banner {
     flex-direction: column;
@@ -187,6 +310,21 @@ header button {
     align-items: flex-start;
     min-width: 0;
     text-align: left;
+  }
+
+  .login-shell {
+    grid-template-columns: 1fr;
+    margin: 20px auto;
+    padding: 0 14px;
+  }
+
+  .device-login-header h1 {
+    font-size: 40px;
+  }
+
+  .device-lock-panel {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
