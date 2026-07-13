@@ -42,6 +42,13 @@ function App() {
   const [error, setError] = useState("");
   const [locationAuthError, setLocationAuthError] = useState("");
   const isAdmin = String(user?.role || "").toLowerCase() === "admin";
+  const isPanelOpen =
+    showStaffPanel ||
+    showStockChecks ||
+    showCorrections ||
+    showLocations ||
+    showPharmacyDashboard ||
+    showAuditTrail;
 
   function showOnly(panel) {
     setShowStaffPanel(panel === "staff");
@@ -52,6 +59,15 @@ function App() {
     setShowAuditTrail(panel === "audit");
   }
 
+  function returnToLogbook() {
+    showOnly("");
+    setShowDeviceSetup(false);
+    setShowLocationAuth(false);
+    setLocationSetupAdmin(false);
+    setLocationAuthForm({ username: "", password: "" });
+    setLocationAuthError("");
+  }
+
   function saveDevice(deviceData) {
     setDevice(deviceData);
   }
@@ -59,11 +75,7 @@ function App() {
   function saveChangedDevice(deviceData) {
     localStorage.setItem("device", JSON.stringify(deviceData));
     setDevice(deviceData);
-    setShowDeviceSetup(false);
-    setShowLocationAuth(false);
-    setLocationSetupAdmin(false);
-    setLocationAuthForm({ username: "", password: "" });
-    logout();
+    returnToLogbook();
   }
 
   function openLocationChange() {
@@ -135,6 +147,14 @@ function App() {
         return;
       }
 
+      if (
+        !device &&
+        String(data.user?.role || "").toLowerCase() !== "admin"
+      ) {
+        setError("Admin login is required for device setup");
+        return;
+      }
+
       localStorage.setItem("token", data.token);
       localStorage.setItem(
         "user",
@@ -162,7 +182,58 @@ function App() {
   }
 
   if (!device) {
-    return <DeviceSetup onDeviceSaved={saveDevice} />;
+    return (
+      <div className="app">
+        <DeviceSetup
+          intro={
+            isAdmin
+              ? "Create or select the hospital, clinical area and iPad/device for this screen."
+              : "Admin login is required before creating a new hospital, location or iPad/device."
+          }
+          canManageSetup={isAdmin}
+          onDeviceSaved={saveDevice}
+        />
+
+        {!isAdmin && (
+          <form onSubmit={login}>
+            <h3>Admin setup login</h3>
+
+            <input
+              placeholder="Admin username"
+              value={loginForm.username}
+              onChange={(e) =>
+                setLoginForm({
+                  ...loginForm,
+                  username: e.target.value,
+                })
+              }
+            />
+
+            <input
+              type="password"
+              placeholder="Admin password"
+              value={loginForm.password}
+              onChange={(e) =>
+                setLoginForm({
+                  ...loginForm,
+                  password: e.target.value,
+                })
+              }
+            />
+
+            <button>
+              Login for Setup
+            </button>
+
+            {error && (
+              <p style={{ color: "red" }}>
+                {error}
+              </p>
+            )}
+          </form>
+        )}
+      </div>
+    );
   }
 
   if (showDeviceSetup) {
@@ -171,6 +242,7 @@ function App() {
         heading="Change Device Location"
         intro="Select the hospital, clinical area and iPad/device this screen should use."
         canManageSetup={isAdmin || locationSetupAdmin}
+        cancelLabel="Back to Logbook"
         onCancel={() => {
           if (!user) {
             localStorage.removeItem("token");
@@ -296,6 +368,12 @@ function App() {
         )}
 
         <div className="header-actions">
+
+        {isPanelOpen && (
+          <button type="button" onClick={returnToLogbook}>
+            Main Logbook
+          </button>
+        )}
 
         {isAdmin && (
           <>

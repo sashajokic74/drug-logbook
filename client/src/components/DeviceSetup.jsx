@@ -6,6 +6,7 @@ function DeviceSetup({
   heading = "Device Setup",
   intro = "",
   canManageSetup = false,
+  cancelLabel = "Cancel",
   onCancel,
   onDeviceSaved,
 }) {
@@ -494,7 +495,7 @@ function DeviceSetup({
           onClick={onCancel}
           style={{ width: "100%", marginTop: "8px" }}
         >
-          Cancel
+          {cancelLabel}
         </button>
       )}
 
