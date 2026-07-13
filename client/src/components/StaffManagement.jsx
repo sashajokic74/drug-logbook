@@ -58,12 +58,12 @@ function StaffManagement() {
     {
       value: "anaesthetist",
       label: "Anaesthetist",
-      note: "Recorded staff role; blocked from CD signing in this workflow.",
+      note: "Can sign as administering clinician; cannot second-check, stock check or request pharmacy stock.",
     },
     {
       value: "doctor",
       label: "Doctor",
-      note: "Recorded staff role; blocked from CD signing in this workflow.",
+      note: "Can sign as administering clinician; cannot second-check, stock check or request pharmacy stock.",
     },
   ];
 

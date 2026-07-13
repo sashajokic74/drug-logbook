@@ -47,17 +47,40 @@ function getStaffById(id) {
     .get(Number(id));
 }
 
-function isBlockedClinicalRole(roleValue) {
+function isAdminRole(roleValue) {
+  return String(roleValue || "").toLowerCase() === "admin";
+}
+
+function isDoctorOrAnaesthetistRole(roleValue) {
   const role = String(roleValue || "").toLowerCase();
 
   return (
-    role === "admin" ||
     role === "doctor" ||
     role === "dr" ||
     role.startsWith("dr ") ||
     role.includes(" doctor") ||
     role.includes("surgeon") ||
     role.includes("anaesthetist")
+  );
+}
+
+function isBlockedSecondCheckerRole(roleValue) {
+  return isAdminRole(roleValue) || isDoctorOrAnaesthetistRole(roleValue);
+}
+
+function isAuthorisedStockRole(roleValue) {
+  const role = String(roleValue || "").toLowerCase();
+
+  if (isBlockedSecondCheckerRole(role)) {
+    return false;
+  }
+
+  return (
+    role.includes("odp") ||
+    role.includes("anaesthetic") ||
+    role.includes("anaesthetics") ||
+    role.includes("nurse") ||
+    role.includes("theatre")
   );
 }
 
@@ -213,12 +236,26 @@ router.post("/", verifyUser, (req, res) => {
       });
     }
 
-    if (
-      isBlockedClinicalRole(administeredStaff.role) ||
-      isBlockedClinicalRole(witnessStaff.role)
+    if (isPatientUse) {
+      if (isAdminRole(administeredStaff.role)) {
+        return res.status(400).json({
+          message: "Admin account cannot sign as administering clinician",
+        });
+      }
+
+      if (isBlockedSecondCheckerRole(witnessStaff.role)) {
+        return res.status(400).json({
+          message:
+            "Second checker must be ODP, anaesthetic practitioner, theatre practitioner or nurse",
+        });
+      }
+    } else if (
+      !isAuthorisedStockRole(administeredStaff.role) ||
+      !isAuthorisedStockRole(witnessStaff.role)
     ) {
       return res.status(400).json({
-        message: "Admin, doctor and anaesthetist accounts cannot sign controlled drug transactions",
+        message:
+          "Only ODP, anaesthetic practitioner, theatre practitioner or nurse can receive and check controlled drug stock",
       });
     }
 
