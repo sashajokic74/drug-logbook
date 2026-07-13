@@ -18,6 +18,10 @@ router.get("/", verifyUser, adminOnly, (req, res) => {
           active,
           staffType,
           expiryDate,
+          accessScope,
+          accessHospitalIds,
+          accessLocationIds,
+          accessExpiryDate,
           createdAt
         FROM users
         ORDER BY id ASC
@@ -32,7 +36,18 @@ router.get("/", verifyUser, adminOnly, (req, res) => {
 
 router.post("/", verifyUser, adminOnly, (req, res) => {
 	try {
-		const { username, password, role, fullName, staffType, expiryDate } =
+		const {
+			username,
+			password,
+			role,
+			fullName,
+			staffType,
+			expiryDate,
+			accessScope,
+			accessHospitalIds,
+			accessLocationIds,
+			accessExpiryDate,
+		} =
 			req.body;
 
 		if (!username || !password || !role || !fullName) {
@@ -43,6 +58,14 @@ router.post("/", verifyUser, adminOnly, (req, res) => {
 
 		const finalStaffType = staffType || "Permanent";
 		const finalExpiryDate = expiryDate || null;
+		const finalAccessScope = accessScope || "ALL";
+		const finalAccessHospitalIds = Array.isArray(accessHospitalIds)
+			? accessHospitalIds.join(",")
+			: accessHospitalIds || "";
+		const finalAccessLocationIds = Array.isArray(accessLocationIds)
+			? accessLocationIds.join(",")
+			: accessLocationIds || "";
+		const finalAccessExpiryDate = accessExpiryDate || null;
 
 		if (finalStaffType !== "Permanent" && !finalExpiryDate) {
 			return res.status(400).json({
@@ -72,9 +95,13 @@ router.post("/", verifyUser, adminOnly, (req, res) => {
           fullName,
           active,
           staffType,
-          expiryDate
+          expiryDate,
+          accessScope,
+          accessHospitalIds,
+          accessLocationIds,
+          accessExpiryDate
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 			.run(
 				username,
@@ -83,7 +110,11 @@ router.post("/", verifyUser, adminOnly, (req, res) => {
 				fullName,
 				1,
 				finalStaffType,
-				finalExpiryDate
+				finalExpiryDate,
+				finalAccessScope,
+				finalAccessHospitalIds,
+				finalAccessLocationIds,
+				finalAccessExpiryDate
 			);
 
 		const newUser = db
@@ -96,6 +127,10 @@ router.post("/", verifyUser, adminOnly, (req, res) => {
           active,
           staffType,
           expiryDate,
+          accessScope,
+          accessHospitalIds,
+          accessLocationIds,
+          accessExpiryDate,
           createdAt
         FROM users
         WHERE id = ?

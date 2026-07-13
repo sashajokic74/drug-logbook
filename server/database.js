@@ -192,6 +192,10 @@ addColumnIfMissing("users", "active", "INTEGER DEFAULT 1");
 addColumnIfMissing("users", "staffType", "TEXT DEFAULT 'Permanent'");
 addColumnIfMissing("users", "expiryDate", "TEXT");
 addColumnIfMissing("users", "createdAt", "DATETIME DEFAULT CURRENT_TIMESTAMP");
+addColumnIfMissing("users", "accessScope", "TEXT DEFAULT 'ALL'");
+addColumnIfMissing("users", "accessHospitalIds", "TEXT");
+addColumnIfMissing("users", "accessLocationIds", "TEXT");
+addColumnIfMissing("users", "accessExpiryDate", "TEXT");
 
 /* ================= CD REGISTER TRANSACTIONS ================= */
 

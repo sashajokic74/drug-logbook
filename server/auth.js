@@ -10,10 +10,36 @@ function isExpired(expiryDate) {
   return expiryDate < today;
 }
 
+function parseIdList(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function hasLocationAccess(user, hospitalId, locationId) {
+  const role = String(user.role || "").toLowerCase();
+  const scope = String(user.accessScope || "ALL").toUpperCase();
+
+  if (role === "admin") return true;
+  if (user.accessExpiryDate && isExpired(user.accessExpiryDate)) return false;
+  if (scope === "ALL") return true;
+
+  if (scope === "HOSPITAL") {
+    return parseIdList(user.accessHospitalIds).includes(String(hospitalId || ""));
+  }
+
+  if (scope === "LOCATIONS") {
+    return parseIdList(user.accessLocationIds).includes(String(locationId || ""));
+  }
+
+  return true;
+}
+
 /* ================= LOGIN USER ================= */
 
 export function loginUser(req, res) {
-  const { username, password } = req.body;
+  const { username, password, hospitalId, locationId, locationName } = req.body;
 
   const user = db
     .prepare("SELECT * FROM users WHERE username = ?")
@@ -48,12 +74,26 @@ export function loginUser(req, res) {
     });
   }
 
+  if (
+    hospitalId &&
+    locationId &&
+    !hasLocationAccess(user, hospitalId, locationId)
+  ) {
+    return res.status(403).json({
+      message: `This staff account is not assigned to ${locationName || "this location"}`,
+    });
+  }
+
   const token = jwt.sign(
     {
       id: user.id,
       username: user.username,
       role: user.role,
       fullName: user.fullName,
+      accessScope: user.accessScope || "ALL",
+      accessHospitalIds: user.accessHospitalIds || "",
+      accessLocationIds: user.accessLocationIds || "",
+      accessExpiryDate: user.accessExpiryDate || null,
     },
     config.jwtSecret,
     {
@@ -69,6 +109,10 @@ export function loginUser(req, res) {
       username: user.username,
       role: user.role,
       fullName: user.fullName,
+      accessScope: user.accessScope || "ALL",
+      accessHospitalIds: user.accessHospitalIds || "",
+      accessLocationIds: user.accessLocationIds || "",
+      accessExpiryDate: user.accessExpiryDate || null,
     },
   });
 }

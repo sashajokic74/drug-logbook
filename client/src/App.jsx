@@ -153,7 +153,13 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(loginForm),
+        body: JSON.stringify({
+          ...loginForm,
+          hospitalId: device?.hospitalId,
+          hospitalName: device?.hospitalName,
+          locationId: device?.locationId,
+          locationName: device?.locationName,
+        }),
       });
 
       const data = await response.json();

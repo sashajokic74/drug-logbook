@@ -4,6 +4,8 @@ const API_URL = "http://localhost:8000";
 
 function StaffManagement() {
   const [staffUsers, setStaffUsers] = useState([]);
+  const [hospitals, setHospitals] = useState([]);
+  const [locations, setLocations] = useState([]);
   const [staffMessage, setStaffMessage] = useState("");
   const [staffView, setStaffView] = useState("active");
   const [staffSearch, setStaffSearch] = useState("");
@@ -16,6 +18,10 @@ function StaffManagement() {
     role: "odp",
     staffType: "Permanent",
     expiryDate: "",
+    accessScope: "ALL",
+    accessHospitalIds: [],
+    accessLocationIds: [],
+    accessExpiryDate: "",
   });
 
   const roleOptions = [
@@ -63,7 +69,33 @@ function StaffManagement() {
 
   useEffect(() => {
     loadStaffUsers();
+    loadAccessOptions();
   }, []);
+
+  async function loadAccessOptions() {
+    const token = localStorage.getItem("token");
+
+    if (!token) return;
+
+    try {
+      const [hospitalResponse, locationResponse] = await Promise.all([
+        fetch(`${API_URL}/locations/hospitals`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_URL}/locations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      const hospitalData = await hospitalResponse.json();
+      const locationData = await locationResponse.json();
+
+      setHospitals(Array.isArray(hospitalData) ? hospitalData : []);
+      setLocations(Array.isArray(locationData) ? locationData : []);
+    } catch {
+      setStaffMessage("Could not load hospital/location access options");
+    }
+  }
 
   async function loadStaffUsers() {
     const token = localStorage.getItem("token");
@@ -100,6 +132,22 @@ function StaffManagement() {
     setNewStaff((previousStaff) => ({
       ...previousStaff,
       [name]: value,
+      ...(name === "accessScope"
+        ? {
+            accessHospitalIds: [],
+            accessLocationIds: [],
+          }
+        : {}),
+    }));
+  }
+
+  function handleMultiSelect(event) {
+    const { name, selectedOptions } = event.target;
+    const values = Array.from(selectedOptions).map((option) => option.value);
+
+    setNewStaff((previousStaff) => ({
+      ...previousStaff,
+      [name]: values,
     }));
   }
 
@@ -112,6 +160,10 @@ function StaffManagement() {
     const role = newStaff.role;
     const staffType = newStaff.staffType;
     const expiryDate = newStaff.expiryDate;
+    const accessScope = newStaff.accessScope;
+    const accessHospitalIds = newStaff.accessHospitalIds;
+    const accessLocationIds = newStaff.accessLocationIds;
+    const accessExpiryDate = newStaff.accessExpiryDate;
 
     if (!fullName || !username || !password || !role || !staffType) {
       setStaffMessage("Please complete all staff fields");
@@ -120,6 +172,16 @@ function StaffManagement() {
 
     if (staffType !== "Permanent" && !expiryDate) {
       setStaffMessage("Temporary, Bank, Agency or Locum staff need an expiry date");
+      return;
+    }
+
+    if (accessScope === "HOSPITAL" && accessHospitalIds.length === 0) {
+      setStaffMessage("Select at least one hospital for hospital access");
+      return;
+    }
+
+    if (accessScope === "LOCATIONS" && accessLocationIds.length === 0) {
+      setStaffMessage("Select at least one location for selected-location access");
       return;
     }
 
@@ -144,6 +206,10 @@ function StaffManagement() {
           role,
           staffType,
           expiryDate: expiryDate || null,
+          accessScope,
+          accessHospitalIds,
+          accessLocationIds,
+          accessExpiryDate: accessExpiryDate || null,
         }),
       });
 
@@ -163,6 +229,10 @@ function StaffManagement() {
         role: "odp",
         staffType: "Permanent",
         expiryDate: "",
+        accessScope: "ALL",
+        accessHospitalIds: [],
+        accessLocationIds: [],
+        accessExpiryDate: "",
       });
 
       await loadStaffUsers();
@@ -256,6 +326,37 @@ function StaffManagement() {
   function permissionSummary(roleValue) {
     const role = roleOptions.find((item) => item.value === roleValue);
     return role ? role.note : "Custom role";
+  }
+
+  function nameListFromIds(ids, source, labelKey = "name") {
+    const idList = String(ids || "")
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    return idList
+      .map((id) => source.find((item) => String(item.id) === String(id))?.[labelKey])
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  function accessSummary(staff) {
+    const scope = String(staff.accessScope || "ALL").toUpperCase();
+    const expiry = staff.accessExpiryDate ? ` until ${staff.accessExpiryDate}` : "";
+
+    if (scope === "HOSPITAL") {
+      return `Hospital access: ${
+        nameListFromIds(staff.accessHospitalIds, hospitals) || "not selected"
+      }${expiry}`;
+    }
+
+    if (scope === "LOCATIONS") {
+      return `Selected areas: ${
+        nameListFromIds(staff.accessLocationIds, locations) || "not selected"
+      }${expiry}`;
+    }
+
+    return `All hospitals / locations${expiry}`;
   }
 
   function statusLabel(staff) {
@@ -370,6 +471,54 @@ function StaffManagement() {
           disabled={newStaff.staffType === "Permanent"}
         />
 
+        <select
+          name="accessScope"
+          value={newStaff.accessScope}
+          onChange={handleStaffChange}
+        >
+          <option value="ALL">All hospitals / all locations</option>
+          <option value="HOSPITAL">Selected hospital(s)</option>
+          <option value="LOCATIONS">Selected location(s)</option>
+        </select>
+
+        {newStaff.accessScope === "HOSPITAL" && (
+          <select
+            name="accessHospitalIds"
+            multiple
+            value={newStaff.accessHospitalIds}
+            onChange={handleMultiSelect}
+          >
+            {hospitals.map((hospital) => (
+              <option key={hospital.id} value={hospital.id}>
+                {hospital.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {newStaff.accessScope === "LOCATIONS" && (
+          <select
+            name="accessLocationIds"
+            multiple
+            value={newStaff.accessLocationIds}
+            onChange={handleMultiSelect}
+          >
+            {locations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {location.hospitalName} - {location.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <input
+          name="accessExpiryDate"
+          type="date"
+          value={newStaff.accessExpiryDate}
+          onChange={handleStaffChange}
+          title="Optional access expiry date"
+        />
+
         <button type="button" onClick={createStaffUser}>
           Create Staff
         </button>
@@ -439,6 +588,7 @@ function StaffManagement() {
             <th>Permission</th>
             <th>Staff Type</th>
             <th>Expiry</th>
+            <th>Access</th>
             <th>Status</th>
             <th>Created</th>
             <th>Action</th>
@@ -454,6 +604,7 @@ function StaffManagement() {
               <td>{permissionSummary(staff.role)}</td>
               <td>{staff.staffType || "Permanent"}</td>
               <td>{staff.expiryDate || "-"}</td>
+              <td>{accessSummary(staff)}</td>
               <td>{statusLabel(staff)}</td>
               <td>{staff.createdAt || "-"}</td>
               <td>
