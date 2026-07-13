@@ -64,14 +64,14 @@ function isDoctorOrAnaesthetistRole(roleValue) {
   );
 }
 
-function isBlockedSecondCheckerRole(roleValue) {
+function isBlockedStockRole(roleValue) {
   return isAdminRole(roleValue) || isDoctorOrAnaesthetistRole(roleValue);
 }
 
 function isAuthorisedStockRole(roleValue) {
   const role = String(roleValue || "").toLowerCase();
 
-  if (isBlockedSecondCheckerRole(role)) {
+  if (isBlockedStockRole(role)) {
     return false;
   }
 
@@ -243,10 +243,9 @@ router.post("/", verifyUser, (req, res) => {
         });
       }
 
-      if (isBlockedSecondCheckerRole(witnessStaff.role)) {
+      if (isAdminRole(witnessStaff.role)) {
         return res.status(400).json({
-          message:
-            "Second checker must be ODP, anaesthetic practitioner, theatre practitioner or nurse",
+          message: "Admin account cannot sign as witness / second signature",
         });
       }
     } else if (

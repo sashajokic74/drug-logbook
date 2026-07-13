@@ -557,23 +557,6 @@ function DrugRegister({ drug, device, onClose }) {
     );
   }
 
-  function isDoctorOrAnaesthetistRole(roleValue) {
-    const role = String(roleValue || "").toLowerCase();
-
-    return (
-      role === "doctor" ||
-      role === "dr" ||
-      role.startsWith("dr ") ||
-      role.includes(" doctor") ||
-      role.includes("surgeon") ||
-      role.includes("anaesthetist")
-    );
-  }
-
-  function isBlockedSecondCheckerRole(roleValue) {
-    return String(roleValue || "").toLowerCase() === "admin" || isDoctorOrAnaesthetistRole(roleValue);
-  }
-
   async function verifyPharmacyRequestUser() {
     setPharmacyRequestMessage("");
 
@@ -967,8 +950,8 @@ function DrugRegister({ drug, device, onClose }) {
       return;
     }
 
-    if (isBlockedSecondCheckerRole(result.role)) {
-      alert("Second checker must be ODP, anaesthetic practitioner, theatre practitioner or nurse.");
+    if (String(result.role || "").toLowerCase() === "admin") {
+      alert("Admin account cannot be used as the witness / second signature.");
       setCheckerUser(null);
       return;
     }
