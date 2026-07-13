@@ -194,49 +194,6 @@ function App() {
           {device.hospitalName}
         </p>
 
-        <button type="button" onClick={openLocationChange}>
-          Change Location
-        </button>
-
-        {showLocationAuth && (
-          <form className="location-auth-panel" onSubmit={verifyLocationChangeAdmin}>
-            <h3>Admin confirmation</h3>
-            <p>Admin approval is required before changing this device location.</p>
-
-            <input
-              placeholder="Admin username"
-              value={locationAuthForm.username}
-              onChange={(event) =>
-                setLocationAuthForm({
-                  ...locationAuthForm,
-                  username: event.target.value,
-                })
-              }
-            />
-
-            <input
-              type="password"
-              placeholder="Admin password"
-              value={locationAuthForm.password}
-              onChange={(event) =>
-                setLocationAuthForm({
-                  ...locationAuthForm,
-                  password: event.target.value,
-                })
-              }
-            />
-
-            <div>
-              <button type="submit">Confirm</button>
-              <button type="button" onClick={() => setShowLocationAuth(false)}>
-                Cancel
-              </button>
-            </div>
-
-            {locationAuthError && <strong>{locationAuthError}</strong>}
-          </form>
-        )}
-
         <form onSubmit={login}>
           <input
             placeholder="Username"
