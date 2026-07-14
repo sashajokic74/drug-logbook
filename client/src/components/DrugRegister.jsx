@@ -270,12 +270,18 @@ function DrugRegister({ drug, device, onClose }) {
     return cells;
   }
 
-  function parsePatientCsv(text) {
-    const rows = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map(parseCsvLine);
+  function normaliseLocationText(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/\btheatre\b/g, "th")
+      .replace(/\broom\b/g, "")
+      .replace(/[^a-z0-9]+/g, "");
+  }
+
+  function parsePatientRows(rawRows) {
+    const rows = rawRows
+      .map((row) => row.map((cell) => String(cell || "").trim()))
+      .filter((row) => row.some(Boolean));
 
     if (rows.length === 0) return [];
 
@@ -288,9 +294,7 @@ function DrugRegister({ drug, device, onClose }) {
       ? rows[0].map((header) => header.toLowerCase().replace(/[^a-z0-9]+/g, ""))
       : [];
     const dataRows = hasHeader ? rows.slice(1) : rows;
-    const locationKey = String(device?.locationName || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "");
+    const locationKey = normaliseLocationText(device?.locationName);
 
     function valueByHeader(row, names, fallbackIndex) {
       const index = headers.findIndex((header) =>
@@ -321,9 +325,7 @@ function DrugRegister({ drug, device, onClose }) {
         const listDate = hasHeader
           ? valueByHeader(row, ["listdate", "date"], theatre ? 5 : 4)
           : row[4];
-        const theatreKey = String(theatre || "")
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "");
+        const theatreKey = normaliseLocationText(theatre);
 
         if (theatreKey && locationKey && theatreKey !== locationKey) {
           return null;
@@ -339,6 +341,33 @@ function DrugRegister({ drug, device, onClose }) {
       })
       .filter(Boolean)
       .filter((patient) => patient.patientName && patient.hospitalNumber);
+  }
+
+  function parsePatientDelimitedText(text) {
+    const rows = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) =>
+        line.includes("\t")
+          ? line.split("\t").map((cell) => cell.trim())
+          : parseCsvLine(line)
+      );
+
+    return parsePatientRows(rows);
+  }
+
+  async function parsePatientFile(file) {
+    const fileName = String(file.name || "").toLowerCase();
+
+    if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
+      const { default: readXlsxFile } = await import("read-excel-file/browser");
+      const rows = await readXlsxFile(file);
+      return parsePatientRows(rows);
+    }
+
+    const text = await file.text();
+    return parsePatientDelimitedText(text);
   }
 
   function downloadSamplePatientCsv() {
@@ -456,11 +485,21 @@ function DrugRegister({ drug, device, onClose }) {
 
     setPatientMessage("");
 
-    const text = await file.text();
-    const parsedPatients = parsePatientCsv(text);
+    let parsedPatients = [];
+
+    try {
+      parsedPatients = await parsePatientFile(file);
+    } catch {
+      setPatientMessage("Could not read this patient list file");
+      event.target.value = "";
+      return;
+    }
 
     if (parsedPatients.length === 0) {
-      setPatientMessage("No valid patients found in CSV");
+      setPatientMessage(
+        "No valid patients found. Use columns: theatre, patient name, MRN / NHS number, speciality, procedure, list date."
+      );
+      event.target.value = "";
       return;
     }
 
@@ -1093,7 +1132,7 @@ function DrugRegister({ drug, device, onClose }) {
         </div>
 
         <p>
-          CSV columns: theatre, patient name, MRN / NHS number, speciality,
+          Upload Excel or CSV with columns: theatre, patient name, MRN / NHS number, speciality,
           procedure, list date. This list is saved only for the current
           hospital/location. Old dated lists disappear automatically from the
           normal view after their list date.
@@ -1106,7 +1145,11 @@ function DrugRegister({ drug, device, onClose }) {
           </strong>
         )}
 
-        <input type="file" accept=".csv,text/csv" onChange={uploadPatientList} />
+        <input
+          type="file"
+          accept=".xlsx,.xls,.csv,.tsv,text/csv,text/tab-separated-values"
+          onChange={uploadPatientList}
+        />
 
         <input
           placeholder="Search patient, MRN, speciality or procedure"
