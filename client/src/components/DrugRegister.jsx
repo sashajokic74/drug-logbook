@@ -270,12 +270,8 @@ function DrugRegister({ drug, device, onClose }) {
     return cells;
   }
 
-  function normaliseLocationText(value) {
-    return String(value || "")
-      .toLowerCase()
-      .replace(/\btheatre\b/g, "th")
-      .replace(/\broom\b/g, "")
-      .replace(/[^a-z0-9]+/g, "");
+  function normaliseHeader(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
   }
 
   function normaliseListDate(value) {
@@ -311,16 +307,22 @@ function DrugRegister({ drug, device, onClose }) {
 
     if (rows.length === 0) return [];
 
-    const firstRowText = rows[0].join(" ").toLowerCase();
-    const hasHeader =
-      firstRowText.includes("patient") ||
-      firstRowText.includes("mrn") ||
-      firstRowText.includes("nhs");
+    const headerRowIndex = rows.findIndex((row) => {
+      const headerText = row.map(normaliseHeader).join(" ");
+      return (
+        headerText.includes("patient") ||
+        headerText.includes("mrn") ||
+        headerText.includes("nhs") ||
+        headerText.includes("hospitalnumber") ||
+        headerText.includes("hospno") ||
+        headerText.includes("casenumber")
+      );
+    });
+    const hasHeader = headerRowIndex >= 0;
     const headers = hasHeader
-      ? rows[0].map((header) => header.toLowerCase().replace(/[^a-z0-9]+/g, ""))
+      ? rows[headerRowIndex].map(normaliseHeader)
       : [];
-    const dataRows = hasHeader ? rows.slice(1) : rows;
-    const locationKey = normaliseLocationText(device?.locationName);
+    const dataRows = hasHeader ? rows.slice(headerRowIndex + 1) : rows;
 
     function valueByHeader(row, names, fallbackIndex) {
       const index = headers.findIndex((header) =>
@@ -334,28 +336,23 @@ function DrugRegister({ drug, device, onClose }) {
     return dataRows
       .map((row) => {
         const theatre = hasHeader
-          ? valueByHeader(row, ["theatre", "location", "room"], 0)
+          ? valueByHeader(row, ["theatre", "location", "room", "operatingroom"], 0)
           : "";
         const patientName = hasHeader
-          ? valueByHeader(row, ["patientname", "patient"], theatre ? 1 : 0)
+          ? valueByHeader(row, ["patientname", "patient", "name"], theatre ? 1 : 0)
           : row[0];
         const hospitalNumber = hasHeader
-          ? valueByHeader(row, ["mrn", "nhs", "hospitalnumber", "number"], theatre ? 2 : 1)
+          ? valueByHeader(row, ["mrn", "nhs", "hospitalnumber", "hospno", "casenumber", "number"], theatre ? 2 : 1)
           : row[1];
         const speciality = hasHeader
-          ? valueByHeader(row, ["speciality", "specialty"], theatre ? 3 : 2)
+          ? valueByHeader(row, ["speciality", "specialty", "service", "consultant"], theatre ? 3 : 2)
           : row[2];
         const procedure = hasHeader
-          ? valueByHeader(row, ["procedure", "operation"], theatre ? 4 : 3)
+          ? valueByHeader(row, ["procedure", "operation", "plannedprocedure", "description"], theatre ? 4 : 3)
           : row[3];
         const listDate = hasHeader
-          ? valueByHeader(row, ["listdate", "date"], theatre ? 5 : 4)
+          ? valueByHeader(row, ["listdate", "date", "operationdate", "sessiondate"], theatre ? 5 : 4)
           : row[4];
-        const theatreKey = normaliseLocationText(theatre);
-
-        if (theatreKey && locationKey && theatreKey !== locationKey) {
-          return null;
-        }
 
         return {
           patientName,
@@ -554,9 +551,11 @@ function DrugRegister({ drug, device, onClose }) {
       return;
     }
 
-    setPatientMessage(result.message || "Patient list uploaded");
-    event.target.value = "";
     await loadPatients();
+    setPatientMessage(
+      `${result.message || "Patient list uploaded"}. Showing today's list for ${device?.locationName || "this location"}.`
+    );
+    event.target.value = "";
   }
 
   async function archiveTodayPatientList() {
