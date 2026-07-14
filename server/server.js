@@ -955,6 +955,10 @@ app.get("/audit-trail", verifyUser, adminOnly, (req, res) => {
 
 /* ================= SERVER ================= */
 
-app.listen(config.port, () => {
-  console.log(`Server running on port ${config.port}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(config.port, () => {
+    console.log(`Server running on port ${config.port}`);
+  });
+}
+
+export default app;

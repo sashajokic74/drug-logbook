@@ -5,7 +5,8 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const db = new Database(path.join(__dirname, "druglog.db"));
+const dbPath = process.env.DRUGLOG_DB_PATH || path.join(__dirname, "druglog.db");
+const db = new Database(dbPath);
 
 function addColumnIfMissing(table, column, type) {
   try {
