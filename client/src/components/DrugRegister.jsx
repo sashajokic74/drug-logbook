@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import PatientListPanel from "./drugRegister/PatientListPanel";
+import { parsePatientFile } from "./drugRegister/patientListImport";
 
 const API_URL = "http://localhost:8000";
 const REORDER_LEVEL = 5;
@@ -244,155 +246,6 @@ function DrugRegister({ drug, device, onClose }) {
     }, 80);
   }
 
-  function parseCsvLine(line) {
-    const cells = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let index = 0; index < line.length; index += 1) {
-      const character = line[index];
-      const nextCharacter = line[index + 1];
-
-      if (character === "\"" && inQuotes && nextCharacter === "\"") {
-        current += "\"";
-        index += 1;
-      } else if (character === "\"") {
-        inQuotes = !inQuotes;
-      } else if (character === "," && !inQuotes) {
-        cells.push(current.trim());
-        current = "";
-      } else {
-        current += character;
-      }
-    }
-
-    cells.push(current.trim());
-    return cells;
-  }
-
-  function normaliseHeader(value) {
-    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-  }
-
-  function normaliseListDate(value) {
-    if (!value) return newPatient.listDate || today;
-
-    if (value instanceof Date && !Number.isNaN(value.getTime())) {
-      return value.toISOString().slice(0, 10);
-    }
-
-    const text = String(value).trim();
-    const isoDate = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-
-    if (isoDate) {
-      const [, year, month, day] = isoDate;
-      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    }
-
-    const ukDate = text.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{2,4})$/);
-
-    if (ukDate) {
-      const [, day, month, rawYear] = ukDate;
-      const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
-      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    }
-
-    return newPatient.listDate || today;
-  }
-
-  function parsePatientRows(rawRows) {
-    const rows = rawRows
-      .map((row) => row.map((cell) => String(cell || "").trim()))
-      .filter((row) => row.some(Boolean));
-
-    if (rows.length === 0) return [];
-
-    const headerRowIndex = rows.findIndex((row) => {
-      const headerText = row.map(normaliseHeader).join(" ");
-      return (
-        headerText.includes("patient") ||
-        headerText.includes("mrn") ||
-        headerText.includes("nhs") ||
-        headerText.includes("hospitalnumber") ||
-        headerText.includes("hospno") ||
-        headerText.includes("casenumber")
-      );
-    });
-    const hasHeader = headerRowIndex >= 0;
-    const headers = hasHeader
-      ? rows[headerRowIndex].map(normaliseHeader)
-      : [];
-    const dataRows = hasHeader ? rows.slice(headerRowIndex + 1) : rows;
-
-    function valueByHeader(row, names, fallbackIndex) {
-      const index = headers.findIndex((header) =>
-        names.some((name) => header.includes(name))
-      );
-
-      if (index >= 0) return row[index] || "";
-      return row[fallbackIndex] || "";
-    }
-
-    return dataRows
-      .map((row) => {
-        const theatre = hasHeader
-          ? valueByHeader(row, ["theatre", "location", "room", "operatingroom"], 0)
-          : "";
-        const patientName = hasHeader
-          ? valueByHeader(row, ["patientname", "patient", "name"], theatre ? 1 : 0)
-          : row[0];
-        const hospitalNumber = hasHeader
-          ? valueByHeader(row, ["mrn", "nhs", "hospitalnumber", "hospno", "casenumber", "number"], theatre ? 2 : 1)
-          : row[1];
-        const speciality = hasHeader
-          ? valueByHeader(row, ["speciality", "specialty", "service", "consultant"], theatre ? 3 : 2)
-          : row[2];
-        const procedure = hasHeader
-          ? valueByHeader(row, ["procedure", "operation", "plannedprocedure", "description"], theatre ? 4 : 3)
-          : row[3];
-        const listDate = hasHeader
-          ? valueByHeader(row, ["listdate", "date", "operationdate", "sessiondate"], theatre ? 5 : 4)
-          : row[4];
-
-        return {
-          patientName,
-          hospitalNumber,
-          speciality: speciality || "",
-          procedure: procedure || "",
-          listDate: normaliseListDate(listDate),
-        };
-      })
-      .filter(Boolean)
-      .filter((patient) => patient.patientName && patient.hospitalNumber);
-  }
-
-  function parsePatientDelimitedText(text) {
-    const rows = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) =>
-        line.includes("\t")
-          ? line.split("\t").map((cell) => cell.trim())
-          : parseCsvLine(line)
-      );
-
-    return parsePatientRows(rows);
-  }
-
-  async function parsePatientFile(file) {
-    const fileName = String(file.name || "").toLowerCase();
-
-    if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-      const { default: readXlsxFile } = await import("read-excel-file/browser");
-      const rows = await readXlsxFile(file);
-      return parsePatientRows(rows);
-    }
-
-    const text = await file.text();
-    return parsePatientDelimitedText(text);
-  }
-
   function downloadSamplePatientList() {
     const today = new Date().toISOString().slice(0, 10);
     const theatre = device?.locationName || "TH5";
@@ -511,7 +364,7 @@ function DrugRegister({ drug, device, onClose }) {
     let parsedPatients = [];
 
     try {
-      parsedPatients = await parsePatientFile(file);
+      parsedPatients = await parsePatientFile(file, newPatient.listDate || today);
     } catch {
       setPatientMessage("Could not read this patient list file");
       event.target.value = "";
@@ -1132,150 +985,25 @@ function DrugRegister({ drug, device, onClose }) {
 
       <h2>Current Balance: {balance} ampoules</h2>
 
-      <h3>Patient List - {device?.locationName || "Current Location"}</h3>
-
-      <section className="patient-list-panel">
-        <div className="patient-list-toolbar">
-          <div>
-            <strong>{patientListTitle}</strong>
-            <span>
-              Today: {today} · {patients.length} patient{patients.length === 1 ? "" : "s"} loaded
-            </span>
-          </div>
-
-          <div className="patient-list-actions">
-            <button type="button" onClick={downloadSamplePatientList}>
-              Download Sample List
-            </button>
-
-            <button
-              type="button"
-              className="archive-list-btn"
-              onClick={archiveTodayPatientList}
-            >
-              Archive Today’s List
-            </button>
-          </div>
-        </div>
-
-        <p>
-          Upload Excel or CSV with columns: theatre, patient name, MRN / NHS number, speciality,
-          procedure, list date. This list is saved only for the current
-          hospital/location. Old dated lists disappear automatically from the
-          normal view after their list date.
-        </p>
-
-        {patientSpecialities.length > 1 && (
-          <strong className="patient-list-warning">
-            This uploaded list has more than one speciality. Upload one theatre
-            session/speciality at a time.
-          </strong>
-        )}
-
-        <input
-          type="file"
-          accept=".xlsx,.xls,.csv,.tsv,text/csv,text/tab-separated-values"
-          onChange={uploadPatientList}
-        />
-
-        <input
-          placeholder="Search patient, MRN, speciality or procedure"
-          value={patientSearch}
-          onChange={(event) => setPatientSearch(event.target.value)}
-        />
-      </section>
-
-      <form onSubmit={addPatient}>
-        <input
-          name="patientName"
-          placeholder="Patient name"
-          value={newPatient.patientName}
-          onChange={updateNewPatient}
-        />
-
-        <input
-          name="hospitalNumber"
-          placeholder="MRN / NHS / private hospital number"
-          value={newPatient.hospitalNumber}
-          onChange={updateNewPatient}
-        />
-
-        <input
-          name="speciality"
-          placeholder="Speciality e.g. Orthopaedics, ENT, ICU"
-          value={newPatient.speciality}
-          onChange={updateNewPatient}
-        />
-
-        <input
-          name="procedure"
-          placeholder="Procedure / operation"
-          value={newPatient.procedure}
-          onChange={updateNewPatient}
-        />
-
-        <input
-          type="date"
-          name="listDate"
-          value={newPatient.listDate}
-          onChange={updateNewPatient}
-        />
-
-        <button type="submit">Add Patient To This Area</button>
-      </form>
-
-      {patientMessage && (
-        <p
-          style={{
-            color: patientMessage.includes("Could") || patientMessage.includes("No valid")
-              ? "red"
-              : "green",
-            fontWeight: "bold",
-          }}
-        >
-          {patientMessage}
-        </p>
-      )}
-
-      {selectedPatient && (
-        <div className="selected-patient-banner">
-          <span>Selected patient</span>
-          <strong>{selectedPatient.patientName}</strong>
-          <small>
-            {selectedPatient.hospitalNumber} · {selectedPatient.speciality || "Speciality not set"}
-            {selectedPatient.procedure ? ` · ${selectedPatient.procedure}` : ""}
-          </small>
-        </div>
-      )}
-
-      {patients.length > 0 && (
-        <div className="patient-card-grid">
-          {filteredPatients.map((patient) => (
-            <button
-              key={patient.id}
-              type="button"
-              className={
-                selectedPatient?.id === patient.id
-                  ? "patient-card selected"
-                  : "patient-card"
-              }
-              onClick={() => selectPatient(patient)}
-            >
-              <strong>{patient.patientName}</strong>
-              <span>{device?.locationName || "Location"} · {patient.hospitalNumber}</span>
-              <small>{patient.speciality || "Speciality not set"}</small>
-              <small>{patient.procedure || "Procedure not set"}</small>
-              <em>{patient.listDate || "-"}</em>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {patients.length > 0 && filteredPatients.length === 0 && (
-        <p style={{ fontWeight: "bold" }}>
-          No patients match this search.
-        </p>
-      )}
+      <PatientListPanel
+        device={device}
+        today={today}
+        patients={patients}
+        filteredPatients={filteredPatients}
+        selectedPatient={selectedPatient}
+        patientListTitle={patientListTitle}
+        patientSpecialities={patientSpecialities}
+        patientSearch={patientSearch}
+        patientMessage={patientMessage}
+        newPatient={newPatient}
+        onArchiveTodayPatientList={archiveTodayPatientList}
+        onAddPatient={addPatient}
+        onDownloadSamplePatientList={downloadSamplePatientList}
+        onPatientSearchChange={setPatientSearch}
+        onSelectPatient={selectPatient}
+        onUpdateNewPatient={updateNewPatient}
+        onUploadPatientList={uploadPatientList}
+      />
 
       {balance < REORDER_LEVEL && (
         <p style={{ color: "red", fontWeight: "bold" }}>

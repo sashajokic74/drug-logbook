@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { test } from "node:test";
+
+async function readSource(path) {
+  return readFile(new URL(`../${path}`, import.meta.url), "utf8");
+}
+
+test("main app exposes the expected clinical task navigation", async () => {
+  const app = await readSource("src/App.jsx");
+
+  [
+    "Main Logbook",
+    "Stock Checks",
+    "Corrections",
+    "Pharmacy Requests",
+    "Admin Setup",
+    "Server connection lost",
+  ].forEach((label) => {
+    assert.match(app, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  });
+});
+
+test("drug register keeps patient list upload and administration controls", async () => {
+  const register = await readSource("src/components/DrugRegister.jsx");
+  const patientListPanel = await readSource("src/components/drugRegister/PatientListPanel.jsx");
+
+  assert.match(register, /PatientListPanel/);
+  assert.match(register, /Save Patient Entry/);
+  assert.match(register, /Verify Administered By/);
+  assert.match(register, /Verify Second Checker/);
+
+  [
+    "Download Sample List",
+    ".xlsx,.xls,.csv,.tsv",
+    "Archive Today",
+    "Add Patient To This Area",
+  ].forEach((label) => {
+    assert.match(patientListPanel, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  });
+});
+
+test("patient list import supports Excel, CSV and hospital-style headers", async () => {
+  const importer = await readSource("src/components/drugRegister/patientListImport.js");
+
+  [
+    "read-excel-file/browser",
+    "parsePatientDelimitedText",
+    "hospitalnumber",
+    "hospno",
+    "casenumber",
+    "operationdate",
+    "plannedprocedure",
+  ].forEach((text) => {
+    assert.match(importer, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  });
+});
