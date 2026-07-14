@@ -278,6 +278,32 @@ function DrugRegister({ drug, device, onClose }) {
       .replace(/[^a-z0-9]+/g, "");
   }
 
+  function normaliseListDate(value) {
+    if (!value) return newPatient.listDate || today;
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value.toISOString().slice(0, 10);
+    }
+
+    const text = String(value).trim();
+    const isoDate = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+
+    if (isoDate) {
+      const [, year, month, day] = isoDate;
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
+
+    const ukDate = text.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{2,4})$/);
+
+    if (ukDate) {
+      const [, day, month, rawYear] = ukDate;
+      const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+    }
+
+    return newPatient.listDate || today;
+  }
+
   function parsePatientRows(rawRows) {
     const rows = rawRows
       .map((row) => row.map((cell) => String(cell || "").trim()))
@@ -336,7 +362,7 @@ function DrugRegister({ drug, device, onClose }) {
           hospitalNumber,
           speciality: speciality || "",
           procedure: procedure || "",
-          listDate: listDate || newPatient.listDate,
+          listDate: normaliseListDate(listDate),
         };
       })
       .filter(Boolean)
@@ -370,7 +396,7 @@ function DrugRegister({ drug, device, onClose }) {
     return parsePatientDelimitedText(text);
   }
 
-  function downloadSamplePatientCsv() {
+  function downloadSamplePatientList() {
     const today = new Date().toISOString().slice(0, 10);
     const theatre = device?.locationName || "TH5";
     const speciality = "Orthopaedics";
@@ -483,7 +509,7 @@ function DrugRegister({ drug, device, onClose }) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setPatientMessage("");
+    setPatientMessage(`Reading ${file.name}...`);
 
     let parsedPatients = [];
 
@@ -502,6 +528,8 @@ function DrugRegister({ drug, device, onClose }) {
       event.target.value = "";
       return;
     }
+
+    setPatientMessage(`Uploading ${parsedPatients.length} patient${parsedPatients.length === 1 ? "" : "s"}...`);
 
     const token = localStorage.getItem("token");
     const response = await fetch(`${API_URL}/patients/bulk`, {
@@ -1117,8 +1145,8 @@ function DrugRegister({ drug, device, onClose }) {
           </div>
 
           <div className="patient-list-actions">
-            <button type="button" onClick={downloadSamplePatientCsv}>
-              Download Sample CSV
+            <button type="button" onClick={downloadSamplePatientList}>
+              Download Sample List
             </button>
 
             <button
