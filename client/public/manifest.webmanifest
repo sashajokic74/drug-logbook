@@ -1,0 +1,20 @@
+{
+  "name": "Controlled Drug Logbook",
+  "short_name": "CD Logbook",
+  "description": "Controlled drug logbook for hospital clinical areas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "categories": ["medical", "productivity"],
+  "icons": [
+    {
+      "src": "/cd-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

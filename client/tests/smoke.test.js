@@ -55,3 +55,18 @@ test("patient list import supports Excel, CSV and hospital-style headers", async
     assert.match(importer, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   });
 });
+
+test("app includes installable PWA files for iPad home screen use", async () => {
+  const html = await readSource("index.html");
+  const serviceWorkerRegistration = await readSource("src/registerServiceWorker.js");
+  const manifest = await readSource("public/manifest.webmanifest");
+  const serviceWorker = await readSource("public/service-worker.js");
+
+  assert.match(html, /manifest\.webmanifest/);
+  assert.match(html, /apple-mobile-web-app-capable/);
+  assert.match(serviceWorkerRegistration, /serviceWorker/);
+  assert.match(serviceWorkerRegistration, /import\.meta\.env\.PROD/);
+  assert.match(manifest, /Controlled Drug Logbook/);
+  assert.match(manifest, /standalone/);
+  assert.match(serviceWorker, /cd-logbook-shell/);
+});
