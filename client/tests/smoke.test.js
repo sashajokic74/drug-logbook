@@ -70,3 +70,18 @@ test("app includes installable PWA files for iPad home screen use", async () => 
   assert.match(manifest, /standalone/);
   assert.match(serviceWorker, /cd-logbook-shell/);
 });
+
+test("app stylesheet includes iPad and home-screen layout support", async () => {
+  const css = await readSource("src/index.css");
+
+  [
+    "100dvh",
+    "touch-action: manipulation",
+    "display-mode: standalone",
+    "safe-area-inset",
+    "min-width: 768px",
+    "max-width: 1180px",
+  ].forEach((text) => {
+    assert.match(css, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  });
+});
