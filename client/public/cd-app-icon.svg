@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Controlled Drug Logbook</title>
+  <rect width="512" height="512" rx="96" fill="#0f766e"/>
+  <path fill="#f8fafc" d="M144 116h224c22 0 40 18 40 40v232c0 22-18 40-40 40H144c-22 0-40-18-40-40V156c0-22 18-40 40-40Z"/>
+  <path fill="#115e59" d="M168 184h176v32H168zm0 74h176v32H168zm0 74h112v32H168z"/>
+  <path fill="#14b8a6" d="M352 302c31 0 56 25 56 56s-25 56-56 56-56-25-56-56 25-56 56-56Z"/>
+  <path fill="#f8fafc" d="M342 382v-14h-14v-24h14v-14h24v14h14v24h-14v14z"/>
+  <path fill="#ccfbf1" d="M176 84h160c12 0 22 10 22 22v38H154v-38c0-12 10-22 22-22Z"/>
+</svg>
