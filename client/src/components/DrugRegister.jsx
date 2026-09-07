@@ -3,7 +3,7 @@ import PatientListPanel from "./drugRegister/PatientListPanel";
 import PharmacyStockPanel from "./drugRegister/PharmacyStockPanel";
 import { parsePatientFile } from "./drugRegister/patientListImport";
 
-const API_URL = "http://localhost:8000";
+import { API_URL } from "../apiConfig";
 const REORDER_LEVEL = 5;
 
 function DrugRegister({ drug, device, onClose }) {

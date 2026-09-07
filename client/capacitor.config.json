@@ -1,0 +1,9 @@
+{
+  "appId": "com.sashajokic.druglogbook",
+  "appName": "CD Logbook",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "ios": {
+    "contentInset": "automatic"
+  }
+}

@@ -9,7 +9,7 @@ import PharmacyDashboard from "./components/PharmacyDashboard";
 import AuditTrail from "./components/AuditTrail";
 import "./index.css";
 
-const API_URL = "http://localhost:8000";
+import { API_URL } from "./apiConfig";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 
 function App() {
