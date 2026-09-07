@@ -8,14 +8,19 @@
     "build": "vite build",
     "test": "node --test tests/*.test.js",
     "preview": "vite preview",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 tests/*.test.js"
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 tests/*.test.js",
+    "cap:sync": "npm run build && npx cap sync ios",
+    "cap:open": "npx cap open ios"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.1",
+    "@capacitor/ios": "^8.5.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "read-excel-file": "^9.3.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.1",
     "@vitejs/plugin-react": "^4.3.1",
     "vite": "^5.4.10"
   }

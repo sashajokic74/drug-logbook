@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import DrugRegister from "./DrugRegister";
 
-const API_URL = "http://localhost:8000";
+import { API_URL } from "../apiConfig";
 
 function ControlledDrugLogbook({ device }) {
   const [inventory, setInventory] = useState([]);

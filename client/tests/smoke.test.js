@@ -85,3 +85,17 @@ test("app stylesheet includes iPad and home-screen layout support", async () => 
     assert.match(css, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   });
 });
+
+test("app wrapper has configurable API and Capacitor iOS config", async () => {
+  const apiConfig = await readSource("src/apiConfig.js");
+  const capacitorConfig = await readSource("capacitor.config.json");
+  const app = await readSource("src/App.jsx");
+  const client = await readSource("src/components/client.js");
+
+  assert.match(apiConfig, /VITE_API_URL/);
+  assert.match(apiConfig, /localhost:8000/);
+  assert.match(capacitorConfig, /com\.sashajokic\.druglogbook/);
+  assert.match(capacitorConfig, /"webDir": "dist"/);
+  assert.match(app, /from "\.\/apiConfig"/);
+  assert.match(client, /from "\.\.\/apiConfig"/);
+});
