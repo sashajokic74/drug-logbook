@@ -2,11 +2,23 @@
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
   background: #eef4f7;
   color: #102033;
+  min-height: 100%;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100dvh;
 }
 
 .page {
@@ -36,6 +48,7 @@ h1 {
 
 button {
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 nav button,
@@ -297,7 +310,7 @@ header button {
 .location-auth-panel input {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 16px;
   padding: 11px;
 }
 
@@ -1196,7 +1209,7 @@ header button {
 .staff-filter-row select {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 16px;
   padding: 10px;
 }
 
@@ -1322,6 +1335,86 @@ header button {
   min-height: 44px;
   padding: 9px 8px;
   width: 100%;
+}
+
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .app-header,
+  .page,
+  .admin-setup-workspace,
+  .login-shell {
+    padding-left: max(18px, env(safe-area-inset-left));
+    padding-right: max(18px, env(safe-area-inset-right));
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .app-header,
+  .page,
+  .admin-setup-workspace {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .location-banner {
+    align-items: flex-start;
+  }
+
+  .location-banner h1,
+  .register-hero h1 {
+    font-size: 34px;
+  }
+
+  .login-shell {
+    margin: 26px auto;
+  }
+
+  .device-login-header h1 {
+    font-size: 46px;
+  }
+
+  .clinical-task-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .clinical-task-grid button {
+    min-height: 104px;
+    padding: 14px;
+  }
+
+  .register-hero {
+    align-items: flex-start;
+  }
+
+  .register-stats {
+    min-width: 360px;
+  }
+
+  .add-drug-grid {
+    grid-template-columns: repeat(2, minmax(170px, 1fr));
+  }
+
+  .add-drug-grid button {
+    min-height: 48px;
+  }
+
+  .stock-grid {
+    grid-template-columns: repeat(auto-fill, 142px);
+    gap: 16px 12px;
+  }
+
+  .drug-tile,
+  .flip-card {
+    width: 142px;
+  }
+
+  .flip-card {
+    height: 142px;
+  }
 }
 
 
