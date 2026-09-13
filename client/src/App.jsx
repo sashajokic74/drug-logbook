@@ -6,6 +6,7 @@ import Corrections from "./components/Corrections";
 import LocationManagement from "./components/LocationManagement";
 import DeviceSetup from "./components/DeviceSetup";
 import PharmacyDashboard from "./components/PharmacyDashboard";
+import PharmacyPortal from "./components/PharmacyPortal";
 import AuditTrail from "./components/AuditTrail";
 import "./index.css";
 
@@ -13,6 +14,7 @@ import { API_URL } from "./apiConfig";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 
 function App() {
+  const isPharmacyPortal = window.location.pathname.startsWith("/pharmacy");
   const [device, setDevice] = useState(
     JSON.parse(localStorage.getItem("device"))
   );
@@ -267,6 +269,10 @@ function App() {
     setShowPharmacyDashboard(false);
     setShowAuditTrail(false);
     setShowAdminSetup(false);
+  }
+
+  if (isPharmacyPortal) {
+    return <PharmacyPortal connectionOnline={connectionOnline} />;
   }
 
   if (!device) {

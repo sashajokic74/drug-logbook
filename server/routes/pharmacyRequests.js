@@ -60,6 +60,12 @@ router.post("/", (req, res) => {
       });
     }
 
+    if (!hospitalId || !locationId) {
+      return res.status(400).json({
+        message: "Device hospital and location are required before sending pharmacy request",
+      });
+    }
+
     if (!requestedById || !requestedByName || !requestedByRole) {
       return res.status(400).json({
         message: "Verified authorised staff is required",
@@ -149,12 +155,12 @@ router.get("/", (req, res) => {
     `;
 
     if (hospitalId) {
-      sql += " AND hospitalId = ?";
+      sql += " AND (hospitalId = ? OR hospitalId IS NULL OR hospitalId = '')";
       params.push(Number(hospitalId));
     }
 
     if (locationId) {
-      sql += " AND locationId = ?";
+      sql += " AND (locationId = ? OR locationId IS NULL OR locationId = '')";
       params.push(Number(locationId));
     }
 
@@ -322,6 +328,13 @@ router.post("/verify-requisition", (req, res) => {
       });
     }
 
+    if (!request.hospitalId || !request.locationId) {
+      return res.status(400).json({
+        message:
+          "Requisition cannot be received because hospital/location was not captured. Create a new pharmacy request from the correct location.",
+      });
+    }
+
     if (Number(request.drugId) !== Number(drugId)) {
       return res.status(400).json({
         message: "Requisition number does not match this drug",
@@ -348,9 +361,9 @@ router.post("/verify-requisition", (req, res) => {
       });
     }
 
-    if (request.status !== "APPROVED" && request.status !== "REQUESTED") {
+    if (request.status !== "APPROVED") {
       return res.status(400).json({
-        message: `Requisition cannot be used because status is ${request.status}`,
+        message: `Requisition cannot be received until Pharmacy approves it. Current status: ${request.status}`,
       });
     }
 

@@ -194,7 +194,7 @@ router.post("/", verifyUser, (req, res) => {
       Number(locationId),
       locationName || "",
       Number(drugId),
-      Number(drug.quantity || 0),
+      0,
       Number(drug.minimumStock || 5),
       Number(drug.maximumStock || 20)
     );

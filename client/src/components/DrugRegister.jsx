@@ -541,10 +541,10 @@ function DrugRegister({ drug, device, onClose }) {
         requestedById: pharmacyRequestUser.id,
         requestedByName: pharmacyRequestUser.fullName || pharmacyRequestUser.username,
         requestedByRole: pharmacyRequestUser.role,
-        hospitalId: drug.hospitalId || null,
-        hospitalName: drug.hospitalName || "",
-        locationId: drug.locationId || null,
-        locationName: drug.locationName || "",
+        hospitalId: device?.hospitalId || null,
+        hospitalName: device?.hospitalName || "",
+        locationId: device?.locationId || null,
+        locationName: device?.locationName || "",
       }),
     });
 
@@ -974,17 +974,25 @@ function DrugRegister({ drug, device, onClose }) {
   }
 
   return (
-    <div className="register-box">
-      <button onClick={onClose}>← Back to Drugs</button>
+    <div className="register-box drug-register-screen" data-drug-name={drug.name}>
+      <section className="drug-register-header">
+        <button type="button" className="back-to-drugs-btn" onClick={onClose}>
+          Back to Drugs
+        </button>
 
-      <h2>📖 {drug.name} Register</h2>
+        <div>
+          <span className="eyebrow">Selected controlled drug</span>
+          <h2>{drug.name}</h2>
+          <p>
+            {drug.size} | {drug.concentration}
+          </p>
+        </div>
 
-      <p>
-        <strong>Size:</strong> {drug.size} |{" "}
-        <strong>Concentration:</strong> {drug.concentration}
-      </p>
-
-      <h2>Current Balance: {balance} ampoules</h2>
+        <div className="drug-balance-pill">
+          <strong>{balance}</strong>
+          <span>ampoules</span>
+        </div>
+      </section>
 
       <PatientListPanel
         device={device}

@@ -31,7 +31,18 @@ function PharmacyStockPanel({
   onVerifySupplyRequisition,
 }) {
   return (
-    <>
+    <details className="pharmacy-stock-disclosure">
+      <summary>
+        <span>
+          <strong>Pharmacy stock and requests</strong>
+          <small>
+            {openDrugRequests.length > 0
+              ? `${openDrugRequests.length} pending/approved request${openDrugRequests.length === 1 ? "" : "s"} for ${drug.name}`
+              : `Request or receive ${drug.name} stock`}
+          </small>
+        </span>
+      </summary>
+
       <section className="drug-request-status-panel">
         <div>
           <strong>Pharmacy requests for {drug.name}</strong>
@@ -138,12 +149,12 @@ function PharmacyStockPanel({
       )}
 
       <button type="button" onClick={onToggleSupplyForm}>
-        {showSupplyForm ? "Hide Pharmacy Stock Supply" : "📦 Receive Pharmacy Stock"}
+        {showSupplyForm ? "Hide Pharmacy Stock Supply" : "Receive Approved Pharmacy Stock"}
       </button>
 
       {showSupplyForm && (
         <>
-          <h3>📦 Pharmacy Stock Supply</h3>
+          <h3>Pharmacy Stock Supply</h3>
 
           <input value={`Current balance: ${balance} ampoules`} disabled />
 
@@ -159,18 +170,18 @@ function PharmacyStockPanel({
 
           <input
             name="requisitionNumber"
-            placeholder="Requisition number from pharmacy"
+            placeholder="Approved requisition number"
             value={supplyForm.requisitionNumber}
             onChange={onUpdateSupplyForm}
           />
 
           <button type="button" onClick={onVerifySupplyRequisition}>
-            Verify Requisition Number
+            Verify Approved Requisition
           </button>
 
           {verifiedRequisition && (
             <p style={{ color: "green", fontWeight: "bold" }}>
-              ✓ Requisition matched: {verifiedRequisition.requisitionNumber}
+              Requisition approved and matched: {verifiedRequisition.requisitionNumber}
             </p>
           )}
 
@@ -246,7 +257,7 @@ function PharmacyStockPanel({
           <hr />
         </>
       )}
-    </>
+    </details>
   );
 }
 

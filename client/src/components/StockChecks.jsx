@@ -6,6 +6,8 @@ function StockChecks({ device }) {
   const [drugs, setDrugs] = useState([]);
   const [checks, setChecks] = useState([]);
   const [message, setMessage] = useState("");
+  const [checkType, setCheckType] = useState("Before Operating List");
+  const [stockRows, setStockRows] = useState({});
 
   const [staffOne, setStaffOne] = useState(null);
   const [staffTwo, setStaffTwo] = useState(null);
@@ -20,17 +22,26 @@ function StockChecks({ device }) {
     password: "",
   });
 
-  const [form, setForm] = useState({
-    drugId: "",
-    checkType: "Before Operating List",
-    actualBalance: "",
-    notes: "",
-  });
-
   useEffect(() => {
     loadDrugs();
     loadChecks();
   }, [device?.hospitalId, device?.locationId]);
+
+  useEffect(() => {
+    setStockRows((currentRows) => {
+      const nextRows = {};
+
+      drugs.forEach((drug) => {
+        nextRows[drug.id] = currentRows[drug.id] || {
+          actualBalance: "",
+          checkedCorrect: false,
+          notes: "",
+        };
+      });
+
+      return nextRows;
+    });
+  }, [drugs]);
 
   function deviceQuery() {
     const params = new URLSearchParams();
@@ -41,21 +52,21 @@ function StockChecks({ device }) {
     if (device?.locationName) params.set("locationName", device.locationName);
 
     const query = params.toString();
-    return query ? `?${query}` : "";
+    return query ? "?" + query : "";
   }
 
   async function loadDrugs() {
-    const response = await fetch(`${API_URL}/drugs${deviceQuery()}`);
+    const response = await fetch(API_URL + "/drugs" + deviceQuery());
     const data = await response.json();
-    setDrugs(data);
+    setDrugs(Array.isArray(data) ? data : []);
   }
 
   async function loadChecks() {
     const token = localStorage.getItem("token");
 
-    const response = await fetch(`${API_URL}/stock-checks${deviceQuery()}`, {
+    const response = await fetch(API_URL + "/stock-checks" + deviceQuery(), {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: "Bearer " + token,
       },
     });
 
@@ -63,11 +74,14 @@ function StockChecks({ device }) {
     setChecks(Array.isArray(data) ? data : []);
   }
 
-  function updateForm(event) {
-    setForm({
-      ...form,
-      [event.target.name]: event.target.value,
-    });
+  function updateStockRow(drugId, field, value) {
+    setStockRows((currentRows) => ({
+      ...currentRows,
+      [drugId]: {
+        ...(currentRows[drugId] || {}),
+        [field]: value,
+      },
+    }));
   }
 
   function updateStaffOneForm(event) {
@@ -83,10 +97,6 @@ function StockChecks({ device }) {
       [event.target.name]: event.target.value,
     });
   }
-
-  const selectedDrug = drugs.find(
-    (drug) => Number(drug.id) === Number(form.drugId)
-  );
 
   function isBlockedClinicalRole(roleValue) {
     const role = String(roleValue || "").toLowerCase();
@@ -105,7 +115,7 @@ function StockChecks({ device }) {
   async function verifyStaffOne() {
     setMessage("");
 
-    const response = await fetch(`${API_URL}/checker/verify`, {
+    const response = await fetch(API_URL + "/checker/verify", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -132,7 +142,7 @@ function StockChecks({ device }) {
     }
 
     setStaffOne(result);
-    setMessage(`Staff 1 verified: ${result.fullName}`);
+    setMessage("Staff 1 verified: " + result.fullName);
   }
 
   async function verifyStaffTwo() {
@@ -143,7 +153,7 @@ function StockChecks({ device }) {
       return;
     }
 
-    const response = await fetch(`${API_URL}/checker/verify`, {
+    const response = await fetch(API_URL + "/checker/verify", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -170,19 +180,61 @@ function StockChecks({ device }) {
     }
 
     setStaffTwo(result);
-    setMessage(`Staff 2 verified: ${result.fullName}`);
+    setMessage("Staff 2 verified: " + result.fullName);
   }
+
+  const completedRows = drugs.filter((drug) => {
+    const row = stockRows[drug.id] || {};
+    return row.actualBalance !== "";
+  });
+
+  const correctRows = drugs.filter((drug) => {
+    const row = stockRows[drug.id] || {};
+    return row.checkedCorrect && Number(row.actualBalance) === Number(drug.quantity || 0);
+  });
+
+  const discrepancyRows = drugs.filter((drug) => {
+    const row = stockRows[drug.id] || {};
+    return row.actualBalance !== "" && Number(row.actualBalance) !== Number(drug.quantity || 0);
+  });
+
+  const allRowsCompleted = drugs.length > 0 && completedRows.length === drugs.length;
 
   async function submitCheck() {
     setMessage("");
 
-    if (!form.drugId || form.actualBalance === "") {
-      setMessage("Please select drug and enter actual counted balance");
+    if (drugs.length === 0) {
+      setMessage("No drugs available to check");
+      return;
+    }
+
+    if (!allRowsCompleted) {
+      setMessage("Enter counted balance for every drug before signing");
+      return;
+    }
+
+    const untickedCorrectRows = drugs.filter((drug) => {
+      const row = stockRows[drug.id] || {};
+      return Number(row.actualBalance) === Number(drug.quantity || 0) && !row.checkedCorrect;
+    });
+
+    if (untickedCorrectRows.length > 0) {
+      setMessage("Tick Correct for every drug where the balance matches");
+      return;
+    }
+
+    const discrepancyWithoutNotes = discrepancyRows.filter((drug) => {
+      const row = stockRows[drug.id] || {};
+      return !String(row.notes || "").trim();
+    });
+
+    if (discrepancyWithoutNotes.length > 0) {
+      setMessage("Add a discrepancy note for any drug where the balance does not match");
       return;
     }
 
     if (!staffOne || !staffTwo) {
-      setMessage("Two verified staff members are required");
+      setMessage("Two verified staff members are required at the bottom");
       return;
     }
 
@@ -193,190 +245,239 @@ function StockChecks({ device }) {
 
     const token = localStorage.getItem("token");
 
-    const response = await fetch(`${API_URL}/stock-checks`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        drugId: Number(form.drugId),
-        checkType: form.checkType,
-        actualBalance: Number(form.actualBalance),
-        hospitalId: device?.hospitalId,
-        hospitalName: device?.hospitalName,
-        locationId: device?.locationId,
-        locationName: device?.locationName,
-        staffOneId: staffOne.id,
-        staffTwoId: staffTwo.id,
-        notes: form.notes,
-      }),
-    });
+    for (const drug of drugs) {
+      const row = stockRows[drug.id];
 
-    const result = await response.json();
+      const response = await fetch(API_URL + "/stock-checks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify({
+          drugId: Number(drug.id),
+          checkType,
+          actualBalance: Number(row.actualBalance),
+          hospitalId: device?.hospitalId,
+          hospitalName: device?.hospitalName,
+          locationId: device?.locationId,
+          locationName: device?.locationName,
+          staffOneId: staffOne.id,
+          staffTwoId: staffTwo.id,
+          notes: row.notes || "",
+        }),
+      });
 
-    if (!response.ok) {
-      setMessage(result.message || "Could not save stock check");
-      return;
+      const result = await response.json();
+
+      if (!response.ok) {
+        setMessage(result.message || "Could not save stock check");
+        return;
+      }
     }
 
-    setMessage(result.message);
+    setMessage(
+      discrepancyRows.length === 0
+        ? "Full stock check completed. All drugs correct."
+        : "Full stock check completed with " + discrepancyRows.length + " discrepancy record(s)."
+    );
 
-    setForm({
-      drugId: "",
-      checkType: "Before Operating List",
-      actualBalance: "",
-      notes: "",
-    });
-
+    setStockRows({});
     setStaffOne(null);
     setStaffTwo(null);
     setStaffOneForm({ username: "", password: "" });
     setStaffTwoForm({ username: "", password: "" });
 
+    await loadDrugs();
     await loadChecks();
   }
 
   return (
-    <section className="register-box">
-      <h2>📋 Controlled Drug Stock Check</h2>
+    <section className="register-box stock-check-workspace">
+      <section className="stock-check-header">
+        <div>
+          <span className="eyebrow">Controlled drug cupboard</span>
+          <h2>Full Stock Check</h2>
+          <p>
+            Tick each drug after counting. Two authorised staff sign once at the bottom.
+          </p>
+        </div>
 
-      <label>
-        Select Drug
-        <select name="drugId" value={form.drugId} onChange={updateForm}>
-          <option value="">Select drug</option>
+        <div className="stock-check-progress">
+          <strong>{completedRows.length}/{drugs.length}</strong>
+          <span>checked</span>
+        </div>
+      </section>
 
-          {drugs.map((drug) => (
-            <option key={drug.id} value={drug.id}>
-              {drug.name} — {drug.quantity} ampoules expected
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label>
+      <label className="stock-check-type">
         Check Type
-        <select name="checkType" value={form.checkType} onChange={updateForm}>
+        <select value={checkType} onChange={(event) => setCheckType(event.target.value)}>
           <option>Before Operating List</option>
           <option>After Operating List</option>
+          <option>Daily CD Cupboard Check</option>
+          <option>Shift Handover</option>
         </select>
       </label>
 
-      {selectedDrug && (
-        <input
-          value={`Expected balance: ${selectedDrug.quantity} ampoules`}
-          disabled
-        />
-      )}
+      <div className="stock-check-summary-grid">
+        <div>
+          <strong>{drugs.length}</strong>
+          <span>Total drugs</span>
+        </div>
+        <div>
+          <strong>{correctRows.length}</strong>
+          <span>Correct</span>
+        </div>
+        <div className={discrepancyRows.length > 0 ? "stock-check-alert" : ""}>
+          <strong>{discrepancyRows.length}</strong>
+          <span>Discrepancies</span>
+        </div>
+      </div>
 
-      <input
-        name="actualBalance"
-        type="number"
-        placeholder="Actual counted balance"
-        value={form.actualBalance}
-        onChange={updateForm}
-      />
+      <div className="stock-check-list">
+        {drugs.map((drug) => {
+          const row = stockRows[drug.id] || {};
+          const actualEntered = row.actualBalance !== "";
+          const difference = actualEntered
+            ? Number(row.actualBalance) - Number(drug.quantity || 0)
+            : 0;
+          const isCorrect = actualEntered && difference === 0;
 
-      {selectedDrug && form.actualBalance !== "" && (
-        <p
-          style={{
-            fontWeight: "bold",
-            color:
-              Number(form.actualBalance) === Number(selectedDrug.quantity)
-                ? "green"
-                : "red",
-          }}
-        >
-          {Number(form.actualBalance) === Number(selectedDrug.quantity)
-            ? "✓ Stock count correct"
-            : `🚨 Discrepancy: ${
-                Number(form.actualBalance) - Number(selectedDrug.quantity)
-              } ampoules`}
-        </p>
-      )}
+          return (
+            <article
+              key={drug.id}
+              className={
+                "stock-check-row " +
+                (isCorrect && row.checkedCorrect ? "stock-check-row-ok" : "") +
+                (actualEntered && difference !== 0 ? " stock-check-row-alert" : "")
+              }
+            >
+              <div>
+                <strong>{drug.name}</strong>
+                <span>{drug.size} | {drug.concentration}</span>
+              </div>
 
-      <h3>Staff 1 Verification</h3>
+              <div className="stock-check-expected">
+                <small>Expected</small>
+                <strong>{drug.quantity}</strong>
+              </div>
 
-      <input
-        name="username"
-        placeholder="Staff 1 username"
-        value={staffOneForm.username}
-        onChange={updateStaffOneForm}
-      />
+              <label>
+                Counted
+                <input
+                  type="number"
+                  value={row.actualBalance || ""}
+                  onChange={(event) =>
+                    updateStockRow(drug.id, "actualBalance", event.target.value)
+                  }
+                />
+              </label>
 
-      <input
-        name="password"
-        type="password"
-        placeholder="Staff 1 password"
-        value={staffOneForm.password}
-        onChange={updateStaffOneForm}
-      />
+              <label className="stock-check-tick">
+                <input
+                  type="checkbox"
+                  checked={Boolean(row.checkedCorrect)}
+                  disabled={!isCorrect}
+                  onChange={(event) =>
+                    updateStockRow(drug.id, "checkedCorrect", event.target.checked)
+                  }
+                />
+                Correct
+              </label>
 
-      <button type="button" onClick={verifyStaffOne}>
-        Verify Staff 1
-      </button>
+              <div className="stock-check-difference">
+                <small>Difference</small>
+                <strong>{actualEntered ? difference : "-"}</strong>
+              </div>
 
-      {staffOne && (
-        <p style={{ color: "green", fontWeight: "bold" }}>
-          ✓ Staff 1 verified: {staffOne.fullName} ({staffOne.role},{" "}
-          {staffOne.staffType})
-        </p>
-      )}
+              <input
+                placeholder="Discrepancy note if needed"
+                value={row.notes || ""}
+                onChange={(event) => updateStockRow(drug.id, "notes", event.target.value)}
+              />
+            </article>
+          );
+        })}
+      </div>
 
-      <h3>Staff 2 Verification</h3>
+      <section className="stock-check-signoff">
+        <h3>Final Sign Off</h3>
 
-      <input
-        name="username"
-        placeholder="Staff 2 username"
-        value={staffTwoForm.username}
-        onChange={updateStaffTwoForm}
-      />
+        <div className="stock-check-signoff-grid">
+          <div>
+            <h4>Staff 1 Verification</h4>
 
-      <input
-        name="password"
-        type="password"
-        placeholder="Staff 2 password"
-        value={staffTwoForm.password}
-        onChange={updateStaffTwoForm}
-      />
+            <input
+              name="username"
+              placeholder="Staff 1 username"
+              value={staffOneForm.username}
+              onChange={updateStaffOneForm}
+            />
 
-      <button type="button" onClick={verifyStaffTwo}>
-        Verify Staff 2
-      </button>
+            <input
+              name="password"
+              type="password"
+              placeholder="Staff 1 password"
+              value={staffOneForm.password}
+              onChange={updateStaffOneForm}
+            />
 
-      {staffTwo && (
-        <p style={{ color: "green", fontWeight: "bold" }}>
-          ✓ Staff 2 verified: {staffTwo.fullName} ({staffTwo.role},{" "}
-          {staffTwo.staffType})
-        </p>
-      )}
+            <button type="button" onClick={verifyStaffOne}>
+              Verify Staff 1
+            </button>
 
-      <input
-        name="notes"
-        placeholder="Notes / discrepancy explanation"
-        value={form.notes}
-        onChange={updateForm}
-      />
+            {staffOne && (
+              <p className="verified-message">
+                Staff 1 verified: {staffOne.fullName} ({staffOne.role}, {staffOne.staffType})
+              </p>
+            )}
+          </div>
 
-      <button type="button" onClick={submitCheck}>
-        Save CD Stock Check
-      </button>
+          <div>
+            <h4>Staff 2 Verification</h4>
 
-      {message && (
-        <p
-          style={{
-            fontWeight: "bold",
-            color:
-              message.includes("correct") ||
-              message.includes("verified") ||
-              message.includes("created")
-                ? "green"
-                : "red",
-          }}
-        >
-          {message}
-        </p>
-      )}
+            <input
+              name="username"
+              placeholder="Staff 2 username"
+              value={staffTwoForm.username}
+              onChange={updateStaffTwoForm}
+            />
+
+            <input
+              name="password"
+              type="password"
+              placeholder="Staff 2 password"
+              value={staffTwoForm.password}
+              onChange={updateStaffTwoForm}
+            />
+
+            <button type="button" onClick={verifyStaffTwo}>
+              Verify Staff 2
+            </button>
+
+            {staffTwo && (
+              <p className="verified-message">
+                Staff 2 verified: {staffTwo.fullName} ({staffTwo.role}, {staffTwo.staffType})
+              </p>
+            )}
+          </div>
+        </div>
+
+        <button type="button" className="save-stock-check-btn" onClick={submitCheck}>
+          Save Full Stock Check
+        </button>
+
+        {message && (
+          <p
+            className={
+              "stock-check-message " +
+              (message.includes("completed") || message.includes("verified") ? "ok" : "alert")
+            }
+          >
+            {message}
+          </p>
+        )}
+      </section>
 
       <h3>Stock Check History</h3>
 
@@ -418,25 +519,19 @@ function StockChecks({ device }) {
               <td>
                 {check.staffOneName}
                 <br />
-
                 <small>
                   {check.staffOneRole || ""}{" "}
-                  {check.staffOneStaffType ? `(${check.staffOneStaffType})` : ""}
+                  {check.staffOneStaffType ? "(" + check.staffOneStaffType + ")" : ""}
                 </small>
               </td>
 
               <td>
                 {check.staffOneSignedAt ? (
                   <>
-                    ✓ Signed
+                    Signed
                     <br />
-
-                    <small>
-                      {new Date(check.staffOneSignedAt).toLocaleString()}
-                    </small>
-
+                    <small>{new Date(check.staffOneSignedAt).toLocaleString()}</small>
                     <br />
-
                     <small>
                       ID:{" "}
                       {check.staffOneSignatureHash
@@ -452,25 +547,19 @@ function StockChecks({ device }) {
               <td>
                 {check.staffTwoName}
                 <br />
-
                 <small>
                   {check.staffTwoRole || ""}{" "}
-                  {check.staffTwoStaffType ? `(${check.staffTwoStaffType})` : ""}
+                  {check.staffTwoStaffType ? "(" + check.staffTwoStaffType + ")" : ""}
                 </small>
               </td>
 
               <td>
                 {check.staffTwoSignedAt ? (
                   <>
-                    ✓ Signed
+                    Signed
                     <br />
-
-                    <small>
-                      {new Date(check.staffTwoSignedAt).toLocaleString()}
-                    </small>
-
+                    <small>{new Date(check.staffTwoSignedAt).toLocaleString()}</small>
                     <br />
-
                     <small>
                       ID:{" "}
                       {check.staffTwoSignatureHash

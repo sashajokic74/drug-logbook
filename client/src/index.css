@@ -925,6 +925,73 @@ header button {
   font-weight: 800;
 }
 
+.pharmacy-portal-shell,
+.pharmacy-portal-page {
+  margin: auto;
+  max-width: 1500px;
+  min-height: 100dvh;
+  padding: 28px;
+}
+
+.pharmacy-portal-shell {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+}
+
+.pharmacy-login-card,
+.pharmacy-portal-header {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-left: 8px solid #1565c0;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.pharmacy-login-card {
+  max-width: 520px;
+  padding: 28px;
+  width: 100%;
+}
+
+.pharmacy-login-card h1,
+.pharmacy-portal-header h1 {
+  color: #082f5f;
+  font-size: 38px;
+  line-height: 1;
+  margin: 0;
+  text-align: left;
+}
+
+.pharmacy-login-card p,
+.pharmacy-portal-header p {
+  color: #486174;
+  font-weight: 800;
+  margin: 10px 0 0;
+}
+
+.pharmacy-portal-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding: 18px 20px;
+}
+
+.pharmacy-portal-header .session-panel button {
+  background: #1565c0;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 900;
+  margin-top: 8px;
+  padding: 9px 12px;
+}
+
+.portal-dashboard {
+  margin: 0;
+}
+
 .drug-request-status-panel {
   background: #ffffff;
   border: 1px solid #d7e2ea;
@@ -1717,4 +1784,580 @@ background:linear-gradient(135deg,#06b6d4,#0891b2);
     gap: 12px;
   }
 
+}
+
+
+/* Compact iPad dashboard */
+.add-drug-disclosure {
+  margin: 14px 0 16px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.add-drug-disclosure summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  list-style: none;
+  padding: 12px 14px;
+}
+
+.add-drug-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.add-drug-disclosure summary::after {
+  background: #0f766e;
+  border-radius: 8px;
+  color: #ffffff;
+  content: "Show";
+  font-size: 13px;
+  font-weight: 900;
+  padding: 7px 12px;
+}
+
+.add-drug-disclosure[open] summary::after {
+  content: "Hide";
+}
+
+.add-drug-disclosure summary span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.add-drug-disclosure summary strong {
+  color: #082f5f;
+  font-size: 16px;
+}
+
+.add-drug-disclosure summary small {
+  color: #486174;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.add-drug-disclosure .add-drug-grid {
+  padding: 0 14px 14px;
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .app-header {
+    margin: 12px auto 16px;
+  }
+
+  .location-banner {
+    padding: 14px 16px;
+  }
+
+  .location-banner h1 {
+    font-size: 30px;
+  }
+
+  .location-banner p {
+    font-size: 15px;
+  }
+
+  .clinical-task-grid {
+    gap: 8px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    margin-top: 10px;
+  }
+
+  .clinical-task-grid button {
+    gap: 3px;
+    min-height: 72px;
+    padding: 10px;
+  }
+
+  .clinical-task-grid button strong {
+    font-size: 15px;
+  }
+
+  .clinical-task-grid button small {
+    display: none;
+  }
+
+  .register-hero {
+    padding: 16px;
+  }
+
+  .section-heading {
+    margin: 16px 0 12px;
+  }
+
+  .add-drug-grid {
+    grid-template-columns: repeat(4, minmax(120px, 1fr)) 110px;
+  }
+}
+
+
+/* Compact drug administration screen */
+.drug-register-screen {
+  position: relative;
+  overflow: hidden;
+}
+
+.drug-register-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+.drug-register-screen::before {
+  color: rgba(8, 47, 95, 0.045);
+  content: attr(data-drug-name) "   " attr(data-drug-name) "   " attr(data-drug-name);
+  font-size: 76px;
+  font-weight: 900;
+  left: -80px;
+  letter-spacing: 0;
+  line-height: 1.6;
+  pointer-events: none;
+  position: fixed;
+  right: -80px;
+  text-align: center;
+  text-transform: uppercase;
+  top: 42%;
+  transform: rotate(-18deg);
+  white-space: nowrap;
+  z-index: 0;
+}
+
+.drug-register-header {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d7e2ea;
+  border-left: 8px solid #0f766e;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto 1fr auto;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.drug-register-header h2 {
+  color: #082f5f;
+  font-size: 28px;
+  margin: 0;
+}
+
+.drug-register-header p {
+  color: #486174;
+  font-weight: 800;
+  margin: 4px 0 0;
+}
+
+.back-to-drugs-btn {
+  background: #e5edf3;
+  border: none;
+  border-radius: 8px;
+  color: #102033;
+  font-weight: 900;
+  min-height: 42px;
+  padding: 9px 12px;
+}
+
+.drug-balance-pill {
+  align-items: center;
+  background: #ecfdf5;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  color: #0f766e;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  min-width: 120px;
+  padding: 10px 12px;
+}
+
+.drug-balance-pill strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.drug-balance-pill span {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pharmacy-stock-disclosure {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-left: 8px solid #1565c0;
+  border-radius: 8px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+.pharmacy-stock-disclosure summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  list-style: none;
+  padding: 12px 14px;
+}
+
+.pharmacy-stock-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.pharmacy-stock-disclosure summary::after {
+  background: #1565c0;
+  border-radius: 8px;
+  color: #ffffff;
+  content: "Show";
+  font-size: 13px;
+  font-weight: 900;
+  padding: 7px 12px;
+}
+
+.pharmacy-stock-disclosure[open] summary::after {
+  content: "Hide";
+}
+
+.pharmacy-stock-disclosure summary span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pharmacy-stock-disclosure summary strong {
+  color: #082f5f;
+}
+
+.pharmacy-stock-disclosure summary small {
+  color: #486174;
+  font-weight: 800;
+}
+
+.pharmacy-stock-disclosure > section,
+.pharmacy-stock-disclosure > button,
+.pharmacy-stock-disclosure > h3,
+.pharmacy-stock-disclosure > h4,
+.pharmacy-stock-disclosure > input,
+.pharmacy-stock-disclosure > select,
+.pharmacy-stock-disclosure > p,
+.pharmacy-stock-disclosure > hr {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+
+.drug-register-screen > input,
+.drug-register-screen > select {
+  max-width: 520px;
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .drug-register-screen {
+    padding: 14px;
+  }
+
+  .drug-register-screen::before {
+    font-size: 64px;
+  }
+
+  .drug-register-header {
+    grid-template-columns: auto 1fr auto;
+    padding: 10px 12px;
+  }
+
+  .drug-register-header h2 {
+    font-size: 24px;
+  }
+
+  .drug-balance-pill {
+    min-width: 100px;
+    padding: 8px 10px;
+  }
+
+  .drug-balance-pill strong {
+    font-size: 24px;
+  }
+
+  .patient-list-panel {
+    padding: 10px;
+  }
+
+  .patient-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  }
+
+  .patient-card {
+    min-height: 108px;
+    padding: 10px;
+  }
+
+  .drug-register-screen h3 {
+    margin: 14px 0 8px;
+  }
+
+  .drug-register-screen input,
+  .drug-register-screen select,
+  .drug-register-screen button {
+    font-size: 14px;
+    min-height: 40px;
+  }
+}
+
+@media (max-width: 760px) {
+  .drug-register-header {
+    grid-template-columns: 1fr;
+    position: relative;
+  }
+
+  .drug-balance-pill {
+    justify-content: flex-start;
+  }
+}
+
+
+/* Bulk stock check workflow */
+.stock-check-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.stock-check-header {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-left: 8px solid #0f766e;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  padding: 14px;
+}
+
+.stock-check-header h2 {
+  color: #082f5f;
+  margin: 0;
+}
+
+.stock-check-header p {
+  color: #486174;
+  font-weight: 800;
+  margin: 5px 0 0;
+}
+
+.stock-check-progress {
+  background: #ecfdf5;
+  border: 1px solid #99f6e4;
+  border-radius: 8px;
+  color: #0f766e;
+  display: flex;
+  flex-direction: column;
+  min-width: 110px;
+  padding: 10px;
+  text-align: center;
+}
+
+.stock-check-progress strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.stock-check-progress span,
+.stock-check-summary-grid span {
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.stock-check-type {
+  display: grid;
+  gap: 6px;
+  max-width: 340px;
+}
+
+.stock-check-summary-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+}
+
+.stock-check-summary-grid div {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.stock-check-summary-grid strong {
+  color: #082f5f;
+  display: block;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.stock-check-alert {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+}
+
+.stock-check-alert strong,
+.stock-check-alert span {
+  color: #b91c1c;
+}
+
+.stock-check-list {
+  display: grid;
+  gap: 8px;
+}
+
+.stock-check-row {
+  align-items: end;
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(180px, 1.2fr) 90px 120px 95px 95px minmax(180px, 1fr);
+  padding: 10px;
+}
+
+.stock-check-row strong {
+  color: #082f5f;
+}
+
+.stock-check-row span,
+.stock-check-row small {
+  color: #486174;
+  font-weight: 800;
+}
+
+.stock-check-row label {
+  color: #334155;
+  display: grid;
+  font-size: 12px;
+  font-weight: 900;
+  gap: 5px;
+}
+
+.stock-check-row input,
+.stock-check-type select,
+.stock-check-signoff input {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  padding: 9px;
+}
+
+.stock-check-expected,
+.stock-check-difference {
+  display: grid;
+  gap: 5px;
+}
+
+.stock-check-tick {
+  align-items: center;
+  display: flex !important;
+  gap: 8px !important;
+}
+
+.stock-check-tick input {
+  height: 20px;
+  width: 20px;
+}
+
+.stock-check-row-ok {
+  border-color: #99f6e4;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12);
+}
+
+.stock-check-row-alert {
+  border-color: #fecaca;
+  box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.1);
+}
+
+.stock-check-signoff {
+  background: #ffffff;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.stock-check-signoff h3 {
+  color: #082f5f;
+  margin-top: 0;
+}
+
+.stock-check-signoff-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+}
+
+.stock-check-signoff-grid > div {
+  background: #f7fafc;
+  border: 1px solid #d7e2ea;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+}
+
+.stock-check-signoff button,
+.save-stock-check-btn {
+  background: #0f766e;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 900;
+  padding: 10px 12px;
+}
+
+.save-stock-check-btn {
+  margin-top: 12px;
+  width: 100%;
+}
+
+.verified-message {
+  color: #15803d;
+  font-weight: 900;
+  margin: 0;
+}
+
+.stock-check-message {
+  font-weight: 900;
+}
+
+.stock-check-message.ok {
+  color: #15803d;
+}
+
+.stock-check-message.alert {
+  color: #b91c1c;
+}
+
+@media (max-width: 1180px) {
+  .stock-check-row {
+    grid-template-columns: minmax(170px, 1fr) 80px 105px 90px 80px minmax(150px, 1fr);
+  }
+}
+
+@media (max-width: 820px) {
+  .stock-check-header,
+  .stock-check-signoff-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-check-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stock-check-summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .stock-check-row {
+    align-items: stretch;
+    grid-template-columns: 1fr 1fr;
+  }
 }

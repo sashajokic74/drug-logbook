@@ -364,7 +364,7 @@ app.get("/drugs", (req, res) => {
           Number(locationId),
           locationName || "",
           drug.id,
-          Number(drug.quantity || 0),
+          0,
           Number(drug.minimumStock || 5),
           Number(drug.maximumStock || 20)
         );

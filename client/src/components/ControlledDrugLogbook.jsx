@@ -249,13 +249,13 @@ function ControlledDrugLogbook({ device }) {
         security and patient confidentiality policies.
       </div>
 
-      <div className="add-drug-box">
-        <div className="panel-heading">
-          <div>
-            <h2>Add controlled drug</h2>
-            <p>New stock is added to this selected hospital area.</p>
-          </div>
-        </div>
+      <details className="add-drug-box add-drug-disclosure">
+        <summary>
+          <span>
+            <strong>Add controlled drug</strong>
+            <small>New stock is added to this selected hospital area.</small>
+          </span>
+        </summary>
 
         <div className="add-drug-grid">
           <label>
@@ -303,7 +303,7 @@ function ControlledDrugLogbook({ device }) {
             Add Drug
           </button>
         </div>
-      </div>
+      </details>
 
       <div className="section-heading">
         <div>

@@ -5,23 +5,30 @@ import {
   rejectPharmacyRequest,
 } from "../pharmacy";
 
-function PharmacyDashboard({ device, user }) {
+function PharmacyDashboard({ device, user, portalMode = false }) {
   const [requests, setRequests] = useState([]);
   const [message, setMessage] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
 
   useEffect(() => {
     loadRequests();
-  }, [device?.hospitalId, device?.locationId]);
+  }, [device?.hospitalId, device?.locationId, portalMode]);
+
+  useEffect(() => {
+    if (!portalMode) return undefined;
+
+    const intervalId = window.setInterval(loadRequests, 30000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [portalMode]);
 
   async function loadRequests() {
     setMessage("");
 
     try {
-      const data = await getPharmacyRequests({
-        hospitalId: device?.hospitalId,
-        locationId: device?.locationId,
-      });
+      const data = await getPharmacyRequests({});
       setRequests(Array.isArray(data) ? data : []);
     } catch (error) {
       setMessage(error.message);
@@ -79,14 +86,15 @@ function PharmacyDashboard({ device, user }) {
     user?.role === "pharmacist";
 
   return (
-    <div className="register-box">
+    <div className={portalMode ? "register-box pharmacy-dashboard portal-dashboard" : "register-box pharmacy-dashboard"}>
       <section className="pharmacy-dashboard-header">
         <div>
           <span className="eyebrow">Controlled drug requisitions</span>
-          <h2>Pharmacy Dashboard</h2>
+          <h2>{portalMode ? "Live Pharmacy Dashboard" : "Pharmacy Dashboard"}</h2>
           <p>
-            {device?.locationName || "Current location"} ·{" "}
-            {device?.hospitalName || "Hospital"}
+            {portalMode
+              ? "All connected hospitals and clinical areas"
+              : `${device?.locationName || "Current location"} · ${device?.hospitalName || "Hospital"}`}
           </p>
         </div>
 
@@ -96,8 +104,9 @@ function PharmacyDashboard({ device, user }) {
       </section>
 
       <p>
-        Requisitions are location-specific. Stock can only be received when the
-        requisition number, drug and quantity match.
+        {portalMode
+          ? "New theatre, recovery and ICU requests appear here automatically."
+          : "Requisitions are location-specific. Stock can only be received when the requisition number, drug and quantity match."}
       </p>
 
       {message && (
@@ -170,8 +179,12 @@ function PharmacyDashboard({ device, user }) {
                 </div>
 
                 <div>
-                  <dt>Location</dt>
-                  <dd>{request.locationName || "-"}</dd>
+                  <dt>Hospital / Location</dt>
+                  <dd>
+                    {request.hospitalName && request.locationName
+                      ? `${request.hospitalName} · ${request.locationName}`
+                      : request.locationName || request.hospitalName || "Location not captured"}
+                  </dd>
                 </div>
 
                 <div>
