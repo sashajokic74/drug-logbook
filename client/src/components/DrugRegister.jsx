@@ -1053,164 +1053,200 @@ function DrugRegister({ drug, device, onClose }) {
         onVerifySupplyRequisition={verifySupplyRequisition}
       />
 
-      <h3 ref={patientEntryRef}>👤 Patient Drug Register Entry</h3>
+      <section className="ipad-entry-panel" ref={patientEntryRef}>
+        <div className="ipad-entry-title">
+          <span className="eyebrow">Patient administration</span>
+          <h3>Patient Drug Register Entry</h3>
+        </div>
 
-      {selectedPatient && (
-        <p className="selected-patient-inline">
-          Using {selectedPatient.patientName} for this entry. Complete the drug
-          details below, then verify with two different authorised staff.
-        </p>
-      )}
+        {selectedPatient && (
+          <p className="selected-patient-inline">
+            Using {selectedPatient.patientName} for this entry. Complete the drug
+            details below, then verify with two different authorised staff.
+          </p>
+        )}
 
-      <input
-        name="patientName"
-        placeholder="Patient name"
-        value={form.patientName}
-        onChange={updateForm}
-      />
+        <div className="ipad-field-grid two-column">
+          <input
+            name="patientName"
+            placeholder="Patient name"
+            value={form.patientName}
+            onChange={updateForm}
+          />
 
-      <input
-        name="hospitalNumber"
-        placeholder="Hospital number / MRN / NHS No."
-        value={form.hospitalNumber}
-        onChange={updateForm}
-      />
+          <input
+            name="hospitalNumber"
+            placeholder="Hospital number / MRN / NHS No."
+            value={form.hospitalNumber}
+            onChange={updateForm}
+          />
+        </div>
+      </section>
 
-      <h3>Stock Used For Patient</h3>
+      <section className="ipad-entry-panel">
+        <div className="ipad-entry-title">
+          <span className="eyebrow">Stock used</span>
+          <h3>Stock Used For Patient</h3>
+        </div>
 
-      <input value={`Previous balance: ${balance} ampoules`} disabled />
+        <div className="ipad-field-grid three-column">
+          <input value={`Previous balance: ${balance} ampoules`} disabled />
 
-      <input
-        name="ampoulesUsed"
-        placeholder="Ampoules opened / used"
-        value={form.ampoulesUsed}
-        onChange={updateForm}
-      />
+          <input
+            name="ampoulesUsed"
+            placeholder="Ampoules opened / used"
+            value={form.ampoulesUsed}
+            onChange={updateForm}
+          />
 
-      <input value={`New balance: ${patientNewBalance()} ampoules`} disabled />
+          <input value={`New balance: ${patientNewBalance()} ampoules`} disabled />
+        </div>
 
-      {patientNewBalance() < REORDER_LEVEL && (
-        <p style={{ color: "red", fontWeight: "bold" }}>
-          ⚠️ Reorder required from pharmacy
-        </p>
-      )}
+        {patientNewBalance() < REORDER_LEVEL && (
+          <p className="ipad-alert-message">
+            Reorder required from pharmacy
+          </p>
+        )}
+      </section>
 
-      <h3>Dose Reconciliation</h3>
+      <section className="ipad-entry-panel">
+        <div className="ipad-entry-title">
+          <span className="eyebrow">Dose check</span>
+          <h3>Dose Given / Wasted</h3>
+        </div>
 
-      <input value={`Amount per ampoule: ${amountPerAmpoule()} ${getDoseUnit()}`} disabled />
-      <input value={`Opened ampoules total: ${totalAvailableFromOpenedAmpoules()} ${getDoseUnit()}`} disabled />
+        <div className="ipad-dose-summary">
+          <input value={`Amount per ampoule: ${amountPerAmpoule()} ${getDoseUnit()}`} disabled />
+          <input value={`Opened ampoules total: ${totalAvailableFromOpenedAmpoules()} ${getDoseUnit()}`} disabled />
+        </div>
 
-      <h3>Dose Given / Wasted</h3>
+        <div className="ipad-field-grid four-column">
+          <input
+            name="amountAdministered"
+            placeholder="Amount administered"
+            value={form.amountAdministered}
+            onChange={updateForm}
+          />
 
-      <input
-        name="amountAdministered"
-        placeholder="Amount administered"
-        value={form.amountAdministered}
-        onChange={updateForm}
-      />
+          <select
+            name="administeredUnit"
+            value={form.administeredUnit}
+            onChange={updateForm}
+          >
+            <option>mcg</option>
+            <option>mg</option>
+            <option>ml</option>
+          </select>
 
-      <select
-        name="administeredUnit"
-        value={form.administeredUnit}
-        onChange={updateForm}
-      >
-        <option>mcg</option>
-        <option>mg</option>
-        <option>ml</option>
-      </select>
+          <input
+            name="amountWasted"
+            placeholder="Amount wasted"
+            value={form.amountWasted}
+            onChange={updateForm}
+          />
 
-      <input
-        name="amountWasted"
-        placeholder="Amount wasted"
-        value={form.amountWasted}
-        onChange={updateForm}
-      />
+          <select
+            name="wastedUnit"
+            value={form.wastedUnit}
+            onChange={updateForm}
+          >
+            <option>mcg</option>
+            <option>mg</option>
+            <option>ml</option>
+          </select>
+        </div>
 
-      <select
-        name="wastedUnit"
-        value={form.wastedUnit}
-        onChange={updateForm}
-      >
-        <option>mcg</option>
-        <option>mg</option>
-        <option>ml</option>
-      </select>
+        <div className="ipad-dose-summary">
+          <input value={`Administered + wasted: ${totalAccountedFor()} ${getDoseUnit()}`} disabled />
+          <input value={`Discrepancy: ${discrepancyAmount()} ${getDoseUnit()}`} disabled />
+        </div>
 
-      <input value={`Administered + wasted: ${totalAccountedFor()} ${getDoseUnit()}`} disabled />
-      <input value={`Discrepancy: ${discrepancyAmount()} ${getDoseUnit()}`} disabled />
+        {form.ampoulesUsed && (
+          <p className={isDoseBalanced() ? "ipad-ok-message" : "ipad-alert-message"}>
+            {isDoseBalanced()
+              ? "Dose fully accounted for"
+              : "Administered + wasted does not match opened ampoule amount"}
+          </p>
+        )}
+      </section>
 
-      {form.ampoulesUsed && (
-        <p style={{ color: isDoseBalanced() ? "green" : "red", fontWeight: "bold" }}>
-          {isDoseBalanced()
-            ? "✓ Dose fully accounted for"
-            : "⚠️ Administered + wasted does not match opened ampoule amount"}
-        </p>
-      )}
+      <section className="ipad-entry-panel">
+        <div className="ipad-entry-title">
+          <span className="eyebrow">Two-person verification</span>
+          <h3>Staff Signatures</h3>
+        </div>
 
-      <h3>Administered By Verification</h3>
+        <div className="ipad-signature-grid">
+          <div>
+            <h4>Administered By</h4>
+            <input
+              name="username"
+              placeholder="Administering staff username"
+              value={adminForm.username}
+              onChange={updateAdminForm}
+            />
 
-      <input
-        name="username"
-        placeholder="Administering staff username"
-        value={adminForm.username}
-        onChange={updateAdminForm}
-      />
+            <input
+              name="password"
+              type="password"
+              placeholder="Administering staff password"
+              value={adminForm.password}
+              onChange={updateAdminForm}
+            />
 
-      <input
-        name="password"
-        type="password"
-        placeholder="Administering staff password"
-        value={adminForm.password}
-        onChange={updateAdminForm}
-      />
+            <button type="button" onClick={verifyAdministeredBy}>
+              Verify Administered By
+            </button>
 
-      <button type="button" onClick={verifyAdministeredBy}>
-        Verify Administered By
-      </button>
+            {administeredUser && (
+              <p className="ipad-ok-message">
+                Administered by verified: {administeredUser.fullName} ({administeredUser.role})
+              </p>
+            )}
+          </div>
 
-      {administeredUser && (
-        <p style={{ color: "green", fontWeight: "bold" }}>
-          ✓ Administered by verified: {administeredUser.fullName} ({administeredUser.role})
-        </p>
-      )}
+          <div>
+            <h4>Second Checker</h4>
+            <input
+              name="username"
+              placeholder="Checker username"
+              value={checkerForm.username}
+              onChange={updateCheckerForm}
+            />
 
-      <h3>Second Checker Verification</h3>
+            <input
+              name="password"
+              type="password"
+              placeholder="Checker password"
+              value={checkerForm.password}
+              onChange={updateCheckerForm}
+            />
 
-      <input
-        name="username"
-        placeholder="Checker username"
-        value={checkerForm.username}
-        onChange={updateCheckerForm}
-      />
+            <button type="button" onClick={verifySecondChecker}>
+              Verify Second Checker
+            </button>
 
-      <input
-        name="password"
-        type="password"
-        placeholder="Checker password"
-        value={checkerForm.password}
-        onChange={updateCheckerForm}
-      />
+            {checkerUser && (
+              <p className="ipad-ok-message">
+                Second checker verified: {checkerUser.fullName} ({checkerUser.role})
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
 
-      <button type="button" onClick={verifySecondChecker}>
-        Verify Second Checker
-      </button>
+      <section className="ipad-entry-panel ipad-save-panel">
+        <input
+          name="notes"
+          placeholder="Notes"
+          value={form.notes}
+          onChange={updateForm}
+        />
 
-      {checkerUser && (
-        <p style={{ color: "green", fontWeight: "bold" }}>
-          ✓ Second checker verified: {checkerUser.fullName} ({checkerUser.role})
-        </p>
-      )}
-
-      <input
-        name="notes"
-        placeholder="Notes"
-        value={form.notes}
-        onChange={updateForm}
-      />
-
-      <button type="button" onClick={savePatientEntry}>
-        💾 Save Patient Entry
-      </button>
+        <button type="button" className="ipad-save-entry-btn" onClick={savePatientEntry}>
+          Save Patient Entry
+        </button>
+      </section>
 
       <h3>Register Entries</h3>
 

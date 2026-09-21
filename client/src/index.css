@@ -2548,3 +2548,346 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(4, 116, 109, 0.18);
   outline: none;
 }
+
+/* Presentation polish: brighter, tighter dashboard for iPad and cloud demo */
+body {
+  background:
+    radial-gradient(circle at top left, rgba(20, 184, 166, 0.16), transparent 32%),
+    linear-gradient(180deg, #d9e7ef 0%, #edf4f8 42%, #dbe8f0 100%);
+}
+
+.page,
+.app-header,
+.admin-setup-workspace {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.location-banner {
+  background: linear-gradient(135deg, #ffffff 0%, #e7f9f5 58%, #d9ecfb 100%);
+  border-color: #8fb8c7;
+  border-left-width: 10px;
+  box-shadow: 0 16px 32px rgba(8, 47, 95, 0.16);
+  padding: 14px 18px;
+}
+
+.location-banner h1 {
+  font-size: 32px;
+}
+
+.location-banner p {
+  font-size: 16px;
+}
+
+.device-context-row {
+  margin-top: 9px;
+}
+
+.device-context-row span {
+  background: #bff4e8;
+  border-color: #0d9488;
+  color: #064e49;
+}
+
+.clinical-task-grid {
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin-top: 10px;
+}
+
+.clinical-task-grid button {
+  background: linear-gradient(180deg, #ffffff 0%, #eaf4fb 100%);
+  min-height: 74px;
+  padding: 10px 12px;
+}
+
+.clinical-task-grid button strong {
+  font-size: 15px;
+}
+
+.clinical-task-grid button small {
+  font-size: 11px;
+}
+
+.register-hero,
+.pharmacy-dashboard-header,
+.stock-check-header,
+.drug-register-header,
+.admin-setup-header {
+  background: linear-gradient(135deg, #ffffff 0%, #eff8ff 100%);
+  border-color: #8fb8c7;
+  border-left-width: 10px;
+  box-shadow: 0 16px 32px rgba(8, 47, 95, 0.14);
+  padding: 14px 16px;
+}
+
+.register-hero h1,
+.register-hero h2 {
+  font-size: 30px;
+}
+
+.register-stats {
+  gap: 8px;
+}
+
+.register-stats div,
+.stock-check-summary-grid div {
+  background: linear-gradient(135deg, #ffffff 0%, #dff4ff 100%);
+  border-color: #9fc4d2;
+  min-height: 70px;
+  padding: 10px;
+}
+
+.register-stats strong,
+.stock-check-summary-grid strong {
+  color: #004b8d;
+  font-size: 30px;
+}
+
+.add-drug-disclosure,
+.pharmacy-stock-disclosure,
+.stock-check-row,
+.stock-check-signoff,
+.stock-check-signoff-grid > div,
+.patient-list-panel,
+.pharmacy-request-card {
+  border-color: #9fc4d2;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.1);
+}
+
+.stock-grid {
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, 138px);
+}
+
+.drug-tile,
+.flip-card {
+  width: 138px;
+}
+
+.flip-card {
+  height: 138px;
+}
+
+.flip-card-front {
+  filter: saturate(1.18) contrast(1.05);
+}
+
+.fentanyl-card .flip-card-front,
+.morphine-card .flip-card-front {
+  background: linear-gradient(135deg, #2f9bff, #0047b8);
+}
+
+.remifentanil-card .flip-card-front {
+  background: linear-gradient(135deg, #38bdf8, #075985);
+}
+
+.alfentanil-card .flip-card-front {
+  background: linear-gradient(135deg, #22c55e, #047857);
+}
+
+.midazolam-card .flip-card-front {
+  background: linear-gradient(135deg, #ffb020, #d35400);
+}
+
+.pf-morphine-card .flip-card-front {
+  background: linear-gradient(135deg, #c084fc, #6d28d9);
+}
+
+.cocaine-card .flip-card-front {
+  background: linear-gradient(135deg, #fb7185, #be123c);
+}
+
+.ketamine-card .flip-card-front {
+  background: linear-gradient(135deg, #fde047, #ca8a04);
+}
+
+.oxycodone-card .flip-card-front {
+  background: linear-gradient(135deg, #22d3ee, #0e7490);
+}
+
+.drug-register-screen::before {
+  color: rgba(0, 75, 141, 0.13);
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .clinical-task-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .location-banner,
+  .register-hero {
+    padding: 12px 14px;
+  }
+
+  .stock-grid {
+    grid-template-columns: repeat(auto-fill, 128px);
+  }
+
+  .drug-tile,
+  .flip-card {
+    width: 128px;
+  }
+
+  .flip-card {
+    height: 128px;
+  }
+}
+
+/* iPad touch workflow for patient administration */
+.ipad-entry-panel {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #9fc4d2;
+  border-left: 8px solid #04746d;
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(8, 47, 95, 0.12);
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 14px;
+}
+
+.ipad-entry-title {
+  align-items: end;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.ipad-entry-title h3 {
+  color: #062a55;
+  font-size: 22px;
+  margin: 0;
+}
+
+.ipad-field-grid,
+.ipad-dose-summary,
+.ipad-signature-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.ipad-field-grid.two-column,
+.ipad-dose-summary,
+.ipad-signature-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.ipad-field-grid.three-column {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.ipad-field-grid.four-column {
+  grid-template-columns: 1fr 92px 1fr 92px;
+}
+
+.ipad-entry-panel input,
+.ipad-entry-panel select,
+.ipad-entry-panel button {
+  font-size: 16px;
+  min-height: 46px;
+  width: 100%;
+}
+
+.ipad-entry-panel input,
+.ipad-entry-panel select {
+  background: #f8fbfd;
+  border: 1px solid #9eb5c5;
+  border-radius: 8px;
+  font-weight: 750;
+  padding: 10px 12px;
+}
+
+.ipad-entry-panel input:disabled {
+  background: #e6f1f7;
+  color: #14344e;
+  opacity: 1;
+}
+
+.ipad-signature-grid > div {
+  background: #eff8ff;
+  border: 1px solid #b8cbd8;
+  border-radius: 8px;
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+}
+
+.ipad-signature-grid h4 {
+  color: #062a55;
+  font-size: 16px;
+  margin: 0;
+}
+
+.ipad-entry-panel button,
+.ipad-save-entry-btn {
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 900;
+  padding: 11px 14px;
+}
+
+.ipad-save-panel {
+  border-left-color: #155dc7;
+  grid-template-columns: 1fr minmax(180px, 260px);
+}
+
+.ipad-save-entry-btn {
+  background: linear-gradient(135deg, #155dc7, #004b8d);
+  font-size: 17px !important;
+}
+
+.ipad-ok-message,
+.ipad-alert-message {
+  border-radius: 8px;
+  font-weight: 900;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.ipad-ok-message {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.ipad-alert-message {
+  background: #fee2e2;
+  border: 1px solid #f87171;
+  color: #991b1b;
+}
+
+@media (min-width: 768px) and (max-width: 1180px) {
+  .ipad-entry-panel {
+    gap: 10px;
+    margin: 10px 0;
+    padding: 12px;
+  }
+
+  .ipad-entry-title h3 {
+    font-size: 20px;
+  }
+
+  .ipad-field-grid.three-column {
+    grid-template-columns: 1fr 0.85fr 1fr;
+  }
+
+  .ipad-entry-panel input,
+  .ipad-entry-panel select,
+  .ipad-entry-panel button {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 760px) {
+  .ipad-field-grid.two-column,
+  .ipad-field-grid.three-column,
+  .ipad-field-grid.four-column,
+  .ipad-dose-summary,
+  .ipad-signature-grid,
+  .ipad-save-panel {
+    grid-template-columns: 1fr;
+  }
+}
