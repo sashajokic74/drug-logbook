@@ -17,7 +17,26 @@ const app = express();
 
 app.use(
   cors({
-    origin: config.corsOrigin,
+    origin(origin, callback) {
+      if (!origin || config.corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      try {
+        const { hostname } = new URL(origin);
+        const isLocalNetwork =
+          hostname === "localhost" ||
+          hostname === "127.0.0.1" ||
+          hostname.startsWith("192.168.") ||
+          hostname.startsWith("10.") ||
+          /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
+
+        callback(isLocalNetwork ? null : new Error("Not allowed by CORS"), isLocalNetwork);
+      } catch {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
   })
 );
 

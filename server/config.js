@@ -41,7 +41,10 @@ function requiredInProduction(name, fallback) {
 }
 
 export const config = {
-  corsOrigin: process.env.CORS_ORIGIN || "http://localhost:5173",
+  corsOrigins: (process.env.CORS_ORIGIN || "http://localhost:5173")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   defaultAdminPassword: requiredInProduction(
     "DEFAULT_ADMIN_PASSWORD",
     "admin123"

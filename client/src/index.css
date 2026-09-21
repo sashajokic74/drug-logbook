@@ -1905,9 +1905,9 @@ background:linear-gradient(135deg,#06b6d4,#0891b2);
 }
 
 .drug-register-screen::before {
-  color: rgba(8, 47, 95, 0.045);
+  color: rgba(6, 42, 85, 0.11);
   content: attr(data-drug-name) "   " attr(data-drug-name) "   " attr(data-drug-name);
-  font-size: 76px;
+  font-size: 82px;
   font-weight: 900;
   left: -80px;
   letter-spacing: 0;
@@ -1916,6 +1916,7 @@ background:linear-gradient(135deg,#06b6d4,#0891b2);
   position: fixed;
   right: -80px;
   text-align: center;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.55);
   text-transform: uppercase;
   top: 42%;
   transform: rotate(-18deg);
@@ -2360,4 +2361,190 @@ background:linear-gradient(135deg,#06b6d4,#0891b2);
     align-items: stretch;
     grid-template-columns: 1fr 1fr;
   }
+}
+
+/* Stronger clinical colour pass */
+body {
+  background: #dfeaf1;
+  color: #0b1f35;
+}
+
+.location-banner,
+.register-hero,
+.admin-setup-header,
+.pharmacy-dashboard-header,
+.stock-check-header,
+.drug-register-header,
+.stock-check-signoff,
+.pharmacy-request-card,
+.audit-row,
+.audit-header,
+.audit-filter-panel,
+.staff-filter-row,
+.patient-list-panel {
+  background: #ffffff;
+  border-color: #b8cbd8;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+}
+
+.location-banner,
+.register-hero,
+.stock-check-header,
+.drug-register-header {
+  border-left-color: #04746d;
+}
+
+h1,
+.location-banner h1,
+.register-hero h2,
+.drug-register-header h2,
+.stock-check-header h2,
+.pharmacy-dashboard-header h2,
+.admin-setup-header h2,
+.stock-check-signoff h3,
+.clinical-task-grid button strong {
+  color: #062a55;
+}
+
+.eyebrow,
+.location-label,
+.clinical-task-grid button span,
+.register-hero p,
+.drug-register-header p,
+.stock-check-header p,
+.pharmacy-dashboard-header p,
+.add-drug-disclosure summary small,
+.pharmacy-stock-disclosure summary small {
+  color: #355267;
+}
+
+.device-context-row span,
+.drug-balance-pill,
+.stock-check-progress,
+.clinical-task-grid button.active {
+  background: #d9fbf2;
+  border-color: #14b8a6;
+  color: #075e56;
+}
+
+.clinical-task-grid button {
+  background: linear-gradient(180deg, #ffffff 0%, #f1f7fb 100%);
+  border-color: #b8cbd8;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.1);
+}
+
+.clinical-task-grid button:nth-child(1) {
+  border-left: 7px solid #04746d;
+}
+
+.clinical-task-grid button:nth-child(2) {
+  border-left: 7px solid #1d64b7;
+}
+
+.clinical-task-grid button:nth-child(3) {
+  border-left: 7px solid #7c3aed;
+}
+
+.clinical-task-grid button:nth-child(4) {
+  border-left: 7px solid #b45309;
+}
+
+.clinical-task-grid button:nth-child(5) {
+  border-left: 7px solid #be123c;
+}
+
+.clinical-task-grid button.active {
+  background: linear-gradient(180deg, #e1fbf5 0%, #c8f3ea 100%);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.22), 0 12px 24px rgba(15, 23, 42, 0.14);
+}
+
+.clinical-task-grid button.admin-task.active {
+  background: linear-gradient(180deg, #fff0d7 0%, #fed7aa 100%);
+  border-color: #c66a08;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.24), 0 12px 24px rgba(15, 23, 42, 0.14);
+}
+
+button,
+.add-drug-disclosure summary::after,
+.pharmacy-stock-disclosure summary::after,
+.stock-check-signoff button,
+.save-stock-check-btn {
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.14);
+}
+
+.add-drug-disclosure summary::after,
+.stock-check-signoff button,
+.save-stock-check-btn {
+  background: #04746d;
+}
+
+.pharmacy-stock-disclosure,
+.stock-check-summary-grid div,
+.stock-check-row,
+.stock-check-signoff-grid > div,
+.add-drug-disclosure {
+  background: #ffffff;
+  border-color: #b8cbd8;
+}
+
+.pharmacy-stock-disclosure {
+  border-left-color: #155dc7;
+}
+
+.pharmacy-stock-disclosure summary::after,
+.edit-btn {
+  background: #155dc7;
+}
+
+.register-stats div,
+.stock-check-summary-grid div {
+  background: linear-gradient(180deg, #ffffff 0%, #edf5fa 100%);
+  border-color: #b8cbd8;
+}
+
+.register-stats strong,
+.stock-check-summary-grid strong,
+.drug-balance-pill strong,
+.stock-check-progress strong {
+  color: #062a55;
+}
+
+.connection-banner.warning {
+  background: #ffedd5;
+  border-color: #fb923c;
+  border-left-color: #c2410c;
+  color: #7c2d12;
+}
+
+.connection-banner.offline,
+.stock-check-alert {
+  background: #fee2e2 !important;
+  border-color: #f87171 !important;
+  border-left-color: #b91c1c;
+  color: #7f1d1d;
+}
+
+.flip-card-front {
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.22);
+}
+
+.flip-card-back {
+  background: #f8fbfd;
+  border: 1px solid #b8cbd8;
+  color: #062a55;
+}
+
+input,
+select,
+textarea {
+  border-color: #9eb5c5 !important;
+  color: #0b1f35;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #04746d !important;
+  box-shadow: 0 0 0 3px rgba(4, 116, 109, 0.18);
+  outline: none;
 }
