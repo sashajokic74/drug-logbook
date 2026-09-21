@@ -1,5 +1,8 @@
 *node_modules
 *dist
 *.env
+*.db
+*.db-shm
+*.db-wal
 *druglogbook.db
  

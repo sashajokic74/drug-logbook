@@ -4,8 +4,16 @@
   "description": "A drug log inventory",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint . --ext .js"
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "build": "npm --prefix client run build",
+    "start": "NODE_ENV=production node server/server.js",
+    "dev:server": "npm --prefix server start",
+    "dev:client": "npm --prefix client run dev -- --host 0.0.0.0",
+    "test": "npm --prefix server test && npm --prefix client test",
+    "lint": "npm --prefix server run lint"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "repository": {
     "type": "git",

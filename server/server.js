@@ -2,6 +2,9 @@ import transactionRoutes from "./routes/transactions.js";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import seedDrugs from "./drugData.js";
 import db from "./database.js";
 import { loginUser, verifyUser, adminOnly } from "./auth.js";
@@ -12,6 +15,10 @@ import locationRoutes from "./routes/locations.js";
 import pharmacyRequestRoutes from "./routes/pharmacyRequests.js";
 import userRoutes from "./routes/users.js";
 import { config } from "./config.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const clientDistPath = path.resolve(__dirname, "../client/dist");
 
 const app = express();
 
@@ -971,6 +978,14 @@ app.get("/audit-trail", verifyUser, adminOnly, (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 });
+
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+
+  app.get(/^\/(?!health|transactions|checker|stock-checks|corrections|locations|pharmacy-requests|users|device-setup|drugs|login|patients|audit-trail).*/, (req, res) => {
+    res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+}
 
 /* ================= SERVER ================= */
 

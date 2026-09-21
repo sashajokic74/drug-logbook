@@ -4,11 +4,20 @@ const envApiUrl =
     ? configuredApiUrl
     : "";
 
-const browserApiUrl =
-  typeof window !== "undefined" &&
-  window.location.hostname &&
-  !["localhost", "127.0.0.1"].includes(window.location.hostname)
-    ? `${window.location.protocol}//${window.location.hostname}:8000`
-    : "http://localhost:8000";
+function getBrowserApiUrl() {
+  if (typeof window === "undefined" || !window.location.hostname) {
+    return "http://localhost:8000";
+  }
 
-export const API_URL = envApiUrl || browserApiUrl;
+  if (import.meta.env.PROD) {
+    return window.location.origin;
+  }
+
+  if (!["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+
+  return "http://localhost:8000";
+}
+
+export const API_URL = envApiUrl || getBrowserApiUrl();
