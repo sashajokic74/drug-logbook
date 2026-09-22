@@ -67,7 +67,7 @@ function AdminPortal({ connectionOnline }) {
 
   function deviceLink(deviceData) {
     if (!deviceData?.deviceCode) return "/";
-    return `/?device=${encodeURIComponent(deviceData.deviceCode)}`;
+    return `/device/${encodeURIComponent(deviceData.deviceCode)}`;
   }
 
   if (!adminUser) {

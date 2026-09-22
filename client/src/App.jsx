@@ -63,7 +63,8 @@ function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const deviceCode = params.get("device");
+    const devicePathMatch = window.location.pathname.match(/^\/device\/([^/]+)$/);
+    const deviceCode = params.get("device") || devicePathMatch?.[1];
 
     if (!deviceCode) return undefined;
 
