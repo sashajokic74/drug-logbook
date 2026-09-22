@@ -372,7 +372,13 @@ test("patient bulk upload saves the list for the current location and date", asy
 
 test("pharmacy requisition verification rejects quantity mismatch", async () => {
   const { odpId, drugId } = seedBaseData();
+  insertUser({
+    username: "pharmacy",
+    role: "pharmacy",
+    fullName: "Phil Pharmacy",
+  });
   const token = await login();
+  const pharmacyToken = await login("pharmacy");
 
   const createResponse = await request("/pharmacy-requests", {
     method: "POST",
@@ -395,6 +401,19 @@ test("pharmacy requisition verification rejects quantity mismatch", async () => 
   const createBody = await createResponse.json();
 
   assert.equal(createResponse.status, 201, createBody.message);
+
+  const approveResponse = await request(
+    `/pharmacy-requests/${createBody.request.id}/approve`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${pharmacyToken}`,
+      },
+    }
+  );
+  const approveBody = await approveResponse.json();
+
+  assert.equal(approveResponse.status, 200, approveBody.message);
 
   const verifyResponse = await request("/pharmacy-requests/verify-requisition", {
     method: "POST",

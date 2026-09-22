@@ -3,7 +3,7 @@ import DrugRegister from "./DrugRegister";
 
 import { API_URL } from "../apiConfig";
 
-function ControlledDrugLogbook({ device }) {
+function ControlledDrugLogbook({ device, user }) {
   const [inventory, setInventory] = useState([]);
   const [selectedDrug, setSelectedDrug] = useState(null);
 
@@ -188,6 +188,7 @@ function ControlledDrugLogbook({ device }) {
   const lowStockCount = inventory.filter(
     (drug) => Number(drug.quantity || 0) < 5
   ).length;
+  const canManageDrugStock = String(user?.role || "").toLowerCase() === "admin";
 
   function stockStatus(drug) {
     const quantity = Number(drug.quantity || 0);
@@ -339,23 +340,25 @@ function ControlledDrugLogbook({ device }) {
                     {drug.concentration}
                   </p>
 
-                  <div className="drug-card-actions">
-                    <button
-                      type="button"
-                      className="edit-btn"
-                      onClick={() => editDrug(drug.id)}
-                    >
-                      Edit
-                    </button>
+                  {canManageDrugStock && (
+                    <div className="drug-card-actions">
+                      <button
+                        type="button"
+                        className="edit-btn"
+                        onClick={() => editDrug(drug.id)}
+                      >
+                        Edit
+                      </button>
 
-                    <button
-                      type="button"
-                      className="delete-btn"
-                      onClick={() => deleteDrug(drug.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        className="delete-btn"
+                        onClick={() => deleteDrug(drug.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

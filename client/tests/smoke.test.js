@@ -14,8 +14,9 @@ test("main app exposes the expected clinical task navigation", async () => {
     "Stock Checks",
     "Corrections",
     "Pharmacy Requests",
-    "Admin Setup",
     "Server connection lost",
+    "/admin",
+    "AdminPortal",
   ].forEach((label) => {
     assert.match(app, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   });
@@ -34,6 +35,8 @@ test("drug register keeps patient list upload and administration controls", asyn
     "Download Sample List",
     ".xlsx,.xls,.csv,.tsv",
     "Archive Today",
+    "Patient barcode lookup",
+    "Scan With Camera",
     "Add Patient To This Area",
   ].forEach((label) => {
     assert.match(patientListPanel, new RegExp(label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));

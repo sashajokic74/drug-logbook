@@ -714,8 +714,9 @@ header button {
 .patient-list-panel input {
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  font-size: 14px;
-  padding: 11px;
+  font-size: 16px;
+  min-height: 46px;
+  padding: 11px 12px;
 }
 
 .patient-list-toolbar {
@@ -768,11 +769,148 @@ header button {
   border: none;
   color: #ffffff;
   font-weight: 900;
-  padding: 10px 12px;
+  min-height: 44px;
+  padding: 11px 14px;
 }
 
 .patient-list-toolbar .archive-list-btn {
   background: #b45309;
+}
+
+.patient-barcode-panel {
+  background: #eef7ff;
+  border: 1px solid #8fbbe8;
+  border-left: 8px solid #006fc9;
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(0, 78, 141, 0.12);
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 14px;
+}
+
+.patient-barcode-title {
+  display: grid;
+  gap: 4px;
+}
+
+.patient-barcode-title strong {
+  color: #052f5f;
+  font-size: 19px;
+}
+
+.patient-barcode-title small {
+  color: #38566d;
+  font-weight: 750;
+}
+
+.patient-barcode-controls {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.patient-barcode-controls input {
+  background: #ffffff;
+  border: 1px solid #82aaca;
+  border-radius: 8px;
+  color: #082f5f;
+  font-size: 16px;
+  font-weight: 800;
+  min-height: 48px;
+  padding: 11px 12px;
+}
+
+.patient-barcode-controls button {
+  background: #006fc9;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+  min-height: 48px;
+  padding: 11px 14px;
+}
+
+.patient-barcode-controls .archive-list-btn {
+  background: #b45309;
+}
+
+.patient-barcode-video {
+  aspect-ratio: 16 / 9;
+  background: #082f5f;
+  border: 2px solid #0f5fb4;
+  border-radius: 8px;
+  max-height: 260px;
+  object-fit: cover;
+  width: 100%;
+}
+
+.patient-barcode-message {
+  border-radius: 8px;
+  font-weight: 850;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.patient-barcode-message.success {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+  color: #166534;
+}
+
+.patient-barcode-message.warning {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.patient-manual-entry {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid #9fc4d2;
+  border-left: 8px solid #155dc7;
+  border-radius: 8px;
+  box-shadow: 0 12px 24px rgba(8, 47, 95, 0.1);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 12px 0;
+  padding: 14px;
+}
+
+.patient-manual-entry-title {
+  grid-column: 1 / -1;
+}
+
+.patient-manual-entry-title strong {
+  color: #062a55;
+  display: block;
+  font-size: 18px;
+  margin-top: 2px;
+}
+
+.patient-manual-entry input,
+.patient-manual-entry button {
+  font-size: 16px;
+  min-height: 46px;
+}
+
+.patient-manual-entry input {
+  background: #f8fbfd;
+  border: 1px solid #9eb5c5;
+  border-radius: 8px;
+  font-weight: 750;
+  padding: 10px 12px;
+}
+
+.patient-manual-entry button {
+  background: linear-gradient(135deg, #155dc7, #004b8d);
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-weight: 900;
+  grid-column: 1 / -1;
+  padding: 11px 14px;
 }
 
 .patient-card-grid {
@@ -2824,6 +2962,12 @@ body {
 
   .flip-card {
     height: 128px;
+  }
+}
+
+@media (max-width: 720px) {
+  .patient-barcode-controls {
+    grid-template-columns: 1fr;
   }
 }
 

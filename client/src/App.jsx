@@ -386,7 +386,7 @@ function App() {
       {!showStockChecks &&
         !showCorrections &&
         !showPharmacyDashboard && (
-          <ControlledDrugLogbook device={device} />
+          <ControlledDrugLogbook device={device} user={user} />
         )}
 
     </div>

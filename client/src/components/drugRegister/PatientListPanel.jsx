@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+
 function PatientListPanel({
   device,
   today,
@@ -17,6 +19,146 @@ function PatientListPanel({
   onUpdateNewPatient,
   onUploadPatientList,
 }) {
+  const [barcodeValue, setBarcodeValue] = useState("");
+  const [barcodeMessage, setBarcodeMessage] = useState("");
+  const [isCameraScanning, setIsCameraScanning] = useState(false);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const scanActiveRef = useRef(false);
+
+  useEffect(() => {
+    return () => stopCameraScanner(false);
+  }, []);
+
+  function normaliseIdentifier(value) {
+    return String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  }
+
+  function updateManualPatientField(name, value) {
+    onUpdateNewPatient({
+      target: { name, value },
+    });
+  }
+
+  function findPatientByBarcode(code) {
+    const normalisedCode = normaliseIdentifier(code);
+    if (!normalisedCode) return null;
+
+    return patients.find((patient) => {
+      const hospitalNumber = normaliseIdentifier(patient.hospitalNumber);
+      if (!hospitalNumber) return false;
+
+      return (
+        hospitalNumber === normalisedCode ||
+        (hospitalNumber.length >= 5 && normalisedCode.includes(hospitalNumber)) ||
+        (normalisedCode.length >= 5 && hospitalNumber.includes(normalisedCode))
+      );
+    });
+  }
+
+  function handleBarcodeLookup(rawValue = barcodeValue) {
+    const code = String(rawValue || "").trim();
+
+    if (!code) {
+      setBarcodeMessage("Scan or enter the patient MRN / NHS / private hospital number");
+      return;
+    }
+
+    const matchedPatient = findPatientByBarcode(code);
+
+    if (matchedPatient) {
+      onPatientSearchChange("");
+      onSelectPatient(matchedPatient);
+      setBarcodeValue("");
+      setBarcodeMessage(
+        `Matched ${matchedPatient.patientName} from today's ${device?.locationName || "location"} list`
+      );
+      return;
+    }
+
+    onPatientSearchChange(code);
+    updateManualPatientField("hospitalNumber", code);
+    setBarcodeMessage(
+      "Patient not found on today's list. Check identity, then complete manual patient details before adding."
+    );
+  }
+
+  function stopCameraScanner(updateState = true) {
+    scanActiveRef.current = false;
+
+    if (updateState) {
+      setIsCameraScanning(false);
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+  }
+
+  async function startCameraScanner() {
+    setBarcodeMessage("");
+
+    if (!("BarcodeDetector" in window) || !navigator.mediaDevices?.getUserMedia) {
+      setBarcodeMessage(
+        "Camera barcode scanning is not available in this browser. Use the barcode/MRN box instead."
+      );
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      const detector = new window.BarcodeDetector({
+        formats: ["code_128", "code_39", "ean_13", "qr_code", "data_matrix"],
+      });
+
+      streamRef.current = stream;
+      scanActiveRef.current = true;
+      setIsCameraScanning(true);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      async function scanFrame() {
+        if (!scanActiveRef.current || !videoRef.current) return;
+
+        try {
+          const barcodes = await detector.detect(videoRef.current);
+          const firstBarcode = barcodes[0]?.rawValue;
+
+          if (firstBarcode) {
+            setBarcodeValue(firstBarcode);
+            handleBarcodeLookup(firstBarcode);
+            stopCameraScanner();
+            return;
+          }
+        } catch {
+          setBarcodeMessage("Could not read the barcode. Try again or enter MRN manually.");
+        }
+
+        window.requestAnimationFrame(scanFrame);
+      }
+
+      window.requestAnimationFrame(scanFrame);
+    } catch {
+      stopCameraScanner();
+      setBarcodeMessage(
+        "Camera could not be opened. Check iPad camera permission or enter the MRN manually."
+      );
+    }
+  }
+
   return (
     <>
       <h3>Patient List - {device?.locationName || "Current Location"}</h3>
@@ -72,7 +214,75 @@ function PatientListPanel({
         />
       </section>
 
-      <form onSubmit={onAddPatient}>
+      <section className="patient-barcode-panel">
+        <div className="patient-barcode-title">
+          <span className="eyebrow">Patient barcode lookup</span>
+          <strong>Scan wristband or enter MRN / NHS number</strong>
+          <small>
+            This searches today&apos;s uploaded list first. If there is no match,
+            complete manual patient details before adding.
+          </small>
+        </div>
+
+        <div className="patient-barcode-controls">
+          <input
+            inputMode="text"
+            placeholder="Scan or type patient barcode / MRN"
+            value={barcodeValue}
+            onChange={(event) => setBarcodeValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                handleBarcodeLookup();
+              }
+            }}
+          />
+
+          <button type="button" onClick={() => handleBarcodeLookup()}>
+            Find Patient
+          </button>
+
+          <button
+            type="button"
+            className={isCameraScanning ? "archive-list-btn" : ""}
+            onClick={isCameraScanning ? stopCameraScanner : startCameraScanner}
+          >
+            {isCameraScanning ? "Stop Camera" : "Scan With Camera"}
+          </button>
+        </div>
+
+        {isCameraScanning && (
+          <video
+            ref={videoRef}
+            className="patient-barcode-video"
+            muted
+            playsInline
+            aria-label="Patient barcode camera scanner"
+          />
+        )}
+
+        {barcodeMessage && (
+          <p
+            className={
+              barcodeMessage.includes("not found") ||
+              barcodeMessage.includes("not available") ||
+              barcodeMessage.includes("could not") ||
+              barcodeMessage.includes("Could not")
+                ? "patient-barcode-message warning"
+                : "patient-barcode-message success"
+            }
+          >
+            {barcodeMessage}
+          </p>
+        )}
+      </section>
+
+      <form className="patient-manual-entry" onSubmit={onAddPatient}>
+        <div className="patient-manual-entry-title">
+          <span className="eyebrow">Manual patient entry</span>
+          <strong>Add patient to this theatre list</strong>
+        </div>
+
         <input
           name="patientName"
           placeholder="Patient name"
