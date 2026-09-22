@@ -1,19 +1,17 @@
 import { useEffect, useState } from "react";
+import AdminPortal from "./components/AdminPortal";
 import ControlledDrugLogbook from "./components/ControlledDrugLogbook";
-import StaffManagement from "./components/StaffManagement";
 import StockChecks from "./components/StockChecks";
 import Corrections from "./components/Corrections";
-import LocationManagement from "./components/LocationManagement";
-import DeviceSetup from "./components/DeviceSetup";
 import PharmacyDashboard from "./components/PharmacyDashboard";
 import PharmacyPortal from "./components/PharmacyPortal";
-import AuditTrail from "./components/AuditTrail";
 import "./index.css";
 
 import { API_URL } from "./apiConfig";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 
 function App() {
+  const isAdminPortal = window.location.pathname.startsWith("/admin");
   const isPharmacyPortal = window.location.pathname.startsWith("/pharmacy");
   const [device, setDevice] = useState(
     JSON.parse(localStorage.getItem("device"))
@@ -28,30 +26,14 @@ function App() {
     password: "",
   });
 
-  const [showStaffPanel, setShowStaffPanel] = useState(false);
   const [showStockChecks, setShowStockChecks] = useState(false);
   const [showCorrections, setShowCorrections] = useState(false);
-  const [showLocations, setShowLocations] = useState(false);
   const [showPharmacyDashboard, setShowPharmacyDashboard] = useState(false);
-  const [showAuditTrail, setShowAuditTrail] = useState(false);
-  const [showAdminSetup, setShowAdminSetup] = useState(false);
-  const [adminSetupTab, setAdminSetupTab] = useState("staff");
-  const [showDeviceSetup, setShowDeviceSetup] = useState(false);
-  const [locationSetupAdmin, setLocationSetupAdmin] = useState(false);
-  const [showLocationAuth, setShowLocationAuth] = useState(false);
-  const [locationAuthForm, setLocationAuthForm] = useState({
-    username: "",
-    password: "",
-  });
 
   const [error, setError] = useState("");
-  const [locationAuthError, setLocationAuthError] = useState("");
   const [connectionOnline, setConnectionOnline] = useState(true);
   const [sessionNotice, setSessionNotice] = useState("");
-  const isAdmin = String(user?.role || "").toLowerCase() === "admin";
-  const activeTask = showAdminSetup
-    ? "admin"
-    : showStockChecks
+  const activeTask = showStockChecks
       ? "stock"
       : showCorrections
         ? "corrections"
@@ -119,93 +101,13 @@ function App() {
   }, [user]);
 
   function showOnly(panel) {
-    setShowStaffPanel(panel === "staff");
     setShowStockChecks(panel === "stock");
     setShowCorrections(panel === "corrections");
-    setShowLocations(panel === "locations");
     setShowPharmacyDashboard(panel === "pharmacy");
-    setShowAuditTrail(panel === "audit");
-    setShowAdminSetup(panel === "admin");
-  }
-
-  function openAdminSetup(tab = "staff") {
-    setAdminSetupTab(tab);
-    showOnly("admin");
   }
 
   function returnToLogbook() {
     showOnly("");
-    setShowDeviceSetup(false);
-    setShowLocationAuth(false);
-    setLocationSetupAdmin(false);
-    setLocationAuthForm({ username: "", password: "" });
-    setLocationAuthError("");
-  }
-
-  function saveDevice(deviceData) {
-    setDevice(deviceData);
-  }
-
-  function saveChangedDevice(deviceData) {
-    localStorage.setItem("device", JSON.stringify(deviceData));
-    setDevice(deviceData);
-    setShowDeviceSetup(false);
-    setShowAdminSetup(false);
-    setAdminSetupTab("staff");
-    setLocationSetupAdmin(false);
-    setShowLocationAuth(false);
-    setLocationAuthForm({ username: "", password: "" });
-    logout();
-  }
-
-  function openLocationChange() {
-    setLocationAuthError("");
-
-    if (isAdmin) {
-      setLocationSetupAdmin(true);
-      openAdminSetup("staff");
-      return;
-    }
-
-    setShowLocationAuth(true);
-  }
-
-  async function verifyLocationChangeAdmin(event) {
-    event.preventDefault();
-    setLocationAuthError("");
-
-    try {
-      const response = await fetch(`${API_URL}/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(locationAuthForm),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setLocationAuthError(data.message || "Admin verification failed");
-        return;
-      }
-
-      if (String(data.user?.role || "").toLowerCase() !== "admin") {
-        setLocationAuthError("Only admin can change this device location");
-        return;
-      }
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
-      setUser(data.user);
-      setSessionNotice("");
-      setLocationSetupAdmin(true);
-      setShowLocationAuth(false);
-      openAdminSetup("staff");
-      setLocationAuthForm({ username: "", password: "" });
-    } catch {
-      setLocationAuthError("Server not running");
-    }
   }
 
   async function login(event) {
@@ -262,13 +164,13 @@ function App() {
 
     setUser(null);
 
-    setShowStaffPanel(false);
     setShowStockChecks(false);
     setShowCorrections(false);
-    setShowLocations(false);
     setShowPharmacyDashboard(false);
-    setShowAuditTrail(false);
-    setShowAdminSetup(false);
+  }
+
+  if (isAdminPortal) {
+    return <AdminPortal connectionOnline={connectionOnline} />;
   }
 
   if (isPharmacyPortal) {
@@ -277,82 +179,26 @@ function App() {
 
   if (!device) {
     return (
-      <div className="app">
+      <main className="missing-device-shell">
         {!connectionOnline && (
           <div className="connection-banner offline">
-            Server connection lost. Setup changes may not save until the server is running.
+            Server connection lost. Device setup is unavailable.
           </div>
         )}
 
-        <DeviceSetup
-          intro={
-            isAdmin
-              ? "Create or select the hospital, clinical area and iPad/device for this screen."
-              : "Admin login is required before creating a new hospital, location or iPad/device."
-          }
-          canManageSetup={isAdmin}
-          onDeviceSaved={saveDevice}
-        />
-
-        {!isAdmin && (
-          <form onSubmit={login}>
-            <h3>Admin setup login</h3>
-
-            <input
-              placeholder="Admin username"
-              value={loginForm.username}
-              onChange={(e) =>
-                setLoginForm({
-                  ...loginForm,
-                  username: e.target.value,
-                })
-              }
-            />
-
-            <input
-              type="password"
-              placeholder="Admin password"
-              value={loginForm.password}
-              onChange={(e) =>
-                setLoginForm({
-                  ...loginForm,
-                  password: e.target.value,
-                })
-              }
-            />
-
-            <button>
-              Login for Setup
-            </button>
-
-            {error && (
-              <p style={{ color: "red" }}>
-                {error}
-              </p>
-            )}
-          </form>
-        )}
-      </div>
-    );
-  }
-
-  if (showDeviceSetup) {
-    return (
-      <DeviceSetup
-        heading="Change Device Location"
-        intro="Select the hospital, clinical area and iPad/device this screen should use."
-        canManageSetup={isAdmin || locationSetupAdmin}
-        cancelLabel="Back to Logbook"
-        onCancel={() => {
-          if (!user) {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-          }
-          setShowDeviceSetup(false);
-          setLocationSetupAdmin(false);
-        }}
-        onDeviceSaved={saveChangedDevice}
-      />
+        <section className="missing-device-card">
+          <span className="eyebrow">Clinical logbook</span>
+          <h1>Device Not Configured</h1>
+          <p>
+            This browser has not been assigned to a hospital, clinical area or
+            iPad/device yet. Admin must configure the device before staff can
+            use the logbook.
+          </p>
+          <a className="portal-link primary" href="/admin">
+            Open Admin Portal
+          </a>
+        </section>
+      </main>
     );
   }
 
@@ -424,59 +270,6 @@ function App() {
           </form>
         </section>
 
-        <aside className="admin-setup-card">
-          <div>
-            <span className="eyebrow">Admin setup</span>
-              <h2>Open admin setup</h2>
-              <p>
-                Admin can manage staff, hospitals, locations, devices and audit
-                without entering each clinical area.
-              </p>
-          </div>
-
-          <button type="button" onClick={openLocationChange}>
-            Open Admin Setup
-          </button>
-
-          {showLocationAuth && (
-            <form className="location-auth-panel" onSubmit={verifyLocationChangeAdmin}>
-              <h3>Admin confirmation</h3>
-              <p>Admin login is required before opening setup.</p>
-
-              <input
-                placeholder="Admin username"
-                value={locationAuthForm.username}
-                onChange={(event) =>
-                  setLocationAuthForm({
-                    ...locationAuthForm,
-                    username: event.target.value,
-                  })
-                }
-              />
-
-              <input
-                type="password"
-                placeholder="Admin password"
-                value={locationAuthForm.password}
-                onChange={(event) =>
-                  setLocationAuthForm({
-                    ...locationAuthForm,
-                    password: event.target.value,
-                  })
-                }
-              />
-
-              <div>
-                <button type="submit">Open Setup</button>
-                <button type="button" onClick={() => setShowLocationAuth(false)}>
-                  Cancel
-                </button>
-              </div>
-
-              {locationAuthError && <strong>{locationAuthError}</strong>}
-            </form>
-          )}
-        </aside>
       </div>
     );
   }
@@ -493,17 +286,15 @@ function App() {
         <div className="location-banner">
           <div>
             <span className="location-label">
-              {showAdminSetup ? "Admin setup" : "Current clinical area"}
+              Current clinical area
             </span>
-            <h1>{showAdminSetup ? "System Administration" : device.locationName}</h1>
-            <p>{showAdminSetup ? "All hospitals, locations, devices and staff" : device.hospitalName}</p>
-            {!showAdminSetup && (
-              <div className="device-context-row">
-                <span>{device.deviceName || `${device.locationName} iPad`}</span>
-                <span>{device.deviceType || "iPad"}</span>
-                <span>{device.deviceCode || "Saved device"}</span>
-              </div>
-            )}
+            <h1>{device.locationName}</h1>
+            <p>{device.hospitalName}</p>
+            <div className="device-context-row">
+              <span>{device.deviceName || `${device.locationName} iPad`}</span>
+              <span>{device.deviceType || "iPad"}</span>
+              <span>{device.deviceCode || "Saved device"}</span>
+            </div>
           </div>
 
           <div className="session-panel">
@@ -572,83 +363,9 @@ function App() {
             <small>Requests, approvals and status</small>
           </button>
 
-          {isAdmin && (
-            <button
-              type="button"
-              className={activeTask === "admin" ? "active admin-task" : "admin-task"}
-              onClick={() =>
-                showAdminSetup
-                  ? showOnly("")
-                  : openAdminSetup("staff")
-              }
-            >
-              <span>Admin</span>
-              <strong>Admin Setup</strong>
-              <small>Staff, locations, devices and audit</small>
-            </button>
-          )}
         </div>
 
       </header>
-
-
-      {isAdmin &&
-        showAdminSetup && (
-          <section className="admin-setup-workspace">
-            <div className="admin-setup-header">
-              <div>
-                <span className="eyebrow">System administration</span>
-                <h2>Admin Setup</h2>
-                <p>Manage staff, hospitals, locations, devices and audit from one place.</p>
-              </div>
-            </div>
-
-            <div className="admin-tabs" role="tablist" aria-label="Admin setup sections">
-              <button
-                type="button"
-                className={adminSetupTab === "staff" ? "active" : ""}
-                onClick={() => setAdminSetupTab("staff")}
-              >
-                Staff
-              </button>
-              <button
-                type="button"
-                className={adminSetupTab === "locations" ? "active" : ""}
-                onClick={() => setAdminSetupTab("locations")}
-              >
-                Hospitals & Locations
-              </button>
-              <button
-                type="button"
-                className={adminSetupTab === "devices" ? "active" : ""}
-                onClick={() => setAdminSetupTab("devices")}
-              >
-                Devices
-              </button>
-              <button
-                type="button"
-                className={adminSetupTab === "audit" ? "active" : ""}
-                onClick={() => setAdminSetupTab("audit")}
-              >
-                Audit
-              </button>
-            </div>
-
-            {adminSetupTab === "staff" && <StaffManagement />}
-            {adminSetupTab === "locations" && <LocationManagement />}
-            {adminSetupTab === "devices" && (
-              <DeviceSetup
-                heading="Devices & iPad Assignment"
-                intro="Select or create the saved iPad/device for a hospital and clinical area."
-                canManageSetup
-                cancelLabel="Back to Admin Setup"
-                onCancel={() => setAdminSetupTab("staff")}
-                onDeviceSaved={saveChangedDevice}
-              />
-            )}
-            {adminSetupTab === "audit" && <AuditTrail device={device} />}
-          </section>
-        )}
 
 
       {showStockChecks && (
@@ -666,13 +383,9 @@ function App() {
       )}
 
 
-      {!showStaffPanel &&
-        !showLocations &&
-        !showStockChecks &&
+      {!showStockChecks &&
         !showCorrections &&
-        !showPharmacyDashboard &&
-        !showAuditTrail &&
-        !showAdminSetup && (
+        !showPharmacyDashboard && (
           <ControlledDrugLogbook device={device} />
         )}
 
