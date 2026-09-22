@@ -10,16 +10,36 @@ import "./index.css";
 import { API_URL } from "./apiConfig";
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000;
 
+function readStoredJson(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key));
+  } catch {
+    return null;
+  }
+}
+
+function normaliseDevice(deviceData) {
+  if (!deviceData) return null;
+
+  return {
+    id: deviceData.id,
+    deviceName: deviceData.deviceName,
+    deviceCode: deviceData.deviceCode,
+    hospitalId: String(deviceData.hospitalId),
+    hospitalName: deviceData.hospitalName,
+    locationId: String(deviceData.locationId),
+    locationName: deviceData.locationName,
+    deviceType: deviceData.deviceType || "iPad",
+  };
+}
+
 function App() {
   const isAdminPortal = window.location.pathname.startsWith("/admin");
   const isPharmacyPortal = window.location.pathname.startsWith("/pharmacy");
-  const [device, setDevice] = useState(
-    JSON.parse(localStorage.getItem("device"))
-  );
+  const [device, setDevice] = useState(readStoredJson("device"));
+  const [deviceRestoreMessage, setDeviceRestoreMessage] = useState("");
 
-  const [user, setUser] = useState(
-    JSON.parse(localStorage.getItem("user"))
-  );
+  const [user, setUser] = useState(readStoredJson("user"));
 
   const [loginForm, setLoginForm] = useState({
     username: "",
@@ -40,6 +60,49 @@ function App() {
         : showPharmacyDashboard
           ? "pharmacy"
           : "logbook";
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const deviceCode = params.get("device");
+
+    if (!deviceCode) return undefined;
+
+    let mounted = true;
+
+    async function restoreDeviceFromLink() {
+      setDeviceRestoreMessage("Restoring saved device...");
+
+      try {
+        const response = await fetch(
+          `${API_URL}/device-setup/device/${encodeURIComponent(deviceCode)}`,
+          { cache: "no-store" }
+        );
+        const data = await response.json();
+
+        if (!mounted) return;
+
+        if (!response.ok) {
+          setDeviceRestoreMessage(data.message || "Saved device link not found");
+          return;
+        }
+
+        const restoredDevice = normaliseDevice(data);
+        localStorage.setItem("device", JSON.stringify(restoredDevice));
+        setDevice(restoredDevice);
+        setDeviceRestoreMessage("");
+      } catch {
+        if (mounted) {
+          setDeviceRestoreMessage("Could not restore saved device");
+        }
+      }
+    }
+
+    restoreDeviceFromLink();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -189,6 +252,9 @@ function App() {
         <section className="missing-device-card">
           <span className="eyebrow">Clinical logbook</span>
           <h1>Device Not Configured</h1>
+          {deviceRestoreMessage && (
+            <p className="form-error">{deviceRestoreMessage}</p>
+          )}
           <p>
             This browser has not been assigned to a hospital, clinical area or
             iPad/device yet. Admin must configure the device before staff can

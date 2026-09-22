@@ -14,6 +14,7 @@ function AdminPortal({ connectionOnline }) {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("staff");
   const [message, setMessage] = useState("");
+  const [savedDevice, setSavedDevice] = useState(null);
 
   async function login(event) {
     event.preventDefault();
@@ -58,9 +59,15 @@ function AdminPortal({ connectionOnline }) {
 
   function saveDevice(deviceData) {
     localStorage.setItem("device", JSON.stringify(deviceData));
+    setSavedDevice(deviceData);
     setMessage(
-      `${deviceData.locationName} is now saved on this browser. Open the clinical logbook to use it.`
+      `${deviceData.locationName} is now saved on this browser. Open the clinical logbook using the device link below.`
     );
+  }
+
+  function deviceLink(deviceData) {
+    if (!deviceData?.deviceCode) return "/";
+    return `/?device=${encodeURIComponent(deviceData.deviceCode)}`;
   }
 
   if (!adminUser) {
@@ -176,6 +183,12 @@ function AdminPortal({ connectionOnline }) {
       </div>
 
       {message && <div className="connection-banner warning">{message}</div>}
+
+      {savedDevice && (
+        <a className="portal-link primary" href={deviceLink(savedDevice)}>
+          Open Clinical Logbook for {savedDevice.locationName}
+        </a>
+      )}
 
       <section className="admin-portal-content">
         {activeTab === "staff" && <StaffManagement />}

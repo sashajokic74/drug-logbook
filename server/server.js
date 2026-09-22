@@ -237,6 +237,24 @@ app.get("/device-setup/devices", (req, res) => {
   }
 });
 
+app.get("/device-setup/device/:deviceCode", (req, res) => {
+  try {
+    const { deviceCode } = req.params;
+
+    const device = db
+      .prepare("SELECT * FROM devices WHERE deviceCode = ? AND active = 1")
+      .get(deviceCode);
+
+    if (!device) {
+      return res.status(404).json({ message: "Device not found" });
+    }
+
+    return res.json(device);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
 app.post("/device-setup/devices", verifyUser, adminOnly, (req, res) => {
   try {
     const {
