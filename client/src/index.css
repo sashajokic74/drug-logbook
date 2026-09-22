@@ -328,13 +328,13 @@ header button {
 }
 
 .login-shell {
-  align-items: stretch;
-  display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
-  margin: 42px auto;
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  margin: 0 auto;
+  min-height: 100dvh;
   max-width: 1080px;
-  padding: 0 24px;
+  padding: 28px;
 }
 
 .device-login-card,
@@ -346,31 +346,36 @@ header button {
 }
 
 .device-login-card {
-  border-left: 8px solid #0f766e;
+  background: linear-gradient(135deg, #ffffff 0%, #eff8ff 100%);
+  border-color: #9fc4d2;
+  border-left: 10px solid #0f766e;
   display: grid;
   gap: 18px;
-  padding: 24px;
+  max-width: 720px;
+  padding: 28px;
+  width: 100%;
 }
 
 .device-login-header h1 {
-  color: #082f5f;
-  font-size: 56px;
+  color: #062a55;
+  font-size: 48px;
   line-height: 1;
   margin: 0;
-  text-align: left;
+  text-align: center;
 }
 
 .device-login-header p {
-  color: #334155;
-  font-size: 22px;
+  color: #355267;
+  font-size: 20px;
   font-weight: 800;
   margin: 10px 0 0;
+  text-align: center;
 }
 
 .device-lock-panel {
   align-items: center;
-  background: #f0fdfa;
-  border: 1px solid #99f6e4;
+  background: linear-gradient(135deg, #d9fbf2 0%, #dff4ff 100%);
+  border: 1px solid #14b8a6;
   border-radius: 8px;
   display: flex;
   justify-content: space-between;
@@ -396,6 +401,9 @@ header button {
 .login-form {
   display: grid;
   gap: 12px;
+  margin: 0 auto;
+  max-width: 440px;
+  width: 100%;
 }
 
 .login-form h2,
@@ -403,6 +411,7 @@ header button {
   color: #082f5f;
   font-size: 24px;
   margin: 0;
+  text-align: center;
 }
 
 .login-form input {
@@ -414,7 +423,7 @@ header button {
 
 .login-form button,
 .admin-setup-card > button {
-  background: #0f766e;
+  background: linear-gradient(135deg, #0f766e, #0d9488);
   border: 0;
   border-radius: 8px;
   color: #ffffff;
@@ -569,7 +578,7 @@ header button {
   }
 }
 
-@media (max-width: 720px) {
+  @media (max-width: 720px) {
   .location-banner {
     flex-direction: column;
   }
@@ -585,13 +594,12 @@ header button {
   }
 
   .login-shell {
-    grid-template-columns: 1fr;
-    margin: 20px auto;
-    padding: 0 14px;
+    margin: 0 auto;
+    padding: 18px 14px;
   }
 
   .device-login-header h1 {
-    font-size: 40px;
+    font-size: 38px;
   }
 
   .device-lock-panel {
