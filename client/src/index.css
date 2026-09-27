@@ -3128,3 +3128,293 @@ body {
     grid-template-columns: 1fr;
   }
 }
+
+/* Phone demo layout */
+@media (max-width: 560px) {
+  body {
+    background: #f3f7fa;
+  }
+
+  .app-header,
+  .page,
+  .admin-portal-shell,
+  .pharmacy-portal-page,
+  .pharmacy-portal-shell,
+  .admin-setup-workspace {
+    padding: 12px;
+  }
+
+  .location-banner,
+  .register-hero,
+  .drug-register-header,
+  .pharmacy-dashboard-header,
+  .admin-portal-header,
+  .stock-check-header {
+    border-left-width: 6px;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .location-banner,
+  .register-hero,
+  .admin-portal-header,
+  .pharmacy-dashboard-header,
+  .stock-check-header {
+    flex-direction: column;
+  }
+
+  .location-banner h1,
+  .register-hero h1,
+  .admin-portal-header h1,
+  .pharmacy-dashboard-header h2 {
+    font-size: 26px;
+    line-height: 1.08;
+  }
+
+  .location-banner p,
+  .register-hero p,
+  .admin-portal-header p,
+  .pharmacy-dashboard-header p {
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .session-panel {
+    align-items: stretch;
+    min-width: 0;
+    text-align: left;
+    width: 100%;
+  }
+
+  .session-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .session-actions button,
+  .session-actions .portal-link {
+    justify-content: center;
+    min-height: 44px;
+    text-align: center;
+  }
+
+  .clinical-task-grid {
+    display: flex;
+    gap: 8px;
+    margin: 12px -12px 0;
+    overflow-x: auto;
+    padding: 0 12px 4px;
+    scroll-snap-type: x proximity;
+  }
+
+  .clinical-task-grid button {
+    flex: 0 0 152px;
+    min-height: 82px;
+    padding: 11px;
+    scroll-snap-align: start;
+  }
+
+  .clinical-task-grid button strong {
+    font-size: 15px;
+  }
+
+  .clinical-task-grid button small {
+    display: none;
+  }
+
+  .register-stats,
+  .stock-check-summary-grid {
+    gap: 7px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .register-stats div,
+  .stock-check-summary-grid div {
+    min-height: 64px;
+    padding: 8px 6px;
+  }
+
+  .register-stats strong,
+  .stock-check-summary-grid strong {
+    font-size: 22px;
+  }
+
+  .register-stats span,
+  .stock-check-summary-grid span {
+    font-size: 10px;
+  }
+
+  .prototype-warning,
+  .connection-banner {
+    border-left-width: 6px;
+    font-size: 13px;
+    margin-bottom: 14px;
+    padding: 10px 12px;
+  }
+
+  .add-drug-disclosure summary,
+  .pharmacy-stock-disclosure summary {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .add-drug-grid,
+  .patient-manual-entry,
+  .patient-barcode-controls,
+  .ipad-field-grid.two-column,
+  .ipad-field-grid.three-column,
+  .ipad-field-grid.four-column,
+  .ipad-dose-summary,
+  .ipad-signature-grid,
+  .ipad-save-panel,
+  .stock-check-signoff-grid,
+  .staff-create-grid,
+  .audit-filter-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .add-drug-grid input,
+  .add-drug-grid button,
+  .patient-list-panel input,
+  .patient-list-toolbar button,
+  .patient-barcode-controls input,
+  .patient-barcode-controls button,
+  .patient-manual-entry input,
+  .patient-manual-entry button,
+  .ipad-entry-panel input,
+  .ipad-entry-panel select,
+  .ipad-entry-panel button,
+  .drug-register-screen input,
+  .drug-register-screen select,
+  .drug-register-screen button {
+    font-size: 16px;
+    min-height: 46px;
+  }
+
+  .section-heading {
+    align-items: flex-start;
+    margin: 18px 0 12px;
+  }
+
+  .section-title {
+    font-size: 22px;
+  }
+
+  .stock-grid {
+    gap: 12px 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .drug-tile {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .flip-card {
+    height: auto;
+    width: 100%;
+  }
+
+  .flip-card-front,
+  .flip-card-back {
+    min-height: 150px;
+    padding: 11px 8px;
+  }
+
+  .flip-card-front h3,
+  .flip-card-back h3 {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+
+  .flip-card-front strong {
+    font-size: 32px;
+  }
+
+  .register-card-btn {
+    font-size: 14px;
+    min-height: 46px;
+  }
+
+  .drug-card-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .drug-card-actions button {
+    font-size: 11px;
+    min-height: 34px;
+  }
+
+  .drug-register-screen {
+    padding: 8px;
+  }
+
+  .drug-register-screen::before {
+    content: none;
+  }
+
+  .drug-register-header {
+    position: sticky;
+    top: 0;
+  }
+
+  .drug-register-header h2 {
+    font-size: 22px;
+  }
+
+  .drug-balance-pill {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .patient-list-toolbar,
+  .ipad-entry-title {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .patient-list-toolbar .patient-list-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
+
+  .patient-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-card {
+    min-height: 0;
+  }
+
+  .ipad-entry-panel {
+    border-left-width: 6px;
+    padding: 12px;
+  }
+
+  .ipad-entry-title h3 {
+    font-size: 19px;
+  }
+
+  .ipad-signature-grid > div {
+    padding: 10px;
+  }
+
+  .pharmacy-request-card,
+  .stock-check-row,
+  .audit-row {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-check-row {
+    gap: 9px;
+  }
+
+  .stock-check-row label,
+  .stock-check-expected,
+  .stock-check-difference {
+    min-width: 0;
+  }
+}
