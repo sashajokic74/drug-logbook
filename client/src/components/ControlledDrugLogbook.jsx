@@ -34,9 +34,11 @@ function ControlledDrugLogbook({ device, user }) {
     if (device?.locationName) params.set("locationName", device.locationName);
 
     const query = params.toString() ? `?${params.toString()}` : "";
-    const response = await fetch(`${API_URL}/drugs${query}`);
+    const response = await fetch(`${API_URL}/drugs${query}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    });
     const data = await response.json();
-    setInventory(data.map(normaliseDrug));
+    setInventory(Array.isArray(data) ? data.map(normaliseDrug) : []);
   }
 
   useEffect(() => {

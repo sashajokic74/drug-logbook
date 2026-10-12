@@ -112,7 +112,9 @@ function DrugRegister({ drug, device, onClose }) {
       const drugsQuery = drugParams.toString()
         ? `?${drugParams.toString()}`
         : "";
-      const drugsResponse = await fetch(`${API_URL}/drugs${drugsQuery}`);
+      const drugsResponse = await fetch(`${API_URL}/drugs${drugsQuery}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const drugsData = await drugsResponse.json();
 
       const currentDrug = drugsData.find(

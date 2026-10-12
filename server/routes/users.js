@@ -170,7 +170,7 @@ router.put("/:id/deactivate", verifyUser, adminOnly, (req, res) => {
 			});
 		}
 
-		db.prepare("UPDATE users SET active = 0 WHERE id = ?").run(
+		db.prepare("UPDATE users SET active = 0, sessionVersion = sessionVersion + 1 WHERE id = ?").run(
 			Number(req.params.id)
 		);
 

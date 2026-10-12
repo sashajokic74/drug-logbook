@@ -6,7 +6,7 @@ const router = express.Router();
 
 /* ================= HOSPITALS ================= */
 
-router.get("/hospitals", verifyUser, (req, res) => {
+router.get("/hospitals", verifyUser, adminOnly, (req, res) => {
   try {
     const hospitals = db
       .prepare(`
@@ -50,7 +50,7 @@ router.post("/hospitals", verifyUser, adminOnly, (req, res) => {
 
 /* ================= LOCATIONS ================= */
 
-router.get("/", verifyUser, (req, res) => {
+router.get("/", verifyUser, adminOnly, (req, res) => {
   try {
     const locations = db
       .prepare(`

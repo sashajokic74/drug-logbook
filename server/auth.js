@@ -2,12 +2,40 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import db from "./database.js";
 import { config } from "./config.js";
+import { createHmac } from "node:crypto";
 
-function isExpired(expiryDate) {
+export function isExpired(expiryDate) {
   if (!expiryDate) return false;
 
   const today = new Date().toISOString().slice(0, 10);
-  return expiryDate < today;
+  return !/^\d{4}-\d{2}-\d{2}$/.test(expiryDate) ||
+    !Number.isFinite(Date.parse(expiryDate)) || expiryDate < today;
+}
+
+export function accountUnavailable(user) {
+  return !user || Number(user.active) !== 1 ||
+    (user.staffType !== "Permanent" && (!user.expiryDate || isExpired(user.expiryDate))) ||
+    Boolean(user.accessExpiryDate && isExpired(user.accessExpiryDate));
+}
+
+function passwordVersion(user) {
+  return createHmac("sha256", config.jwtSecret).update(user.password).digest("hex");
+}
+
+export function canWriteClinical(user) {
+  return ["odp", "nurse", "theatre_practitioner", "anaesthetic_practitioner"].includes(
+    String(user?.role || "").toLowerCase()
+  );
+}
+
+export function clinicalOnly(req, res, next) {
+  if (!canWriteClinical(req.user)) return res.status(403).json({ message: "Clinical staff access required" });
+  next();
+}
+
+export function clinicalWriteOnly(req, res, next) {
+  if (req.method === "GET") return next();
+  return clinicalOnly(req, res, next);
 }
 
 function parseIdList(value) {
@@ -17,23 +45,35 @@ function parseIdList(value) {
     .filter(Boolean);
 }
 
-function hasLocationAccess(user, hospitalId, locationId) {
+export function hasLocationAccess(user, hospitalId, locationId) {
+  if (accountUnavailable(user)) return false;
   const role = String(user.role || "").toLowerCase();
   const scope = String(user.accessScope || "ALL").toUpperCase();
 
   if (role === "admin") return true;
-  if (user.accessExpiryDate && isExpired(user.accessExpiryDate)) return false;
   if (scope === "ALL") return true;
 
   if (scope === "HOSPITAL") {
-    return parseIdList(user.accessHospitalIds).includes(String(hospitalId || ""));
+    const location = db.prepare("SELECT hospitalId FROM locations WHERE id = ? AND active = 1").get(Number(locationId));
+    return Boolean(location && String(location.hospitalId) === String(hospitalId) &&
+      parseIdList(user.accessHospitalIds).includes(String(hospitalId || "")));
   }
 
   if (scope === "LOCATIONS") {
-    return parseIdList(user.accessLocationIds).includes(String(locationId || ""));
+    const location = db.prepare("SELECT hospitalId FROM locations WHERE id = ? AND active = 1").get(Number(locationId));
+    return Boolean(location && String(location.hospitalId) === String(hospitalId) &&
+      parseIdList(user.accessLocationIds).includes(String(locationId || "")));
   }
 
-  return true;
+  return false;
+}
+
+export function requireLocationAccess(req, res, next) {
+  const source = req.method === "GET" ? req.query : req.body;
+  if (!hasLocationAccess(req.user, source?.hospitalId, source?.locationId)) {
+    return res.status(403).json({ message: "This account cannot access the requested location" });
+  }
+  next();
 }
 
 function isSignatureOnlyRole(roleValue) {
@@ -64,16 +104,8 @@ export function loginUser(req, res) {
     });
   }
 
-  if (user.active === 0) {
-    return res.status(403).json({
-      message: "This staff account is inactive",
-    });
-  }
-
-  if (user.staffType !== "Permanent" && isExpired(user.expiryDate)) {
-    return res.status(403).json({
-      message: "This temporary staff account has expired",
-    });
+  if (accountUnavailable(user)) {
+    return res.status(403).json({ message: "This staff account is inactive or has expired" });
   }
 
   const passwordMatch = bcrypt.compareSync(
@@ -95,8 +127,7 @@ export function loginUser(req, res) {
   }
 
   if (
-    hospitalId &&
-    locationId &&
+    (hospitalId || locationId) &&
     !hasLocationAccess(user, hospitalId, locationId)
   ) {
     return res.status(403).json({
@@ -110,6 +141,8 @@ export function loginUser(req, res) {
       username: user.username,
       role: user.role,
       fullName: user.fullName,
+      sessionVersion: user.sessionVersion,
+      passwordVersion: passwordVersion(user),
       accessScope: user.accessScope || "ALL",
       accessHospitalIds: user.accessHospitalIds || "",
       accessLocationIds: user.accessLocationIds || "",
@@ -156,7 +189,14 @@ export function verifyUser(req, res, next) {
       config.jwtSecret
     );
 
-    req.user = decoded;
+    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(decoded.id);
+    // Re-read permissions and account status; a signed JWT is not a live grant.
+    if (accountUnavailable(user) || decoded.sessionVersion !== user.sessionVersion ||
+        decoded.passwordVersion !== passwordVersion(user) || isSignatureOnlyRole(user.role)) {
+      return res.status(401).json({ message: "Session revoked or account expired. Please sign in again." });
+    }
+    const { password, ...currentUser } = user;
+    req.user = currentUser;
 
     next();
 

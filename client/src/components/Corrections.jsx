@@ -56,7 +56,9 @@ function Corrections({ device }) {
 
   async function loadDrugs() {
     try {
-      const response = await fetch(`${API_URL}/drugs${deviceQuery()}`);
+      const response = await fetch(`${API_URL}/drugs${deviceQuery()}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
       const data = await response.json();
       setDrugs(Array.isArray(data) ? data : []);
     } catch {

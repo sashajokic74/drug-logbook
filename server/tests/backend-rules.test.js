@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 
 process.env.NODE_ENV = "test";
 process.env.DRUGLOG_DB_PATH = path.join(
@@ -174,11 +175,142 @@ async function createPatientUseTransaction({
 before(async () => {
   await new Promise((resolve) => {
     server = createServer(app);
-    server.listen(0, () => {
+    server.listen(0, "127.0.0.1", () => {
       baseUrl = `http://127.0.0.1:${server.address().port}`;
       resolve();
     });
   });
+});
+
+function auth(token) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+function restrictUser(username, scope = "LOCATIONS") {
+  db.prepare("INSERT OR IGNORE INTO hospitals (id, name, active) VALUES (1, 'Test Hospital', 1), (2, 'Other Hospital', 1)").run();
+  db.prepare(`INSERT OR IGNORE INTO locations (id, hospitalId, hospitalName, name, type, active)
+    VALUES (1, 1, 'Test Hospital', 'TH8', 'Theatre', 1), (2, 2, 'Other Hospital', 'Other Theatre', 'Theatre', 1)`).run();
+  db.prepare("UPDATE users SET accessScope = ?, accessHospitalIds = '1', accessLocationIds = '1' WHERE username = ?").run(scope, username);
+}
+
+test("deactivation revokes existing sessions, including after reactivation", async () => {
+  const { odpId } = seedBaseData();
+  insertUser({ username: "review-admin", role: "admin" });
+  const adminToken = await login("review-admin");
+  const token = await login();
+  assert.equal((await request(`/users/${odpId}/deactivate`, { method: "PUT", headers: auth(adminToken) })).status, 200);
+  assert.equal((await request("/drugs", { headers: auth(token) })).status, 401);
+  assert.equal((await request(`/users/${odpId}/reactivate`, { method: "PUT", headers: auth(adminToken) })).status, 200);
+  assert.equal((await request("/drugs", { headers: auth(token) })).status, 401);
+  assert.equal((await request("/drugs", { headers: auth(await login()) })).status, 200);
+});
+
+test("staff expiry and access expiry apply to existing sessions and admin logins", async () => {
+  seedBaseData();
+  const token = await login();
+  db.prepare("UPDATE users SET staffType = 'Temporary', expiryDate = '2000-01-01' WHERE username = 'odp'").run();
+  assert.equal((await request("/drugs", { headers: auth(token) })).status, 401);
+  db.prepare("UPDATE users SET staffType = 'Permanent', accessExpiryDate = '2000-01-01' WHERE username = 'odp'").run();
+  assert.equal((await request("/drugs", { headers: auth(token) })).status, 401);
+  insertUser({ username: "expired-admin", role: "admin" });
+  db.prepare("UPDATE users SET accessExpiryDate = '2000-01-01' WHERE username = 'expired-admin'").run();
+  assert.equal((await request("/login", { method: "POST", body: JSON.stringify({ username: "expired-admin", password: "pass123" }) })).status, 403);
+});
+
+test("password changes, deleted accounts and legacy tokens invalidate access", async () => {
+  const { odpId } = seedBaseData();
+  const token = await login();
+  const legacy = jwt.sign({ id: odpId, role: "admin" }, process.env.JWT_SECRET);
+  assert.equal((await request("/users", { headers: auth(legacy) })).status, 401);
+  db.prepare("UPDATE users SET password = ? WHERE id = ?").run(hashPassword("replacement"), odpId);
+  assert.equal((await request("/drugs", { headers: auth(token) })).status, 401);
+  db.prepare("DELETE FROM users WHERE id = ?").run(odpId);
+  assert.equal((await request("/drugs", { headers: auth(token) })).status, 401);
+});
+
+test("permissions use current database role, not an old admin token", async () => {
+  seedBaseData();
+  insertUser({ username: "review-admin", role: "admin" });
+  const token = await login("review-admin");
+  assert.equal((await request("/users", { headers: auth(token) })).status, 200);
+  db.prepare("UPDATE users SET role = 'viewer' WHERE username = 'review-admin'").run();
+  assert.equal((await request("/users", { headers: auth(token) })).status, 403);
+  assert.equal((await request("/patients", { method: "POST", headers: auth(token), body: JSON.stringify({ hospitalId: 1, locationId: 1 }) })).status, 403);
+});
+
+test("location-scoped accounts cannot omit scope, cross locations or spoof a hospital", async () => {
+  seedBaseData();
+  const token = await login();
+  restrictUser("odp");
+  for (const endpoint of ["/drugs", "/patients", "/transactions/1", "/stock-checks", "/corrections"]) {
+    assert.equal((await request(endpoint, { headers: auth(token) })).status, 403, endpoint);
+    assert.equal((await request(`${endpoint}?hospitalId=2&locationId=2`, { headers: auth(token) })).status, 403, endpoint);
+    assert.equal((await request(`${endpoint}?hospitalId=2&locationId=1`, { headers: auth(token) })).status, 403, endpoint);
+    assert.equal((await request(`${endpoint}?hospitalId=1&locationId=1`, { headers: auth(token) })).status, 200, endpoint);
+  }
+  assert.equal((await request("/patients", { method: "POST", headers: auth(token), body: JSON.stringify({ hospitalId: 2, locationId: 2, patientName: "Dummy", hospitalNumber: "D1" }) })).status, 403);
+  assert.equal((await request("/users", { headers: auth(token) })).status, 403);
+  assert.equal((await request("/device-setup/devices", { headers: auth(token) })).status, 403);
+});
+
+test("hospital scope validates the actual location and unknown scopes fail closed", async () => {
+  seedBaseData();
+  const token = await login();
+  restrictUser("odp", "HOSPITAL");
+  assert.equal((await request("/drugs?hospitalId=1&locationId=2", { headers: auth(token) })).status, 403);
+  assert.equal((await request("/drugs?hospitalId=1&locationId=1", { headers: auth(token) })).status, 200);
+  restrictUser("odp", "INVALID");
+  assert.equal((await request("/drugs?hospitalId=1&locationId=1", { headers: auth(token) })).status, 403);
+});
+
+test("pharmacy lists and record actions respect location scope", async () => {
+  const { drugId } = seedBaseData();
+  insertUser({ username: "pharmacy", role: "pharmacy" });
+  restrictUser("pharmacy");
+  const token = await login("pharmacy");
+  db.prepare("DELETE FROM pharmacy_requests").run();
+  const insert = db.prepare(`INSERT INTO pharmacy_requests (requisitionNumber, drugId, drugName, quantityRequested, requestedById, requestedByName, hospitalId, locationId, status)
+    VALUES (?, ?, 'Fentanyl', 5, 'test-requester', 'Test Requester', ?, ?, 'REQUESTED')`);
+  insert.run("ACCESS-OWN", drugId, 1, 1);
+  const other = insert.run("ACCESS-OTHER", drugId, 2, 2).lastInsertRowid;
+  for (const endpoint of ["/pharmacy-requests", "/pharmacy-requests/pending"]) {
+    const rows = await (await request(endpoint, { headers: auth(token) })).json();
+    assert.deepEqual(rows.map(row => row.requisitionNumber), ["ACCESS-OWN"]);
+  }
+  for (const action of ["approve", "reject", "complete"]) {
+    assert.equal((await request(`/pharmacy-requests/${other}/${action}`, { method: "PUT", headers: auth(token), body: "{}" })).status, 403);
+  }
+});
+
+test("correction cannot target another department by spoofing the request location", async () => {
+  const { doctorId, nurseId, odpId, drugId } = seedBaseData();
+  const token = await login();
+  const saved = await createPatientUseTransaction({ token, drugId, administeredById: doctorId, witnessId: nurseId });
+  assert.equal(saved.response.status, 201);
+  db.prepare("UPDATE drug_transactions SET hospitalId = 2, locationId = 2 WHERE id = ?").run(saved.body.entry.id);
+  restrictUser("odp");
+  const response = await request("/corrections", { method: "POST", headers: auth(token), body: JSON.stringify({
+    hospitalId: 1, locationId: 1, originalTransactionId: saved.body.entry.id,
+    correctedById: odpId, checkedById: nurseId, correctionType: "entry_error", reason: "test", correctionText: "test"
+  }) });
+  assert.equal(response.status, 403);
+});
+
+test("expired or out-of-area signers cannot sign an otherwise authorised transaction", async () => {
+  const { doctorId, nurseId, drugId } = seedBaseData();
+  const token = await login();
+  db.prepare("UPDATE users SET accessExpiryDate = '2000-01-01' WHERE id = ?").run(nurseId);
+  assert.equal((await createPatientUseTransaction({ token, drugId, administeredById: doctorId, witnessId: nurseId })).response.status, 403);
+  db.prepare("UPDATE users SET accessExpiryDate = NULL WHERE id = ?").run(nurseId);
+  restrictUser("nurse");
+  db.prepare("UPDATE users SET accessLocationIds = '2' WHERE id = ?").run(nurseId);
+  assert.equal((await createPatientUseTransaction({ token, drugId, administeredById: doctorId, witnessId: nurseId })).response.status, 403);
+});
+
+test("public requests cannot read stock or enumerate device setup", async () => {
+  for (const endpoint of ["/drugs", "/device-setup/devices", "/device-setup/hospitals", "/device-setup/locations?hospitalId=1"]) {
+    assert.equal((await request(endpoint)).status, 401);
+  }
 });
 
 beforeEach(() => {

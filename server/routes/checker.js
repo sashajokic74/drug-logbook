@@ -1,6 +1,7 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import db from "../database.js";
+import { accountUnavailable } from "../auth.js";
 
 const router = express.Router();
 
@@ -32,7 +33,8 @@ router.post("/verify", (req, res) => {
           fullName, 
           active,
           staffType,
-          expiryDate
+          expiryDate,
+          accessExpiryDate
         FROM users
         WHERE username = ?
       `)
@@ -44,9 +46,9 @@ router.post("/verify", (req, res) => {
       });
     }
 
-    if (Number(checker.active) === 0) {
+    if (accountUnavailable(checker)) {
       return res.status(403).json({
-        message: "Staff account is inactive",
+        message: "Staff account is inactive or expired",
       });
     }
 

@@ -7,7 +7,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import seedDrugs from "./drugData.js";
 import db from "./database.js";
-import { loginUser, verifyUser, adminOnly } from "./auth.js";
+import { loginUser, verifyUser, adminOnly, requireLocationAccess, clinicalWriteOnly } from "./auth.js";
 import checkerRoutes from "./routes/checker.js";
 import stockCheckRoutes from "./routes/stockChecks.js";
 import correctionRoutes from "./routes/corrections.js";
@@ -57,17 +57,17 @@ app.get("/health", (req, res) => {
   });
 });
 
-app.use("/transactions", transactionRoutes);
+app.use("/transactions", verifyUser, requireLocationAccess, clinicalWriteOnly, transactionRoutes);
 app.use("/checker", checkerRoutes);
-app.use("/stock-checks", stockCheckRoutes);
-app.use("/corrections", correctionRoutes);
+app.use("/stock-checks", verifyUser, requireLocationAccess, clinicalWriteOnly, stockCheckRoutes);
+app.use("/corrections", verifyUser, requireLocationAccess, clinicalWriteOnly, correctionRoutes);
 app.use("/locations", locationRoutes);
 app.use("/pharmacy-requests", verifyUser, pharmacyRequestRoutes);
 app.use("/users", userRoutes);
 
 /* ================= DEVICE SETUP ROUTES ================= */
 
-app.get("/device-setup/hospitals", (req, res) => {
+app.get("/device-setup/hospitals", verifyUser, adminOnly, (req, res) => {
   try {
     const hospitals = db
       .prepare(`
@@ -120,7 +120,7 @@ app.post("/device-setup/hospitals", verifyUser, adminOnly, (req, res) => {
   }
 });
 
-app.get("/device-setup/locations", (req, res) => {
+app.get("/device-setup/locations", verifyUser, adminOnly, (req, res) => {
   try {
     const { hospitalId } = req.query;
 
@@ -206,7 +206,7 @@ app.post("/device-setup/locations", verifyUser, adminOnly, (req, res) => {
   }
 });
 
-app.get("/device-setup/devices", (req, res) => {
+app.get("/device-setup/devices", verifyUser, adminOnly, (req, res) => {
   try {
     const { hospitalId, locationId } = req.query;
     const params = [];
@@ -375,7 +375,7 @@ app.post("/login", loginUser);
 
 /* ================= DRUG ROUTES ================= */
 
-app.get("/drugs", (req, res) => {
+app.get("/drugs", verifyUser, requireLocationAccess, (req, res) => {
   try {
     const { hospitalId, hospitalName, locationId, locationName } = req.query;
 
@@ -584,6 +584,8 @@ app.delete("/drugs/:id", verifyUser, adminOnly, (req, res) => {
 });
 
 /* ================= PATIENT LIST ROUTES ================= */
+
+app.use("/patients", verifyUser, requireLocationAccess, clinicalWriteOnly);
 
 app.get("/patients", verifyUser, (req, res) => {
   try {

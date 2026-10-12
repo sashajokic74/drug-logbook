@@ -1,6 +1,6 @@
 import express from "express";
 import db from "../database.js";
-import { verifyUser } from "../auth.js";
+import { verifyUser, hasLocationAccess, canWriteClinical } from "../auth.js";
 import { createSignatureHash } from "../signature.js";
 
 const router = express.Router();
@@ -40,7 +40,7 @@ function getStaffById(id) {
 
   return db
     .prepare(`
-      SELECT id, username, fullName, role, staffType
+      SELECT *
       FROM users
       WHERE id = ?
     `)
@@ -254,6 +254,12 @@ router.post("/", verifyUser, (req, res) => {
       return res.status(400).json({
         message: "Verified staff record not found",
       });
+    }
+
+    if (![administeredStaff, witnessStaff].every(staff =>
+        hasLocationAccess(staff, hospitalId, locationId) &&
+        (canWriteClinical(staff) || (isPatientUse && isDoctorOrAnaesthetistRole(staff.role))))) {
+      return res.status(403).json({ message: "Signers are inactive, expired or not authorised for this location and action" });
     }
 
     if (isPatientUse) {

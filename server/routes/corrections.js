@@ -1,6 +1,6 @@
 import express from "express";
 import db from "../database.js";
-import { verifyUser } from "../auth.js";
+import { verifyUser, hasLocationAccess, canWriteClinical } from "../auth.js";
 import { createSignatureHash } from "../signature.js";
 
 const router = express.Router();
@@ -168,6 +168,15 @@ router.post("/", verifyUser, (req, res) => {
 
     const staff1 = getStaff(correctedById);
     const staff2 = getStaff(checkedById);
+
+    if (!hasLocationAccess(req.user, original.hospitalId, original.locationId)) {
+      return res.status(403).json({ message: "Original entry is outside your permitted location" });
+    }
+
+    if (![staff1, staff2].every(staff => staff && canWriteClinical(staff) &&
+        hasLocationAccess(staff, original.hospitalId, original.locationId))) {
+      return res.status(403).json({ message: "Correction signers are inactive, expired or not authorised for this location" });
+    }
 
 
     if (!staff1 || !staff2) {

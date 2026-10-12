@@ -1,6 +1,6 @@
 import express from "express";
 import db from "../database.js";
-import { verifyUser } from "../auth.js";
+import { verifyUser, hasLocationAccess, canWriteClinical } from "../auth.js";
 import { createSignatureHash } from "../signature.js";
 
 const router = express.Router();
@@ -14,7 +14,7 @@ function isExpired(expiryDate) {
 function getActiveVerifiedStaff(id, label) {
   const staff = db
     .prepare(`
-      SELECT id, username, role, fullName, active, staffType, expiryDate
+      SELECT *
       FROM users
       WHERE id = ?
     `)
@@ -122,6 +122,11 @@ router.post("/", verifyUser, (req, res) => {
     const staffTwoCheck = getActiveVerifiedStaff(staffTwoId, "Staff 2");
     if (!staffTwoCheck.ok) {
       return res.status(403).json({ message: staffTwoCheck.message });
+    }
+
+    if (![staffOneCheck.staff, staffTwoCheck.staff].every(staff => canWriteClinical(staff) &&
+        hasLocationAccess(staff, hospitalId, locationId))) {
+      return res.status(403).json({ message: "Stock check signers are not authorised for this location" });
     }
 
     const drug = db

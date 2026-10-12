@@ -197,6 +197,7 @@ addColumnIfMissing("users", "accessScope", "TEXT DEFAULT 'ALL'");
 addColumnIfMissing("users", "accessHospitalIds", "TEXT");
 addColumnIfMissing("users", "accessLocationIds", "TEXT");
 addColumnIfMissing("users", "accessExpiryDate", "TEXT");
+addColumnIfMissing("users", "sessionVersion", "INTEGER NOT NULL DEFAULT 0");
 
 /* ================= CD REGISTER TRANSACTIONS ================= */
 

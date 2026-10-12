@@ -1,7 +1,16 @@
 import express from "express";
 import db from "../database.js";
+import { hasLocationAccess, requireLocationAccess, clinicalOnly, canWriteClinical } from "../auth.js";
 
 const router = express.Router();
+
+router.param("id", (req, res, next, id) => {
+  const record = db.prepare("SELECT * FROM pharmacy_requests WHERE id = ?").get(id);
+  if (!record || !hasLocationAccess(req.user, record.hospitalId, record.locationId)) {
+    return res.status(403).json({ message: "Pharmacy request is not accessible to this account" });
+  }
+  next();
+});
 
 function makeRequisitionNumber() {
   const now = new Date();
@@ -39,7 +48,7 @@ function canManagePharmacyRequests(roleValue) {
   return role === "pharmacy" || role === "pharmacist";
 }
 
-router.post("/", (req, res) => {
+router.post("/", requireLocationAccess, clinicalOnly, (req, res) => {
   try {
     const {
       drugId,
@@ -77,6 +86,11 @@ router.post("/", (req, res) => {
         message:
           "Only ODP, anaesthetic practitioner, theatre practitioner or nurse can request controlled drug pharmacy supply.",
       });
+    }
+
+    const requester = db.prepare("SELECT * FROM users WHERE id = ?").get(Number(requestedById));
+    if (!requester || !canWriteClinical(requester) || !hasLocationAccess(requester, hospitalId, locationId)) {
+      return res.status(403).json({ message: "Requester is not authorised for this location" });
     }
 
     const drug = db
@@ -173,7 +187,7 @@ router.get("/", (req, res) => {
 
     const requests = db.prepare(sql).all(...params);
 
-    return res.json(requests);
+    return res.json(requests.filter(row => hasLocationAccess(req.user, row.hospitalId, row.locationId)));
   } catch (error) {
     return res.status(500).json({
       message: error.message,
@@ -192,7 +206,7 @@ router.get("/pending", (req, res) => {
       `)
       .all();
 
-    return res.json(requests);
+    return res.json(requests.filter(row => hasLocationAccess(req.user, row.hospitalId, row.locationId)));
   } catch (error) {
     return res.status(500).json({
       message: error.message,
@@ -296,7 +310,7 @@ router.put("/:id/reject", (req, res) => {
   }
 });
 
-router.post("/verify-requisition", (req, res) => {
+router.post("/verify-requisition", requireLocationAccess, clinicalOnly, (req, res) => {
   try {
     const { requisitionNumber, drugId, quantityReceived, hospitalId, locationId } = req.body;
 
@@ -333,6 +347,10 @@ router.post("/verify-requisition", (req, res) => {
         message:
           "Requisition cannot be received because hospital/location was not captured. Create a new pharmacy request from the correct location.",
       });
+    }
+
+    if (!hasLocationAccess(req.user, request.hospitalId, request.locationId)) {
+      return res.status(403).json({ message: "Requisition is outside your permitted location" });
     }
 
     if (Number(request.drugId) !== Number(drugId)) {
@@ -384,7 +402,7 @@ router.post("/verify-requisition", (req, res) => {
   }
 });
 
-router.put("/:id/complete", (req, res) => {
+router.put("/:id/complete", clinicalOnly, (req, res) => {
   try {
     const { id } = req.params;
 

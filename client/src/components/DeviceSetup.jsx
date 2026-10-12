@@ -47,7 +47,9 @@ function DeviceSetup({
 
   async function loadHospitals() {
     try {
-      const response = await fetch(`${API_URL}/device-setup/hospitals`);
+      const response = await fetch(`${API_URL}/device-setup/hospitals`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+      });
       const data = await response.json();
       setHospitals(Array.isArray(data) ? data : []);
     } catch {
@@ -58,7 +60,8 @@ function DeviceSetup({
   async function loadLocations(hospitalId) {
     try {
       const response = await fetch(
-        `${API_URL}/device-setup/locations?hospitalId=${hospitalId}`
+        `${API_URL}/device-setup/locations?hospitalId=${hospitalId}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       const data = await response.json();
       setLocations(Array.isArray(data) ? data : []);
@@ -70,7 +73,8 @@ function DeviceSetup({
   async function loadDevices(hospitalId, locationId) {
     try {
       const response = await fetch(
-        `${API_URL}/device-setup/devices?hospitalId=${hospitalId}&locationId=${locationId}`
+        `${API_URL}/device-setup/devices?hospitalId=${hospitalId}&locationId=${locationId}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
       const data = await response.json();
       setDevices(Array.isArray(data) ? data : []);
