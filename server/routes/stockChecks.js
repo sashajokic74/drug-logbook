@@ -3,6 +3,7 @@ import db from "../database.js";
 import { verifyUser } from "../auth.js";
 import { createSignatureHash } from "../signature.js";
 
+import {clinicalCredentials} from '../clinicalCredentials.js';
 const router = express.Router();
 
 function isExpired(expiryDate) {
@@ -81,7 +82,7 @@ router.get("/", verifyUser, (req, res) => {
   }
 });
 
-router.post("/", verifyUser, (req, res) => {
+router.post("/", verifyUser, clinicalCredentials([['staffOneId','staffOneCredentials'],['staffTwoId','staffTwoCredentials']]), (req, res) => {
   try {
     const {
       drugId,
@@ -149,7 +150,10 @@ router.post("/", verifyUser, (req, res) => {
     }
 
     const countedBalance = Number(actualBalance);
+    if(!Number.isSafeInteger(countedBalance)||countedBalance<0||countedBalance>1000000)return res.status(400).json({message:'Enter a nonnegative whole stock count up to 1,000,000.'});
+    if(typeof req.body.expectedBalance!=='number'||req.body.expectedBalance!==expectedBalance)return res.status(409).json({message:'Stock changed since the count was prepared. Refresh and count again.'});
     const difference = countedBalance - expectedBalance;
+    if(difference!==0&&!String(notes||'').trim())return res.status(400).json({message:'Add a note explaining the discrepancy.'});
 
     const staffOneSignedAt = new Date().toISOString();
     const staffTwoSignedAt = new Date().toISOString();
@@ -162,6 +166,7 @@ router.post("/", verifyUser, (req, res) => {
       action: `CD stock check ${checkType}`,
       drugName: drug.name,
       timestamp: staffOneSignedAt,
+      record:{...req.body,expectedBalance,countedBalance,difference},
     });
 
     const staffTwoSignatureHash = createSignatureHash({
@@ -172,6 +177,7 @@ router.post("/", verifyUser, (req, res) => {
       action: `CD stock check ${checkType}`,
       drugName: drug.name,
       timestamp: staffTwoSignedAt,
+      record:{...req.body,expectedBalance,countedBalance,difference},
     });
 
     const result = db

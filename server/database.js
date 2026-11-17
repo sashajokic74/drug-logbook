@@ -476,3 +476,26 @@ CREATE TABLE IF NOT EXISTS audit (
 `).run();
 
 export default db;
+
+// Packaging details are additive; historical records and balances stay intact.
+db.exec(`CREATE TABLE IF NOT EXISTS stock_batches (
+ id TEXT PRIMARY KEY,hospitalId INTEGER NOT NULL,locationId INTEGER NOT NULL,drugId INTEGER NOT NULL,
+ batchNumber TEXT NOT NULL,expiryDate TEXT NOT NULL,quantity INTEGER NOT NULL CHECK(quantity>=0),originalQuantity INTEGER NOT NULL,
+ version INTEGER NOT NULL DEFAULT 0,source TEXT NOT NULL,firstId INTEGER NOT NULL,secondId INTEGER NOT NULL,transactionId INTEGER,
+ createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+); CREATE INDEX IF NOT EXISTS stock_batches_location ON stock_batches(hospitalId,locationId,drugId);`);
+for(const [name,type] of [['batchId','TEXT'],['batchNumber','TEXT'],['expiryDate','TEXT']])addColumnIfMissing('drug_transactions',name,type);
+
+// Pharmacy lifecycle fields are additive: historical records remain unchanged.
+for(const [name,type] of [['approvedAt','TEXT'],['approvedBy','TEXT'],['dispatchedAt','TEXT'],['dispatchedBy','TEXT'],['dispatchReference','TEXT'],['rejectionReason','TEXT'],['quantityReceived','INTEGER NOT NULL DEFAULT 0'],['requestCheckerId','INTEGER'],['requestCheckerName','TEXT']])addColumnIfMissing('pharmacy_requests',name,type);
+
+addColumnIfMissing('drug_transactions','pharmacyRequestId','INTEGER');
+
+// Custody events retain every signed step without replacing clinical history.
+addColumnIfMissing('stock_batches','heldQuantity','INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('drug_transactions','custodyCaseId','TEXT');
+db.exec(`CREATE TABLE IF NOT EXISTS stock_custody(
+ id TEXT PRIMARY KEY,hospitalId INTEGER NOT NULL,hospitalName TEXT NOT NULL,locationId INTEGER NOT NULL,locationName TEXT NOT NULL,drugId INTEGER NOT NULL,drugName TEXT NOT NULL,batchId TEXT NOT NULL,batchNumber TEXT NOT NULL,expiryDate TEXT NOT NULL,quantity INTEGER NOT NULL CHECK(quantity>0),status TEXT NOT NULL,reason TEXT NOT NULL,reference TEXT NOT NULL,receivedQuantity INTEGER,version INTEGER NOT NULL DEFAULT 0,createdAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updatedAt TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+); CREATE INDEX IF NOT EXISTS stock_custody_scope ON stock_custody(hospitalId,locationId,drugId);
+CREATE TABLE IF NOT EXISTS stock_custody_events(sequence INTEGER PRIMARY KEY AUTOINCREMENT,id TEXT UNIQUE NOT NULL,caseId TEXT NOT NULL,action TEXT NOT NULL,firstId INTEGER NOT NULL,firstName TEXT NOT NULL,secondId INTEGER NOT NULL,secondName TEXT NOT NULL,record TEXT NOT NULL,firstHash TEXT NOT NULL,secondHash TEXT NOT NULL,createdAt TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS stock_custody_history ON stock_custody_events(caseId);`);

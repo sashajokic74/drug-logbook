@@ -1,1 +1,16 @@
 node_modules
+dist/
+client/dist/
+.env
+.env.*
+!.env.example
+*.db
+*.db-*
+*.sqlite*
+*.pem
+*.key
+*.log
+.DS_Store
+._*
+*.tar.gz
+**/.vite-preview/

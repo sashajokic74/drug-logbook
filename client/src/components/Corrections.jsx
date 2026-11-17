@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const API_URL = "http://localhost:8000";
+import { API_URL } from "../apiConfig";
 
 function Corrections({ device }) {
   const [drugs, setDrugs] = useState([]);
@@ -280,6 +280,8 @@ function Corrections({ device }) {
         locationId: device?.locationId,
         locationName: device?.locationName,
         correctedById: correctedBy.id,
+        correctedByCredentials: correctedByForm,
+        checkedByCredentials: checkedByForm,
         checkedById: checkedBy.id,
       }),
     });

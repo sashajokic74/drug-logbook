@@ -1,220 +1,24 @@
-import { useEffect, useState } from "react";
-import {
-  getPharmacyRequests,
-  approvePharmacyRequest,
-  rejectPharmacyRequest,
-} from "../pharmacy";
-
-function PharmacyDashboard({ device, user }) {
-  const [requests, setRequests] = useState([]);
-  const [message, setMessage] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("ALL");
-
-  useEffect(() => {
-    loadRequests();
-  }, [device?.hospitalId, device?.locationId]);
-
-  async function loadRequests() {
-    setMessage("");
-
-    try {
-      const data = await getPharmacyRequests({
-        hospitalId: device?.hospitalId,
-        locationId: device?.locationId,
-      });
-      setRequests(Array.isArray(data) ? data : []);
-    } catch (error) {
-      setMessage(error.message);
-    }
-  }
-
-  async function approveRequest(id) {
-    try {
-      await approvePharmacyRequest(id);
-      await loadRequests();
-      setMessage("Pharmacy request approved.");
-    } catch (error) {
-      setMessage(error.message);
-    }
-  }
-
-  async function rejectRequest(id) {
-    const reason = prompt("Reason for rejection:");
-    if (reason === null) return;
-
-    try {
-      await rejectPharmacyRequest(id, reason);
-      await loadRequests();
-      setMessage("Pharmacy request rejected.");
-    } catch (error) {
-      setMessage(error.message);
-    }
-  }
-
-  function statusStyle(status) {
-    const value = String(status || "").toUpperCase();
-
-    if (value === "REQUESTED") return { color: "#b45309", fontWeight: "bold" };
-    if (value === "APPROVED") return { color: "#2563eb", fontWeight: "bold" };
-    if (value === "COMPLETED") return { color: "#15803d", fontWeight: "bold" };
-    if (value === "REJECTED") return { color: "#dc2626", fontWeight: "bold" };
-
-    return { fontWeight: "bold" };
-  }
-
-  const filteredRequests = requests.filter((request) => {
-    if (selectedStatus === "ALL") return true;
-    return String(request.status || "").toUpperCase() === selectedStatus;
-  });
-
-  const statusCounts = ["REQUESTED", "APPROVED", "COMPLETED", "REJECTED"]
-    .map((status) => ({
-      status,
-      count: requests.filter(
-        (request) => String(request.status || "").toUpperCase() === status
-      ).length,
-    }));
-  const canActionRequests =
-    user?.role === "pharmacy" ||
-    user?.role === "pharmacist";
-
-  return (
-    <div className="register-box">
-      <section className="pharmacy-dashboard-header">
-        <div>
-          <span className="eyebrow">Controlled drug requisitions</span>
-          <h2>Pharmacy Dashboard</h2>
-          <p>
-            {device?.locationName || "Current location"} ·{" "}
-            {device?.hospitalName || "Hospital"}
-          </p>
-        </div>
-
-        <button type="button" onClick={loadRequests}>
-          Refresh
-        </button>
-      </section>
-
-      <p>
-        Requisitions are location-specific. Stock can only be received when the
-        requisition number, drug and quantity match.
-      </p>
-
-      {message && (
-        <p
-          style={{
-            color: message.includes("approved") || message.includes("rejected")
-              ? "green"
-              : "red",
-            fontWeight: "bold",
-          }}
-        >
-          {message}
-        </p>
-      )}
-
-      <div className="pharmacy-status-grid">
-        {statusCounts.map((item) => (
-          <button
-            key={item.status}
-            type="button"
-            className={selectedStatus === item.status ? "selected" : ""}
-            onClick={() => setSelectedStatus(item.status)}
-          >
-            <strong>{item.count}</strong>
-            <span>{item.status}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="pharmacy-filter-row">
-        {["ALL", "REQUESTED", "APPROVED", "COMPLETED", "REJECTED"].map(
-          (status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => setSelectedStatus(status)}
-              className={selectedStatus === status ? "selected" : ""}
-            >
-              {status}
-            </button>
-          )
-        )}
-      </div>
-
-      {filteredRequests.length === 0 ? (
-        <p>No pharmacy requests found.</p>
-      ) : (
-        <div className="pharmacy-request-list">
-          {filteredRequests.map((request) => (
-            <article className="pharmacy-request-card" key={request.id}>
-              <div>
-                <span className="pharmacy-requisition">
-                  {request.requisitionNumber}
-                </span>
-                <h3>{request.drugName}</h3>
-                <p>
-                  {request.quantityRequested} ampoules · {request.reason || "No reason recorded"}
-                </p>
-              </div>
-
-              <dl>
-                <div>
-                  <dt>Status</dt>
-                  <dd style={statusStyle(request.status)}>{request.status || "-"}</dd>
-                </div>
-
-                <div>
-                  <dt>Requested by</dt>
-                  <dd>{request.requestedByName}</dd>
-                </div>
-
-                <div>
-                  <dt>Location</dt>
-                  <dd>{request.locationName || "-"}</dd>
-                </div>
-
-                <div>
-                  <dt>Created</dt>
-                  <dd>
-                    {request.createdAt
-                      ? new Date(request.createdAt).toLocaleString()
-                      : "-"}
-                  </dd>
-                </div>
-
-                <div>
-                  <dt>Completed</dt>
-                  <dd>
-                    {request.completedAt
-                      ? new Date(request.completedAt).toLocaleString()
-                      : "-"}
-                  </dd>
-                </div>
-              </dl>
-
-              {String(request.status || "").toUpperCase() === "REQUESTED" && (
-                <div className="pharmacy-card-actions">
-                  {canActionRequests ? (
-                    <>
-                      <button type="button" onClick={() => approveRequest(request.id)}>
-                        Approve
-                      </button>
-                      <button type="button" onClick={() => rejectRequest(request.id)}>
-                        Reject
-                      </button>
-                    </>
-                  ) : (
-                    <small>Only Pharmacy can approve or reject.</small>
-                  )}
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+import {useEffect,useRef,useState} from 'react';
+import {getPharmacyRequests,approvePharmacyRequest,rejectPharmacyRequest,dispatchPharmacyRequest} from '../pharmacy';
+import {SupplyProgress,supplyLabel} from './PharmacyWorkflow';
+export default function PharmacyDashboard({device,user,portalMode=false}){
+ const [requests,setRequests]=useState([]),[message,setMessage]=useState(''),[error,setError]=useState(''),[status,setStatus]=useState('ALL'),[search,setSearch]=useState(''),[busy,setBusy]=useState(false),[action,setAction]=useState(null),[note,setNote]=useState('');
+ const dialog=useRef(null),pending=useRef(false);
+ async function load(){try{const data=await getPharmacyRequests(portalMode?{}:{hospitalId:device?.hospitalId,locationId:device?.locationId});setRequests(Array.isArray(data)?data:[]);}catch(e){setError(e.message);}}
+ useEffect(()=>{load();const id=setInterval(load,30000);return()=>clearInterval(id);},[device?.hospitalId,device?.locationId,portalMode]);
+ useEffect(()=>{if(action){dialog.current?.showModal();return()=>dialog.current?.close();}},[action]);
+ async function act(e){e.preventDefault();if(pending.current)return;pending.current=true;setBusy(true);setError('');try{if(action.type==='approve')await approvePharmacyRequest(action.request.id);else if(action.type==='dispatch')await dispatchPharmacyRequest(action.request.id,note);else await rejectPharmacyRequest(action.request.id,note);setMessage(`${action.request.requisitionNumber} · ${action.type==='approve'?'Approved':action.type==='dispatch'?'Dispatched':'Rejected'}`);setAction(null);setNote('');await load();}catch(e){setError(e.message);}finally{pending.current=false;setBusy(false);}}
+ const statuses=['REQUESTED','APPROVED','DISPATCHED','COMPLETED','REJECTED'],canAct=['pharmacy','pharmacist'].includes(user?.role),filtered=requests.filter(r=>(status==='ALL'||r.status===status)&&`${r.requisitionNumber} ${r.drugName} ${r.hospitalName} ${r.locationName}`.toLowerCase().includes(search.toLowerCase()));
+ function start(type,request){setError('');setNote('');setAction({type,request});}
+ return <section className="register-box pharmacy-dashboard portal-dashboard"><header className="pharmacy-dashboard-header"><div><span className="eyebrow">Controlled drug supply</span><h2>Clinical area requests</h2><p>Approve, dispatch and track each delivery through to its signed receipt.</p></div><button onClick={load} disabled={busy}>Refresh requests</button></header>
+  {message&&<p role="status" className="supply-notice">{message}</p>}{error&&!action&&<p role="alert" className="supply-error">{error}</p>}
+  <div className="pharmacy-status-grid">{statuses.map(s=><button key={s} aria-pressed={status===s} className={status===s?'selected':''} onClick={()=>setStatus(status===s?'ALL':s)}><strong>{requests.filter(r=>r.status===s).length}</strong><span>{supplyLabel(s)}</span></button>)}</div>
+  <div className="pharmacy-search-row"><label>Find a request<input placeholder="Medicine, requisition, hospital or clinical area" value={search} onChange={e=>setSearch(e.target.value)}/></label><label>Stage<select value={status} onChange={e=>setStatus(e.target.value)}><option value="ALL">All stages</option>{statuses.map(s=><option key={s} value={s}>{supplyLabel(s)}</option>)}</select></label></div>
+  {!filtered.length?<p className="pharmacy-empty">No requests match this view.</p>:<div className="pharmacy-request-list">{filtered.map(r=><article className="pharmacy-request-card" key={r.id}>
+   <div><div className="supply-card-title"><span className="pharmacy-requisition">{r.requisitionNumber}</span><span className={`supply-badge ${r.status.toLowerCase()}`}>{supplyLabel(r.status)}</span></div><h3>{r.drugName}</h3><p><strong>{r.quantityRequested} stock units</strong> · {r.reason}</p>{r.status!=='REJECTED'&&<SupplyProgress status={r.status}/>}</div>
+   <dl><div><dt>Destination</dt><dd>{r.hospitalName} · {r.locationName}</dd></div><div><dt>Request signed by</dt><dd>{r.requestedByName}{r.requestCheckerName?` / ${r.requestCheckerName}`:''}</dd></div><div><dt>Requested</dt><dd>{r.createdAt?new Date(r.createdAt).toLocaleString():'—'}</dd></div><div><dt>Received / outstanding</dt><dd>{r.status==='COMPLETED'?r.quantityRequested:Number(r.quantityReceived||0)} / {r.status==='COMPLETED'?0:Number(r.quantityRequested)-Number(r.quantityReceived||0)}</dd></div>{r.approvedAt&&<div><dt>Approved</dt><dd>{r.approvedBy} · {new Date(r.approvedAt).toLocaleString()}</dd></div>}{r.dispatchedAt&&<div><dt>Dispatched</dt><dd>{r.dispatchedBy} · {new Date(r.dispatchedAt).toLocaleString()}{r.dispatchReference?` · ${r.dispatchReference}`:''}</dd></div>}{r.completedAt&&<div><dt>Received</dt><dd>{new Date(r.completedAt).toLocaleString()}</dd></div>}{r.rejectionReason&&<div><dt>Rejection reason</dt><dd>{r.rejectionReason}</dd></div>}</dl>
+   <div className="pharmacy-card-actions">{canAct&&r.status==='REQUESTED'&&<><button className="reject-action" disabled={busy} onClick={()=>start('reject',r)}>Reject</button><button disabled={busy} onClick={()=>start('approve',r)}>Approve request</button></>}{canAct&&r.status==='APPROVED'&&<button disabled={busy} onClick={()=>start('dispatch',r)}>Mark dispatched</button>}{r.status==='DISPATCHED'&&<small>Awaiting two-person receipt in the clinical area. Dispatch does not add stock.</small>}{r.status==='COMPLETED'&&<small>Delivery received and recorded in the logbook.</small>}</div>
+  </article>)}</div>}
+  {action&&<dialog ref={dialog} className="pharmacy-action-dialog" onCancel={e=>{if(busy)e.preventDefault();else setAction(null);}}><form onSubmit={act}><h2>{action.type==='approve'?'Approve request':action.type==='dispatch'?'Dispatch delivery':'Reject request'}</h2><p><strong>{action.request.drugName}</strong> · {action.request.quantityRequested} stock units</p><p>{action.request.requisitionNumber}<br/>{action.request.hospitalName} · {action.request.locationName}</p>{action.type==='approve'?<p>Approval allows pharmacy to prepare the delivery. Mark it dispatched once it has left pharmacy.</p>:<label>{action.type==='reject'?'Reason for rejection':'Dispatch reference (optional)'}<input value={note} onChange={e=>setNote(e.target.value)} required={action.type==='reject'} maxLength={200}/></label>}{error&&<p role="alert" className="supply-error">{error}</p>}<div><button type="button" disabled={busy} onClick={()=>setAction(null)}>Cancel</button><button type="submit" disabled={busy}>{busy?'Saving…':'Confirm '+(action.type==='approve'?'approval':action.type==='dispatch'?'dispatch':'rejection')}</button></div></form></dialog>}
+ </section>
 }
-
-export default PharmacyDashboard;

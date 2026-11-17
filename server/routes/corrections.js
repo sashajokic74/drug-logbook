@@ -1,8 +1,10 @@
+import {reverseBatch} from '../stockBatches.js';
 import express from "express";
 import db from "../database.js";
-import { verifyUser } from "../auth.js";
+import { verifyUser, hasLocationAccess } from "../auth.js";
 import { createSignatureHash } from "../signature.js";
 
+import {clinicalCredentials} from '../clinicalCredentials.js';
 const router = express.Router();
 
 
@@ -104,7 +106,7 @@ router.get("/", verifyUser, (req, res) => {
 
   } catch (error) {
 
-    return res.status(500).json({
+    return res.status(error.status||500).json({
       message: error.message,
     });
 
@@ -114,7 +116,7 @@ router.get("/", verifyUser, (req, res) => {
 
 /* ================= CREATE ================= */
 
-router.post("/", verifyUser, (req, res) => {
+router.post("/", verifyUser, clinicalCredentials([['correctedById','correctedByCredentials'],['checkedById','checkedByCredentials']]), (req, res) => {
   try {
 
     const {
@@ -166,6 +168,7 @@ router.post("/", verifyUser, (req, res) => {
     }
 
 
+    if(original.custodyCaseId)return res.status(409).json({message:'This is a custody movement. Use its custody history and a separately signed return receipt rather than reversing it as patient administration.'});
     const staff1 = getStaff(correctedById);
     const staff2 = getStaff(checkedById);
 
@@ -175,6 +178,8 @@ router.post("/", verifyUser, (req, res) => {
         message: "Staff verification failed",
       });
     }
+
+    if (Number(req.body.hospitalId)!==Number(original.hospitalId)||Number(req.body.locationId)!==Number(original.locationId)||![req.user,staff1,staff2].every(u=>hasLocationAccess(u,original.hospitalId,original.locationId))) return res.status(403).json({message:'All signing staff must be assigned to the original clinical area.'});
 
     if (correctionType === "entry_error") {
       const existingReversal = db.prepare(`
@@ -224,6 +229,7 @@ router.post("/", verifyUser, (req, res) => {
       action: "correction",
       drugName: original.drugName,
       timestamp: time1,
+      record:{...req.body,stockAdjustment,original},
     });
 
 
@@ -235,9 +241,11 @@ router.post("/", verifyUser, (req, res) => {
       action: "correction check",
       drugName: original.drugName,
       timestamp: time2,
+      record:{...req.body,stockAdjustment,original},
     });
 
 
+    const result = db.transaction(()=>{
     const result = db.prepare(`
       INSERT INTO corrections
       (
@@ -321,8 +329,14 @@ router.post("/", verifyUser, (req, res) => {
       const before = Number(locationStock?.quantity ?? drug.quantity ?? 0);
 
 
-      const after =
-        before + stockAdjustment;
+      const after = before + stockAdjustment;
+      if(!Number.isFinite(after)||after<0)throw new Error('Correction would create a negative balance.');
+      reverseBatch(original,stockAdjustment,after);
+      if(original.pharmacyRequestId && stockAdjustment<0){
+        const restored=db.prepare("UPDATE pharmacy_requests SET quantityReceived=quantityReceived-?,status='DISPATCHED',completedAt=NULL WHERE id=? AND status IN ('COMPLETED','DISPATCHED') AND quantityReceived>=?").run(-stockAdjustment,original.pharmacyRequestId,-stockAdjustment);
+        if(restored.changes!==1)throw Object.assign(new Error('The linked requisition changed. Review the delivery before reversing.'),{status:409});
+      }
+
 
 
       if (original.hospitalId || hospitalId) {
@@ -408,6 +422,8 @@ router.post("/", verifyUser, (req, res) => {
     }
 
 
+    return result;
+    })();
     return res.status(201).json({
       id: result.lastInsertRowid,
       stockAdjustment,
@@ -420,7 +436,7 @@ router.post("/", verifyUser, (req, res) => {
 
   } catch (error) {
 
-    return res.status(500).json({
+    return res.status(error.status||500).json({
       message: error.message,
     });
 

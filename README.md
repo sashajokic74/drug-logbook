@@ -12,6 +12,10 @@ The app keeps the drug-card/register workflow while adding:
 - pharmacy requests and pharmacy supply
 - stock checks and corrections
 - location-specific patient lists
+- batch and expiry tracking with held-stock availability
+- signed stock holds, pharmacy returns and completed-destruction evidence
+- pharmacy receipt discrepancy investigations with owners, review dates and signed reconciliation
+- compact tablet layouts with complete medicine names and touch targets
 
 ## Run Locally
 
@@ -81,3 +85,9 @@ Back it up before major changes.
 - Make every iPad/computer locked to one clinical area.
 - Keep separate stock and patient lists per location.
 - Continue cleaning routing and moving configuration out of source code.
+
+## Source and data
+
+Databases, passwords, environment files and generated build output are excluded from source control. Configure the environment from `server/.env.example`, install dependencies with `npm run install:all`, run backend validation with `npm test` and build the client with `npm run build`.
+
+Return discrepancies remain open until the full handover quantity is independently reconciled by two pharmacy staff. Investigations retain the original counts and signed history and do not adjust clinical stock.

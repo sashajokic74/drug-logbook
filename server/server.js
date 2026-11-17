@@ -1,7 +1,13 @@
+import {batchStock} from './stockBatches.js';
+import stockCustodyRoutes from './routes/stockCustody.js';
+import stockBatchRoutes from './routes/stockBatches.js';
 import transactionRoutes from "./routes/transactions.js";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import seedDrugs from "./drugData.js";
 import db from "./database.js";
 import { loginUser, verifyUser, adminOnly } from "./auth.js";
@@ -12,12 +18,37 @@ import locationRoutes from "./routes/locations.js";
 import pharmacyRequestRoutes from "./routes/pharmacyRequests.js";
 import userRoutes from "./routes/users.js";
 import { config } from "./config.js";
+import { wardPharmacyRoutes } from './routes/wardPharmacy.js';
+import { currentWardPharmacist, wardLocationAccess } from './routes/wardPharmacyAccess.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const clientDistPath = path.resolve(__dirname, "../client/dist");
 
 const app = express();
 
 app.use(
   cors({
-    origin: config.corsOrigin,
+    origin(origin, callback) {
+      if (!origin || config.corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      try {
+        const { hostname } = new URL(origin);
+        const isLocalNetwork =
+          hostname === "localhost" ||
+          hostname === "127.0.0.1" ||
+          hostname.startsWith("192.168.") ||
+          hostname.startsWith("10.") ||
+          /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
+
+        callback(isLocalNetwork ? null : new Error("Not allowed by CORS"), isLocalNetwork);
+      } catch {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
   })
 );
 
@@ -31,12 +62,15 @@ app.get("/health", (req, res) => {
   });
 });
 
+app.use("/stock-custody",stockCustodyRoutes);
+app.use("/stock-batches",stockBatchRoutes);
 app.use("/transactions", transactionRoutes);
 app.use("/checker", checkerRoutes);
 app.use("/stock-checks", stockCheckRoutes);
 app.use("/corrections", correctionRoutes);
 app.use("/locations", locationRoutes);
 app.use("/pharmacy-requests", verifyUser, pharmacyRequestRoutes);
+app.use('/ward-pharmacy', verifyUser, currentWardPharmacist, wardPharmacyRoutes({hasLocationAccess:wardLocationAccess}));
 app.use("/users", userRoutes);
 
 /* ================= DEVICE SETUP ROUTES ================= */
@@ -211,6 +245,24 @@ app.get("/device-setup/devices", (req, res) => {
   }
 });
 
+app.get("/device-setup/device/:deviceCode", (req, res) => {
+  try {
+    const { deviceCode } = req.params;
+
+    const device = db
+      .prepare("SELECT * FROM devices WHERE deviceCode = ? AND active = 1")
+      .get(deviceCode);
+
+    if (!device) {
+      return res.status(404).json({ message: "Device not found" });
+    }
+
+    return res.json(device);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+});
+
 app.post("/device-setup/devices", verifyUser, adminOnly, (req, res) => {
   try {
     const {
@@ -364,7 +416,7 @@ app.get("/drugs", (req, res) => {
           Number(locationId),
           locationName || "",
           drug.id,
-          Number(drug.quantity || 0),
+          0,
           Number(drug.minimumStock || 5),
           Number(drug.maximumStock || 20)
         );
@@ -393,13 +445,19 @@ app.get("/drugs", (req, res) => {
       `)
       .all(Number(hospitalId), Number(locationId));
 
-    return res.status(200).json(locationDrugs);
+    return res.status(200).json(locationDrugs.map(d=>{const stock=batchStock(hospitalId,locationId,d.id);return {...d,heldQuantity:stock.held,availableQuantity:stock.batches.filter(b=>b.expiryDate>=stock.today).reduce((n,b)=>n+b.availableQuantity,0)};}));
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
 });
 
-app.post("/drugs", verifyUser, adminOnly, (req, res) => {
+app.post("/drugs", verifyUser, (req, res, next) => {
+  if (!["pharmacy", "pharmacist"].includes(String(req.user.role || "").toLowerCase()) ||
+      !wardLocationAccess(req.user, req.body.hospitalId, req.body.locationId)) {
+    return res.status(403).json({message: "Only an active pharmacist assigned to this clinical area can add a medicine."});
+  }
+  next();
+}, (req, res) => {
   try {
     const result = db
       .prepare(`
@@ -461,6 +519,10 @@ app.put("/drugs/:id", verifyUser, adminOnly, (req, res) => {
     return res.status(404).json({ message: "Drug not found" });
   }
 
+  if(req.body.quantity!==undefined && req.body.hospitalId && req.body.locationId){
+    const known=db.prepare('SELECT COALESCE(SUM(quantity),0) AS quantity FROM stock_batches WHERE hospitalId=? AND locationId=? AND drugId=?').get(Number(req.body.hospitalId),Number(req.body.locationId),Number(req.params.id)).quantity;
+    if(!Number.isFinite(Number(req.body.quantity))||Number(req.body.quantity)<known) return res.status(409).json({message:'Stock cannot be reduced below the recorded batch balance. Use a signed correction.'});
+  }
   const updatedDrug = {
     name: req.body.name ?? existingDrug.name,
     category: req.body.category ?? existingDrug.category,
@@ -952,6 +1014,14 @@ app.get("/audit-trail", verifyUser, adminOnly, (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 });
+
+if (fs.existsSync(clientDistPath)) {
+  app.use(express.static(clientDistPath));
+
+  app.get(/^\/(?!health|transactions|checker|stock-checks|corrections|locations|pharmacy-requests|users|device-setup|drugs|login|patients|audit-trail).*/, (req, res) => {
+    res.sendFile(path.join(clientDistPath, "index.html"));
+  });
+}
 
 /* ================= SERVER ================= */
 

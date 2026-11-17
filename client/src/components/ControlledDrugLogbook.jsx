@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import DrugRegister from "./DrugRegister";
 
-const API_URL = "http://localhost:8000";
+import { API_URL } from "../apiConfig";
 
-function ControlledDrugLogbook({ device }) {
+function ControlledDrugLogbook({ device, user }) {
   const [inventory, setInventory] = useState([]);
   const [selectedDrug, setSelectedDrug] = useState(null);
 
@@ -22,6 +22,7 @@ function ControlledDrugLogbook({ device }) {
       concentration: drug.concentration || "",
       quantity: Number(drug.quantity || 0),
       category: drug.category || "",
+      heldQuantity:Number(drug.heldQuantity||0),availableQuantity:Number(drug.availableQuantity||0),
     };
   }
 
@@ -65,7 +66,7 @@ function ControlledDrugLogbook({ device }) {
 
     const token = localStorage.getItem("token");
 
-    await fetch(`${API_URL}/drugs`, {
+    const response = await fetch(`${API_URL}/drugs`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -83,6 +84,11 @@ function ControlledDrugLogbook({ device }) {
       }),
     });
 
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      alert(error.message || "Could not add the medicine. Please try again.");
+      return;
+    }
     setNewDrug({
       name: "",
       size: "",
@@ -188,12 +194,19 @@ function ControlledDrugLogbook({ device }) {
   const lowStockCount = inventory.filter(
     (drug) => Number(drug.quantity || 0) < 5
   ).length;
+  const scope = String(user?.accessScope || "").toUpperCase();
+  const assignedIds = value => String(value || "").split(",").map(id => id.trim());
+  const canAddDrug = ["pharmacy", "pharmacist"].includes(String(user?.role || "").toLowerCase()) &&
+    (scope === "ALL" || (scope === "HOSPITAL" && assignedIds(user.accessHospitalIds).includes(String(device?.hospitalId))) ||
+      (scope === "LOCATIONS" && assignedIds(user.accessLocationIds).includes(String(device?.locationId))));
+  const canManageDrugStock = String(user?.role || "").toLowerCase() === "admin";
 
   function stockStatus(drug) {
     const quantity = Number(drug.quantity || 0);
 
     if (quantity === 0) return "No stock";
-    if (quantity < 5) return "Low stock";
+    if (drug.availableQuantity===0) return "Check stock status";
+    if (drug.availableQuantity < 5) return "Low usable stock";
     return "In stock";
   }
 
@@ -249,13 +262,13 @@ function ControlledDrugLogbook({ device }) {
         security and patient confidentiality policies.
       </div>
 
-      <div className="add-drug-box">
-        <div className="panel-heading">
-          <div>
-            <h2>Add controlled drug</h2>
-            <p>New stock is added to this selected hospital area.</p>
-          </div>
-        </div>
+      {canAddDrug && <details className="add-drug-box add-drug-disclosure">
+        <summary>
+          <span>
+            <strong>Add controlled drug</strong>
+            <small>New stock is added to this selected hospital area.</small>
+          </span>
+        </summary>
 
         <div className="add-drug-grid">
           <label>
@@ -303,7 +316,7 @@ function ControlledDrugLogbook({ device }) {
             Add Drug
           </button>
         </div>
-      </div>
+      </details>}
 
       <div className="section-heading">
         <div>
@@ -321,7 +334,7 @@ function ControlledDrugLogbook({ device }) {
                   <h3>{drug.name}</h3>
                   <span className="stock-status">{stockStatus(drug)}</span>
                   <strong>{drug.quantity}</strong>
-                  <small>ampoules available</small>
+                  <small>physical stock units</small><small>{drug.availableQuantity} ready for use · {drug.heldQuantity} held</small>
                 </div>
 
                 <div className="flip-card-back">
@@ -339,23 +352,25 @@ function ControlledDrugLogbook({ device }) {
                     {drug.concentration}
                   </p>
 
-                  <div className="drug-card-actions">
-                    <button
-                      type="button"
-                      className="edit-btn"
-                      onClick={() => editDrug(drug.id)}
-                    >
-                      Edit
-                    </button>
+                  {canManageDrugStock && (
+                    <div className="drug-card-actions">
+                      <button
+                        type="button"
+                        className="edit-btn"
+                        onClick={() => editDrug(drug.id)}
+                      >
+                        Edit
+                      </button>
 
-                    <button
-                      type="button"
-                      className="delete-btn"
-                      onClick={() => deleteDrug(drug.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        className="delete-btn"
+                        onClick={() => deleteDrug(drug.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

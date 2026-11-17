@@ -1,0 +1,56 @@
+/* Scope every rule to the pharmacy portal; theatre register styles stay intact. */
+.pharmacy-portal-page,.pharmacy-portal-shell { background:#e3eaea; color:#183137; letter-spacing:0; }
+.pharmacy-portal-page { max-width:1500px; padding:24px; }
+.pharmacy-portal-page .pharmacy-portal-header { background:#124d48; color:#fff; border:0; border-bottom:5px solid #d6a344; border-radius:0; box-shadow:none; gap:24px; flex-wrap:wrap; padding:24px; }
+.pharmacy-portal-page .pharmacy-portal-header h1 { color:#fff; font-size:30px; line-height:1.2; }
+.pharmacy-portal-page .pharmacy-portal-header p,.pharmacy-portal-page .pharmacy-portal-header .eyebrow,.pharmacy-portal-page .pharmacy-portal-header .session-panel,.pharmacy-portal-page .pharmacy-portal-header .session-panel small,.pharmacy-portal-page .pharmacy-portal-header .session-panel span,.pharmacy-portal-page .pharmacy-portal-header .session-panel strong { color:#e0efeb; }
+.pharmacy-portal-header .session-panel { background:transparent; border:0; box-shadow:none; min-width:0; overflow-wrap:anywhere; }
+.pharmacy-portal-page .pharmacy-portal-header .session-panel button { background:#fff; color:#154c43; box-shadow:none; }
+.pharmacy-portal-page>nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:0 0 20px; margin-bottom:24px; border-bottom:2px solid #9fb6b8; }
+.pharmacy-portal-page>nav button { background:#cedee8; border:1px solid #8caebf; border-bottom:4px solid #236ba1; color:#234b69; border-radius:5px; padding:15px; font-size:16px; font-weight:700; min-height:52px; box-shadow:none; white-space:normal; }
+.pharmacy-portal-page>nav button:last-child { background:#d3e5df; border-color:#83b0a2; color:#175448; }
+.pharmacy-portal-page>nav button[aria-pressed=true] { background:#23618c; color:#fff; border-color:#23618c; }
+.pharmacy-portal-page>nav button:last-child[aria-pressed=true] { background:#126458; border-color:#126458; }
+.pharmacy-portal-page .pharmacy-dashboard { background:transparent; border:0; border-radius:0; padding:0; box-shadow:none; min-width:0; }
+.pharmacy-portal-page .pharmacy-dashboard-header { background:#d1dfe0; border:0; border-left:5px solid #23618c; border-radius:0; box-shadow:none; padding:16px; gap:16px; flex-wrap:wrap; }
+.pharmacy-portal-page .pharmacy-dashboard-header h2 { color:#24474d; font-size:22px; }
+.pharmacy-portal-page .pharmacy-dashboard-header p { color:#456169; font-weight:500; }
+.pharmacy-portal-page .pharmacy-status-grid button { border:1px solid #9db6bc; border-top:4px solid #23618c; box-shadow:none; border-radius:5px; background:#f3f7f7; }
+.pharmacy-portal-page .pharmacy-status-grid button.selected { background:#d3e7e2; border-color:#126458; }
+.pharmacy-portal-page .pharmacy-status-grid span { color:#38565e; }
+.pharmacy-portal-page .pharmacy-filter-row { padding-bottom:18px; border-bottom:1px solid #9db6bc; }
+.pharmacy-portal-page .pharmacy-filter-row button { background:#cfdddd; color:#214b49; box-shadow:none; }
+.pharmacy-portal-page .pharmacy-filter-row button.selected { background:#126458; color:#fff; }
+.pharmacy-portal-page .pharmacy-request-card { background:#f9fbfb; border:1px solid #9bb4b9; border-left:5px solid #23618c; border-radius:5px; box-shadow:none; padding:20px; grid-template-columns:minmax(180px,1fr) minmax(0,2fr); }
+.pharmacy-portal-page .pharmacy-request-card>* { min-width:0; overflow-wrap:anywhere; }
+.pharmacy-portal-page .pharmacy-request-card h3 { color:#174f48; font-size:20px; }
+.pharmacy-portal-page .pharmacy-request-card p { font-weight:500; }
+.pharmacy-portal-page .pharmacy-request-card dt { color:#4b656c; }
+.pharmacy-portal-page .pharmacy-card-actions { grid-column:1/-1; border-top:1px solid #c0d1d2; padding-top:14px; justify-content:flex-end; flex-wrap:wrap; }
+.pharmacy-portal-page button { min-height:44px; touch-action:manipulation; }
+.pharmacy-portal-page .pharmacy-card-actions button { box-shadow:none; background:#126458; }
+.pharmacy-portal-page .pharmacy-card-actions button.reject-action { background:#a62c3b; }
+.pharmacy-portal-page .pharmacy-card-actions button:not(.reject-action):only-child { background:#126458; }
+.pharmacy-portal-page .ward-queue .pharmacy-request-card { border-left-color:#126458; }
+.pharmacy-portal-page .ward-queue .pharmacy-dashboard-header { border-left-color:#126458; }
+.pharmacy-portal-page button:focus-visible,.pharmacy-portal-shell button:focus-visible { outline:3px solid #aa6600; outline-offset:3px; }
+.pharmacy-portal-shell .pharmacy-login-card { background:#f3f7f6; border:1px solid #97b6ae; border-top:7px solid #126458; border-radius:6px; box-shadow:none; }
+.pharmacy-portal-shell .pharmacy-login-card h1 { color:#124d48; font-size:30px; line-height:1.2; }
+.pharmacy-portal-shell .login-form { box-shadow:none; border:0; background:transparent; }
+.pharmacy-portal-shell .login-form button { background:#126458; box-shadow:none; min-height:48px; }
+@media(max-width:900px) {
+  .pharmacy-portal-page { padding:16px; }
+  .pharmacy-portal-page .pharmacy-request-card { grid-template-columns:1fr; padding:16px; }
+  .pharmacy-portal-page .pharmacy-request-card dl { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .pharmacy-portal-page .pharmacy-portal-header { padding:20px; }
+}
+@media(max-width:480px) {
+  .pharmacy-portal-page,.pharmacy-portal-shell { padding:12px; }
+  .pharmacy-portal-page>nav { gap:8px; }
+  .pharmacy-portal-page>nav button { font-size:14px; padding:12px 8px; }
+  .pharmacy-portal-page .pharmacy-portal-header h1 { font-size:26px; }
+}
+.pharmacy-portal-page{margin:auto;background:#f0f5f4}.pharmacy-portal-page .pharmacy-portal-header{border-radius:18px;border-bottom:0;box-shadow:0 8px 28px #173b3520;margin-bottom:20px}.pharmacy-portal-page .pharmacy-dashboard-header{background:transparent;border:0;padding:6px 0 16px}.pharmacy-portal-page .pharmacy-status-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:18px 0}.pharmacy-portal-page .pharmacy-status-grid button{background:white;border:1px solid #d2e0dc;border-radius:12px;padding:16px;text-align:left}.pharmacy-portal-page .pharmacy-status-grid button strong{font-size:28px;display:block}.pharmacy-portal-page .pharmacy-status-grid button.selected{background:#e1f0e9;border-color:#317a63}.pharmacy-portal-page .pharmacy-request-card{border:1px solid #d1dfda;border-left:4px solid #2b7768;border-radius:16px;background:white;box-shadow:0 3px 14px #193e3510;gap:24px}.pharmacy-portal-page .pharmacy-request-card dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.pharmacy-portal-page .pharmacy-request-card dd{margin:4px 0}.pharmacy-search-row{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin:20px 0}.pharmacy-search-row label{font-size:14px;font-weight:600}.pharmacy-search-row input,.pharmacy-search-row select{display:block;width:100%;min-height:48px;margin-top:7px;border:1px solid #b4cdc3;border-radius:10px;padding:12px;background:white}.pharmacy-empty{background:white;border-radius:14px;padding:36px;text-align:center;color:#526e62}.pharmacy-action-dialog{position:fixed;inset:0;margin:auto;width:min(540px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #c2d6cc;border-radius:18px;padding:26px;background:white;color:#23483a}.pharmacy-action-dialog::backdrop{background:#132e3980;backdrop-filter:blur(3px)}.pharmacy-action-dialog form{margin:0}.pharmacy-action-dialog input{display:block;width:100%;min-height:48px;padding:12px;margin:8px 0 16px;border:1px solid #b3cbbf;border-radius:9px}.pharmacy-action-dialog form>div:last-child{display:flex;justify-content:flex-end;gap:12px;margin-top:24px}.pharmacy-action-dialog button{min-height:48px}.pharmacy-portal-page .pharmacy-request-list{display:grid;gap:18px}@media(max-width:600px){.pharmacy-portal-page .pharmacy-status-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.pharmacy-portal-page .pharmacy-status-grid button{padding:12px}.pharmacy-search-row{grid-template-columns:1fr}.pharmacy-portal-page .pharmacy-request-card dl{grid-template-columns:1fr}}
+.pharmacy-action-dialog button{border:0;border-radius:10px;padding:12px 18px;background:#176653;color:white;font-weight:700;cursor:pointer}.pharmacy-action-dialog button[type=button]{background:#edf4f0;color:#2e574a;border:1px solid #b8cfc3}.pharmacy-action-dialog button:disabled{opacity:.55;cursor:wait}
+.pharmacy-portal-page>nav{grid-template-columns:repeat(3,minmax(0,1fr))}@media(max-width:600px){.pharmacy-portal-page>nav{grid-template-columns:1fr}}
+.pharmacy-portal-page .custody-panel button{min-height:48px;border-radius:10px;padding:12px 18px;box-shadow:none}

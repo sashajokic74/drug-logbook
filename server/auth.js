@@ -6,7 +6,7 @@ import { config } from "./config.js";
 function isExpired(expiryDate) {
   if (!expiryDate) return false;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
   return expiryDate < today;
 }
 
@@ -17,7 +17,7 @@ function parseIdList(value) {
     .filter(Boolean);
 }
 
-function hasLocationAccess(user, hospitalId, locationId) {
+export function hasLocationAccess(user, hospitalId, locationId) {
   const role = String(user.role || "").toLowerCase();
   const scope = String(user.accessScope || "ALL").toUpperCase();
 
@@ -48,6 +48,8 @@ function isSignatureOnlyRole(roleValue) {
     role.includes("anaesthetist")
   );
 }
+
+export function accountUnavailable(user){return !user||Number(user.active)!==1||(user.staffType!=='Permanent'&&isExpired(user.expiryDate))||Boolean(user.accessExpiryDate&&isExpired(user.accessExpiryDate));}
 
 /* ================= LOGIN USER ================= */
 
@@ -156,7 +158,9 @@ export function verifyUser(req, res, next) {
       config.jwtSecret
     );
 
-    req.user = decoded;
+    const current=db.prepare('SELECT * FROM users WHERE id=?').get(decoded.id);
+    if(accountUnavailable(current))return res.status(401).json({message:'Account is inactive or expired. Sign in again.'});
+    req.user={...decoded,id:current.id,username:current.username,fullName:current.fullName,role:current.role,accessScope:current.accessScope,accessHospitalIds:current.accessHospitalIds,accessLocationIds:current.accessLocationIds,accessExpiryDate:current.accessExpiryDate};
 
     next();
 

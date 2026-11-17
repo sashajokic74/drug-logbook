@@ -45,3 +45,7 @@ export function completeRequest(id) {
     method: "PUT",
   });
 }
+
+export function dispatchPharmacyRequest(id,reference='') {
+ return apiFetch(`/pharmacy-requests/${id}/dispatch`,{method:'PUT',body:JSON.stringify({reference})});
+}

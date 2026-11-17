@@ -1,8 +1,12 @@
+import {randomUUID} from 'node:crypto';
+import {batchMetadata,patientBatch,consumeBatch,insertBatch} from '../stockBatches.js';
 import express from "express";
 import db from "../database.js";
 import { verifyUser } from "../auth.js";
 import { createSignatureHash } from "../signature.js";
 
+import {clinicalCredentials} from '../clinicalCredentials.js';
+import {transactionSubmission,rememberTransaction} from '../submissionKeys.js';
 const router = express.Router();
 const REORDER_LEVEL = 5;
 
@@ -131,11 +135,11 @@ router.get("/:drugId", verifyUser, (req, res) => {
 
     return res.status(200).json(rows);
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return res.status(error.status||500).json({ message: error.message });
   }
 });
 
-router.post("/", verifyUser, (req, res) => {
+router.post("/", verifyUser, clinicalCredentials([['administeredById','administeredCredentials'],['witnessId','witnessCredentials']]), transactionSubmission, (req, res) => {
   try {
     const {
       drugId,
@@ -175,6 +179,9 @@ router.post("/", verifyUser, (req, res) => {
       });
     }
 
+    const supplied=Number(ampoulesSupplied??0),opened=Number(ampoulesUsed??0),given=Number(amountAdministered??0),discarded=Number(amountWasted??0);
+    if(![supplied,opened].every(n=>Number.isSafeInteger(n)&&n>=0&&n<=1000000)||![given,discarded].every(n=>Number.isFinite(n)&&n>=0&&n<=1000000000))return res.status(400).json({message:'Use nonnegative dose and waste amounts, and whole stock quantities.'});
+    if(supplied>0&&(given!==0||discarded!==0))return res.status(400).json({message:'A stock receipt cannot include an administered or wasted dose.'});
     db.prepare(`
       INSERT OR IGNORE INTO location_drug_stock
       (
@@ -194,7 +201,7 @@ router.post("/", verifyUser, (req, res) => {
       Number(locationId),
       locationName || "",
       Number(drugId),
-      Number(drug.quantity || 0),
+      0,
       Number(drug.minimumStock || 5),
       Number(drug.maximumStock || 20)
     );
@@ -305,12 +312,21 @@ router.post("/", verifyUser, (req, res) => {
     }
 
     const previousBalance = Number(locationStock.quantity || 0);
+    if(typeof req.body.expectedBalance!=='number'||req.body.expectedBalance!==previousBalance)return res.status(409).json({message:'Stock changed. Refresh and check the balance before signing.'});
     const newBalance = previousBalance + received - used;
 
     if (newBalance < 0) {
       return res.status(400).json({ message: "Not enough stock" });
     }
 
+    let requisition=null;
+    if(received>0){
+      requisition=db.prepare('SELECT * FROM pharmacy_requests WHERE id=?').get(Number(req.body.requestId));
+      if(!requisition||requisition.status!=='DISPATCHED'||Number(requisition.drugId)!==Number(drugId)||Number(requisition.hospitalId)!==Number(hospitalId)||Number(requisition.locationId)!==Number(locationId)||received>Number(requisition.quantityRequested)-Number(requisition.quantityReceived||0))return res.status(409).json({message:'Select the dispatched requisition matching this medicine, location and outstanding quantity. It may already have been received.'});
+    }
+    const packaging=received>0?batchMetadata(req.body.batchNumber,req.body.expiryDate,{incoming:true}):patientBatch(req.body,used);
+    const batchId=received>0?randomUUID():packaging.id;
+    req.body.batchId=batchId;req.body.batchNumber=packaging.batchNumber;req.body.expiryDate=packaging.expiryDate;
     const transactionType = isPatientUse ? "patient_use" : "pharmacy_supply";
     const reorderRequired = newBalance < REORDER_LEVEL;
 
@@ -325,6 +341,7 @@ router.post("/", verifyUser, (req, res) => {
       action: transactionType,
       drugName: drug.name,
       timestamp: administeredSignedAt,
+      record:{...req.body,stockBalanceBefore:previousBalance,stockBalanceAfter:newBalance},
     });
 
     const witnessSignatureHash = createSignatureHash({
@@ -335,9 +352,12 @@ router.post("/", verifyUser, (req, res) => {
       action: transactionType,
       drugName: drug.name,
       timestamp: witnessSignedAt,
+      record:{...req.body,stockBalanceBefore:previousBalance,stockBalanceAfter:newBalance},
     });
 
     const saveTransaction = db.transaction(() => {
+      if(isPatientUse)consumeBatch(packaging,used);
+      if(requisition){const newReceived=Number(requisition.quantityReceived||0)+received;const changed=db.prepare("UPDATE pharmacy_requests SET quantityReceived=?,status=?,completedAt=CASE WHEN ?='COMPLETED' THEN datetime('now') ELSE completedAt END WHERE id=? AND status='DISPATCHED' AND quantityReceived=?").run(newReceived,newReceived===Number(requisition.quantityRequested)?'COMPLETED':'DISPATCHED',newReceived===Number(requisition.quantityRequested)?'COMPLETED':'DISPATCHED',requisition.id,Number(requisition.quantityReceived||0));if(changed.changes!==1)throw new Error('Requisition changed. Refresh before receiving.');}
       const result = db
         .prepare(`
           INSERT INTO drug_transactions
@@ -458,9 +478,11 @@ router.post("/", verifyUser, (req, res) => {
         req.user.role
       );
 
-      return db
-        .prepare("SELECT * FROM drug_transactions WHERE id = ?")
-        .get(result.lastInsertRowid);
+      if(received>0)insertBatch({id:batchId,hospitalId,locationId,drugId,...packaging,quantity:received,source:'pharmacy-receipt',firstId:administeredStaff.id,secondId:witnessStaff.id,transactionId:Number(result.lastInsertRowid)});
+      db.prepare('UPDATE drug_transactions SET batchId=?,batchNumber=?,expiryDate=?,pharmacyRequestId=? WHERE id=?').run(batchId,packaging.batchNumber,packaging.expiryDate,requisition?.id||null,result.lastInsertRowid);
+      const saved=db.prepare('SELECT * FROM drug_transactions WHERE id=?').get(result.lastInsertRowid);
+      rememberTransaction(req,{entry:saved,balance:newBalance,reorderRequired});
+      return saved;
     });
 
     const saved = saveTransaction();
@@ -474,7 +496,7 @@ router.post("/", verifyUser, (req, res) => {
         : "",
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    return res.status(error.status||500).json({ message: error.message });
   }
 });
 

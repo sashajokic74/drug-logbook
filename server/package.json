@@ -7,12 +7,16 @@
     "dev": "node --watch server.js",
     "start": "node server.js",
     "test": "node --test tests/*.test.js",
-    "lint": "eslint . --ext .js"
+    "lint": "eslint . --ext .js",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-functions=80 --test-coverage-branches=80 tests/*.test.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "better-sqlite3": "^12.10.0",

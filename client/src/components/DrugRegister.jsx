@@ -1,10 +1,19 @@
 import { useEffect, useRef, useState } from "react";
+import PatientListPanel from "./drugRegister/PatientListPanel";
+import StockBatchPanel from "./drugRegister/StockBatchPanel";
+import StockCustodyPanel from "./StockCustodyPanel";
+import PharmacyStockPanel from "./drugRegister/PharmacyStockPanel";
+import { parsePatientFile } from "./drugRegister/patientListImport";
 
-const API_URL = "http://localhost:8000";
+import { API_URL } from "../apiConfig";
 const REORDER_LEVEL = 5;
 
 function DrugRegister({ drug, device, onClose }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const operationId=useRef(crypto.randomUUID());
+  const savingRef=useRef(false);
+  const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const [batchData,setBatchData]=useState({batches:[],unallocated:0});
+  const [batchId,setBatchId]=useState("");
   const [transactions, setTransactions] = useState([]);
   const [patients, setPatients] = useState([]);
   const [patientMessage, setPatientMessage] = useState("");
@@ -12,42 +21,7 @@ function DrugRegister({ drug, device, onClose }) {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [balance, setBalance] = useState(Number(drug.quantity || 0));
 
-  const [showPharmacyRequest, setShowPharmacyRequest] = useState(false);
-  const [showSupplyForm, setShowSupplyForm] = useState(false);
-
-  const [pharmacyRequestMessage, setPharmacyRequestMessage] = useState("");
-  const [pharmacyRequestUser, setPharmacyRequestUser] = useState(null);
   const [locationPharmacyRequests, setLocationPharmacyRequests] = useState([]);
-
-  const [verifiedRequisition, setVerifiedRequisition] = useState(null);
-  const [supplyMessage, setSupplyMessage] = useState("");
-  const [supplyReceivedUser, setSupplyReceivedUser] = useState(null);
-  const [supplyCheckerUser, setSupplyCheckerUser] = useState(null);
-
-  const [pharmacyRequestForm, setPharmacyRequestForm] = useState({
-    quantityRequested: "",
-    reason: "Routine top up",
-  });
-
-  const [pharmacyRequestLogin, setPharmacyRequestLogin] = useState({
-    username: "",
-    password: "",
-  });
-
-  const [supplyForm, setSupplyForm] = useState({
-    ampoulesReceived: "",
-    requisitionNumber: "",
-  });
-
-  const [supplyReceivedLogin, setSupplyReceivedLogin] = useState({
-    username: "",
-    password: "",
-  });
-
-  const [supplyCheckerLogin, setSupplyCheckerLogin] = useState({
-    username: "",
-    password: "",
-  });
 
   const [newPatient, setNewPatient] = useState({
     patientName: "",
@@ -81,8 +55,13 @@ function DrugRegister({ drug, device, onClose }) {
     loadLocationPharmacyRequests();
   }, [drug.id, device?.locationId]);
 
+  async function loadBatches(){
+    const response=await fetch(`${API_URL}/stock-batches?${new URLSearchParams({hospitalId:device.hospitalId,locationId:device.locationId,drugId:drug.id})}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}});
+    const result=await response.json();if(!response.ok)throw new Error(result.message);setBatchData(result);
+  }
   async function loadTransactions() {
     try {
+      await loadBatches();
       const token = localStorage.getItem("token");
       const params = new URLSearchParams();
 
@@ -185,40 +164,6 @@ function DrugRegister({ drug, device, onClose }) {
     setCheckerForm({ ...checkerForm, [e.target.name]: e.target.value });
   }
 
-  function updateSupplyForm(e) {
-    setSupplyForm({ ...supplyForm, [e.target.name]: e.target.value });
-    setVerifiedRequisition(null);
-    setSupplyMessage("");
-  }
-
-  function updateSupplyReceivedLogin(e) {
-    setSupplyReceivedLogin({
-      ...supplyReceivedLogin,
-      [e.target.name]: e.target.value,
-    });
-  }
-
-  function updateSupplyCheckerLogin(e) {
-    setSupplyCheckerLogin({
-      ...supplyCheckerLogin,
-      [e.target.name]: e.target.value,
-    });
-  }
-
-  function updatePharmacyRequestForm(e) {
-    setPharmacyRequestForm({
-      ...pharmacyRequestForm,
-      [e.target.name]: e.target.value,
-    });
-  }
-
-  function updatePharmacyRequestLogin(e) {
-    setPharmacyRequestLogin({
-      ...pharmacyRequestLogin,
-      [e.target.name]: e.target.value,
-    });
-  }
-
   function updateNewPatient(event) {
     setNewPatient({
       ...newPatient,
@@ -244,157 +189,8 @@ function DrugRegister({ drug, device, onClose }) {
     }, 80);
   }
 
-  function parseCsvLine(line) {
-    const cells = [];
-    let current = "";
-    let inQuotes = false;
-
-    for (let index = 0; index < line.length; index += 1) {
-      const character = line[index];
-      const nextCharacter = line[index + 1];
-
-      if (character === "\"" && inQuotes && nextCharacter === "\"") {
-        current += "\"";
-        index += 1;
-      } else if (character === "\"") {
-        inQuotes = !inQuotes;
-      } else if (character === "," && !inQuotes) {
-        cells.push(current.trim());
-        current = "";
-      } else {
-        current += character;
-      }
-    }
-
-    cells.push(current.trim());
-    return cells;
-  }
-
-  function normaliseHeader(value) {
-    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-  }
-
-  function normaliseListDate(value) {
-    if (!value) return newPatient.listDate || today;
-
-    if (value instanceof Date && !Number.isNaN(value.getTime())) {
-      return value.toISOString().slice(0, 10);
-    }
-
-    const text = String(value).trim();
-    const isoDate = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-
-    if (isoDate) {
-      const [, year, month, day] = isoDate;
-      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    }
-
-    const ukDate = text.match(/^(\d{1,2})[/. -](\d{1,2})[/. -](\d{2,4})$/);
-
-    if (ukDate) {
-      const [, day, month, rawYear] = ukDate;
-      const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
-      return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
-    }
-
-    return newPatient.listDate || today;
-  }
-
-  function parsePatientRows(rawRows) {
-    const rows = rawRows
-      .map((row) => row.map((cell) => String(cell || "").trim()))
-      .filter((row) => row.some(Boolean));
-
-    if (rows.length === 0) return [];
-
-    const headerRowIndex = rows.findIndex((row) => {
-      const headerText = row.map(normaliseHeader).join(" ");
-      return (
-        headerText.includes("patient") ||
-        headerText.includes("mrn") ||
-        headerText.includes("nhs") ||
-        headerText.includes("hospitalnumber") ||
-        headerText.includes("hospno") ||
-        headerText.includes("casenumber")
-      );
-    });
-    const hasHeader = headerRowIndex >= 0;
-    const headers = hasHeader
-      ? rows[headerRowIndex].map(normaliseHeader)
-      : [];
-    const dataRows = hasHeader ? rows.slice(headerRowIndex + 1) : rows;
-
-    function valueByHeader(row, names, fallbackIndex) {
-      const index = headers.findIndex((header) =>
-        names.some((name) => header.includes(name))
-      );
-
-      if (index >= 0) return row[index] || "";
-      return row[fallbackIndex] || "";
-    }
-
-    return dataRows
-      .map((row) => {
-        const theatre = hasHeader
-          ? valueByHeader(row, ["theatre", "location", "room", "operatingroom"], 0)
-          : "";
-        const patientName = hasHeader
-          ? valueByHeader(row, ["patientname", "patient", "name"], theatre ? 1 : 0)
-          : row[0];
-        const hospitalNumber = hasHeader
-          ? valueByHeader(row, ["mrn", "nhs", "hospitalnumber", "hospno", "casenumber", "number"], theatre ? 2 : 1)
-          : row[1];
-        const speciality = hasHeader
-          ? valueByHeader(row, ["speciality", "specialty", "service", "consultant"], theatre ? 3 : 2)
-          : row[2];
-        const procedure = hasHeader
-          ? valueByHeader(row, ["procedure", "operation", "plannedprocedure", "description"], theatre ? 4 : 3)
-          : row[3];
-        const listDate = hasHeader
-          ? valueByHeader(row, ["listdate", "date", "operationdate", "sessiondate"], theatre ? 5 : 4)
-          : row[4];
-
-        return {
-          patientName,
-          hospitalNumber,
-          speciality: speciality || "",
-          procedure: procedure || "",
-          listDate: normaliseListDate(listDate),
-        };
-      })
-      .filter(Boolean)
-      .filter((patient) => patient.patientName && patient.hospitalNumber);
-  }
-
-  function parsePatientDelimitedText(text) {
-    const rows = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) =>
-        line.includes("\t")
-          ? line.split("\t").map((cell) => cell.trim())
-          : parseCsvLine(line)
-      );
-
-    return parsePatientRows(rows);
-  }
-
-  async function parsePatientFile(file) {
-    const fileName = String(file.name || "").toLowerCase();
-
-    if (fileName.endsWith(".xlsx") || fileName.endsWith(".xls")) {
-      const { default: readXlsxFile } = await import("read-excel-file/browser");
-      const rows = await readXlsxFile(file);
-      return parsePatientRows(rows);
-    }
-
-    const text = await file.text();
-    return parsePatientDelimitedText(text);
-  }
-
   function downloadSamplePatientList() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     const theatre = device?.locationName || "TH5";
     const speciality = "Orthopaedics";
     const rows = [
@@ -451,7 +247,7 @@ function DrugRegister({ drug, device, onClose }) {
     (request) => Number(request.drugId) === Number(drug.id)
   );
   const openDrugRequests = currentDrugRequests.filter((request) =>
-    ["REQUESTED", "APPROVED"].includes(String(request.status || "").toUpperCase())
+    ["REQUESTED", "APPROVED", "DISPATCHED"].includes(String(request.status || "").toUpperCase())
   );
 
   async function addPatient(event) {
@@ -511,7 +307,7 @@ function DrugRegister({ drug, device, onClose }) {
     let parsedPatients = [];
 
     try {
-      parsedPatients = await parsePatientFile(file);
+      parsedPatients = await parsePatientFile(file, newPatient.listDate || today);
     } catch {
       setPatientMessage("Could not read this patient list file");
       event.target.value = "";
@@ -599,222 +395,8 @@ function DrugRegister({ drug, device, onClose }) {
     }
   }
 
-  function isAuthorisedClinicalStaff(roleValue) {
-    const role = String(roleValue || "").toLowerCase();
-
-    if (
-      role === "admin" ||
-      role === "doctor" ||
-      role === "dr" ||
-      role.startsWith("dr ") ||
-      role.includes(" doctor") ||
-      role.includes("surgeon") ||
-      role.includes("anaesthetist")
-    ) {
-      return false;
-    }
-
-    return (
-      role.includes("odp") ||
-      role.includes("anaesthetic") ||
-      role.includes("anaesthetics") ||
-      role.includes("nurse") ||
-      role.includes("theatre")
-    );
-  }
-
-  async function verifyPharmacyRequestUser() {
-    setPharmacyRequestMessage("");
-
-    const response = await fetch(`${API_URL}/checker/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: pharmacyRequestLogin.username,
-        password: pharmacyRequestLogin.password,
-        currentUserId: null,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      setPharmacyRequestMessage(result.message || "Could not verify staff");
-      setPharmacyRequestUser(null);
-      return;
-    }
-
-    if (!isAuthorisedClinicalStaff(result.role)) {
-      setPharmacyRequestMessage(
-        "Only ODP, anaesthetic practitioner, theatre practitioner or nurse can request controlled drug pharmacy supply."
-      );
-      setPharmacyRequestUser(null);
-      return;
-    }
-
-    setPharmacyRequestUser(result);
-    setPharmacyRequestMessage(`✓ ${result.fullName || result.username} verified`);
-  }
-
-  async function sendPharmacyRequest() {
-    setPharmacyRequestMessage("");
-
-    if (!pharmacyRequestUser) {
-      setPharmacyRequestMessage("Verify authorised staff before sending request");
-      return;
-    }
-
-    if (
-      !pharmacyRequestForm.quantityRequested ||
-      Number(pharmacyRequestForm.quantityRequested) <= 0
-    ) {
-      setPharmacyRequestMessage("Enter quantity requested");
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(`${API_URL}/pharmacy-requests`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        drugId: drug.id,
-        quantityRequested: Number(pharmacyRequestForm.quantityRequested),
-        reason: pharmacyRequestForm.reason,
-        requestedById: pharmacyRequestUser.id,
-        requestedByName: pharmacyRequestUser.fullName || pharmacyRequestUser.username,
-        requestedByRole: pharmacyRequestUser.role,
-        hospitalId: drug.hospitalId || null,
-        hospitalName: drug.hospitalName || "",
-        locationId: drug.locationId || null,
-        locationName: drug.locationName || "",
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      setPharmacyRequestMessage(result.message || "Could not create pharmacy request");
-      return;
-    }
-
-    setPharmacyRequestMessage(
-      `✓ Pharmacy request created. Requisition number: ${result.request.requisitionNumber}`
-    );
-
-    setPharmacyRequestForm({ quantityRequested: "", reason: "Routine top up" });
-    setPharmacyRequestLogin({ username: "", password: "" });
-    setPharmacyRequestUser(null);
-    await loadLocationPharmacyRequests();
-  }
-
-  async function verifySupplyRequisition() {
-    setSupplyMessage("");
-    setVerifiedRequisition(null);
-    const token = localStorage.getItem("token");
-
-    const response = await fetch(`${API_URL}/pharmacy-requests/verify-requisition`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        requisitionNumber: supplyForm.requisitionNumber,
-        drugId: drug.id,
-        quantityReceived: Number(supplyForm.ampoulesReceived || 0),
-        hospitalId: device?.hospitalId,
-        locationId: device?.locationId,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      setSupplyMessage(result.message || "Could not verify requisition");
-      return;
-    }
-
-    setVerifiedRequisition(result.request);
-    setSupplyMessage(`✓ Requisition verified: ${result.request.requisitionNumber}`);
-  }
-
-  async function verifySupplyReceivedBy() {
-    setSupplyMessage("");
-
-    const response = await fetch(`${API_URL}/checker/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: supplyReceivedLogin.username,
-        password: supplyReceivedLogin.password,
-        currentUserId: null,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      setSupplyMessage(result.message || "Could not verify receiving staff");
-      setSupplyReceivedUser(null);
-      return;
-    }
-
-    if (!isAuthorisedClinicalStaff(result.role)) {
-      setSupplyMessage("Only authorised clinical staff can receive controlled drug stock.");
-      setSupplyReceivedUser(null);
-      return;
-    }
-
-    setSupplyReceivedUser(result);
-    setSupplyMessage(`✓ Received by verified: ${result.fullName || result.username}`);
-  }
-
-  async function verifySupplyChecker() {
-    setSupplyMessage("");
-
-    if (!supplyReceivedUser) {
-      setSupplyMessage("Verify receiving staff first");
-      return;
-    }
-
-    const response = await fetch(`${API_URL}/checker/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: supplyCheckerLogin.username,
-        password: supplyCheckerLogin.password,
-        currentUserId: supplyReceivedUser.id,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      setSupplyMessage(result.message || "Could not verify checker");
-      setSupplyCheckerUser(null);
-      return;
-    }
-
-    if (!isAuthorisedClinicalStaff(result.role)) {
-      setSupplyMessage("Only authorised clinical staff can check controlled drug stock.");
-      setSupplyCheckerUser(null);
-      return;
-    }
-
-    setSupplyCheckerUser(result);
-    setSupplyMessage(`✓ Checked by verified: ${result.fullName || result.username}`);
-  }
-
   function patientNewBalance() {
     return Number(balance || 0) - Number(form.ampoulesUsed || 0);
-  }
-
-  function supplyNewBalance() {
-    return Number(balance || 0) + Number(supplyForm.ampoulesReceived || 0);
   }
 
   function parseNumberFromText(text) {
@@ -837,7 +419,7 @@ function DrugRegister({ drug, device, onClose }) {
 
     if (!concentrationValue || !volume) return 0;
 
-    if (String(drug.concentration || "").includes("/ml")) {
+    if (String(drug.concentration || "").toLowerCase().includes("/ml")) {
       return concentrationValue * volume;
     }
 
@@ -850,8 +432,7 @@ function DrugRegister({ drug, device, onClose }) {
 
   function cleanNumber(value) {
     if (!value) return 0;
-    const match = String(value).match(/[\d.]+/);
-    return match ? Number(match[0]) : 0;
+    return /^\d+(?:\.\d+)?$/.test(String(value).trim())?Number(value):NaN;
   }
 
   function totalAccountedFor() {
@@ -867,102 +448,6 @@ function DrugRegister({ drug, device, onClose }) {
     return Math.abs(discrepancyAmount()) < 0.0001;
   }
 
-  async function saveSupplyEntry() {
-    setSupplyMessage("");
-
-    if (!verifiedRequisition) {
-      setSupplyMessage("Verify requisition number first");
-      return;
-    }
-
-    if (!supplyReceivedUser) {
-      setSupplyMessage("Verify receiving staff first");
-      return;
-    }
-
-    if (!supplyCheckerUser) {
-      setSupplyMessage("Verify checking staff first");
-      return;
-    }
-
-    if (Number(supplyReceivedUser.id) === Number(supplyCheckerUser.id)) {
-      setSupplyMessage("Received by and checked by must be two different staff members");
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    const received = Number(supplyForm.ampoulesReceived || 0);
-
-    const response = await fetch(`${API_URL}/transactions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        drugId: drug.id,
-        drugName: drug.name,
-        hospitalId: device?.hospitalId,
-        hospitalName: device?.hospitalName,
-        locationId: device?.locationId,
-        locationName: device?.locationName,
-        patientName: "",
-        hospitalNumber: "",
-        ampoulesSupplied: received,
-        ampoulesUsed: 0,
-        amountAdministered: 0,
-        administeredUnit: "",
-        amountWasted: 0,
-        wastedUnit: "",
-        administeredById: supplyReceivedUser.id,
-        administeredByName: supplyReceivedUser.fullName || supplyReceivedUser.username,
-        administeredSignature: supplyReceivedUser.username,
-        witnessId: supplyCheckerUser.id,
-        witnessName: supplyCheckerUser.fullName || supplyCheckerUser.username,
-        witnessSignature: supplyCheckerUser.username,
-        notes: `Pharmacy stock received. Requisition: ${verifiedRequisition.requisitionNumber}`,
-      }),
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      setSupplyMessage(result.message || "Could not add pharmacy supply");
-      return;
-    }
-
-    const completeResponse = await fetch(
-      `${API_URL}/pharmacy-requests/${verifiedRequisition.id}/complete`,
-      {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
-
-    const completeResult = await completeResponse.json();
-
-    if (!completeResponse.ok) {
-      setSupplyMessage(completeResult.message || "Stock added but requisition was not completed");
-      return;
-    }
-
-    setSupplyMessage(
-      `✓ Pharmacy supply added and requisition completed: ${verifiedRequisition.requisitionNumber}`
-    );
-
-    setSupplyForm({ ampoulesReceived: "", requisitionNumber: "" });
-    setSupplyReceivedLogin({ username: "", password: "" });
-    setSupplyCheckerLogin({ username: "", password: "" });
-    setSupplyReceivedUser(null);
-    setSupplyCheckerUser(null);
-    setVerifiedRequisition(null);
-    setShowSupplyForm(false);
-
-    await loadTransactions();
-    await loadLocationPharmacyRequests();
-  }
     async function verifyAdministeredBy() {
     const response = await fetch(`${API_URL}/checker/verify`, {
       method: "POST",
@@ -1027,6 +512,9 @@ function DrugRegister({ drug, device, onClose }) {
   }
 
   async function savePatientEntry() {
+    if(savingRef.current)return;
+    savingRef.current=true;
+    try {
     if (!administeredUser) {
       alert("Administered by staff must be verified first.");
       return;
@@ -1047,6 +535,7 @@ function DrugRegister({ drug, device, onClose }) {
       return;
     }
 
+    if(form.amountAdministered===''||form.amountWasted===''){alert('Enter the administered amount and actual wastage, including zero.');return;}
     if (!isDoseBalanced()) {
       alert(
         `Dose mismatch. Opened ampoules contain ${totalAvailableFromOpenedAmpoules()} ${getDoseUnit()}, but administered + wasted = ${totalAccountedFor()} ${getDoseUnit()}.`
@@ -1071,13 +560,18 @@ function DrugRegister({ drug, device, onClose }) {
         locationName: device?.locationName,
         patientName: form.patientName,
         hospitalNumber: form.hospitalNumber,
+        batchId, expectedBatchVersion:batchData.batches.find(b=>b.id===batchId)?.version,
         ampoulesSupplied: 0,
+        operationId: operationId.current,
         ampoulesUsed: Number(form.ampoulesUsed || 0),
         amountAdministered: cleanNumber(form.amountAdministered),
         administeredUnit: getDoseUnit(),
         amountWasted: cleanNumber(form.amountWasted),
         wastedUnit: getDoseUnit(),
         administeredById: administeredUser.id,
+        administeredCredentials: adminForm,
+        witnessCredentials: checkerForm,
+        expectedBalance: balance,
         administeredByName:
           administeredUser.fullName || administeredUser.username,
         administeredSignature: administeredUser.username,
@@ -1110,6 +604,7 @@ function DrugRegister({ drug, device, onClose }) {
       notes: "",
     });
 
+    operationId.current=crypto.randomUUID();
     setAdminForm({ username: "", password: "" });
     setCheckerForm({ username: "", password: "" });
     setAdministeredUser(null);
@@ -1117,165 +612,49 @@ function DrugRegister({ drug, device, onClose }) {
     setSelectedPatient(null);
 
     await loadTransactions();
+    }catch{alert('Save interrupted. Review the register before retrying.');}finally{savingRef.current=false;}
   }
 
   return (
-    <div className="register-box">
-      <button onClick={onClose}>← Back to Drugs</button>
+    <div className="register-box drug-register-screen" data-drug-name={drug.name}>
+      <section className="drug-register-header">
+        <button type="button" className="back-to-drugs-btn" onClick={onClose}>
+          Back to Drugs
+        </button>
 
-      <h2>📖 {drug.name} Register</h2>
-
-      <p>
-        <strong>Size:</strong> {drug.size} |{" "}
-        <strong>Concentration:</strong> {drug.concentration}
-      </p>
-
-      <h2>Current Balance: {balance} ampoules</h2>
-
-      <h3>Patient List - {device?.locationName || "Current Location"}</h3>
-
-      <section className="patient-list-panel">
-        <div className="patient-list-toolbar">
-          <div>
-            <strong>{patientListTitle}</strong>
-            <span>
-              Today: {today} · {patients.length} patient{patients.length === 1 ? "" : "s"} loaded
-            </span>
-          </div>
-
-          <div className="patient-list-actions">
-            <button type="button" onClick={downloadSamplePatientList}>
-              Download Sample List
-            </button>
-
-            <button
-              type="button"
-              className="archive-list-btn"
-              onClick={archiveTodayPatientList}
-            >
-              Archive Today’s List
-            </button>
-          </div>
+        <div>
+          <span className="eyebrow">Selected controlled drug</span>
+          <h2>{drug.name}</h2>
+          <p>
+            {drug.size} | {drug.concentration}
+          </p>
         </div>
 
-        <p>
-          Upload Excel or CSV with columns: theatre, patient name, MRN / NHS number, speciality,
-          procedure, list date. This list is saved only for the current
-          hospital/location. Old dated lists disappear automatically from the
-          normal view after their list date.
-        </p>
-
-        {patientSpecialities.length > 1 && (
-          <strong className="patient-list-warning">
-            This uploaded list has more than one speciality. Upload one theatre
-            session/speciality at a time.
-          </strong>
-        )}
-
-        <input
-          type="file"
-          accept=".xlsx,.xls,.csv,.tsv,text/csv,text/tab-separated-values"
-          onChange={uploadPatientList}
-        />
-
-        <input
-          placeholder="Search patient, MRN, speciality or procedure"
-          value={patientSearch}
-          onChange={(event) => setPatientSearch(event.target.value)}
-        />
+        <div className="drug-balance-pill">
+          <strong>{balance}</strong>
+          <span>ampoules</span>
+        </div>
       </section>
 
-      <form onSubmit={addPatient}>
-        <input
-          name="patientName"
-          placeholder="Patient name"
-          value={newPatient.patientName}
-          onChange={updateNewPatient}
-        />
-
-        <input
-          name="hospitalNumber"
-          placeholder="MRN / NHS / private hospital number"
-          value={newPatient.hospitalNumber}
-          onChange={updateNewPatient}
-        />
-
-        <input
-          name="speciality"
-          placeholder="Speciality e.g. Orthopaedics, ENT, ICU"
-          value={newPatient.speciality}
-          onChange={updateNewPatient}
-        />
-
-        <input
-          name="procedure"
-          placeholder="Procedure / operation"
-          value={newPatient.procedure}
-          onChange={updateNewPatient}
-        />
-
-        <input
-          type="date"
-          name="listDate"
-          value={newPatient.listDate}
-          onChange={updateNewPatient}
-        />
-
-        <button type="submit">Add Patient To This Area</button>
-      </form>
-
-      {patientMessage && (
-        <p
-          style={{
-            color: patientMessage.includes("Could") || patientMessage.includes("No valid")
-              ? "red"
-              : "green",
-            fontWeight: "bold",
-          }}
-        >
-          {patientMessage}
-        </p>
-      )}
-
-      {selectedPatient && (
-        <div className="selected-patient-banner">
-          <span>Selected patient</span>
-          <strong>{selectedPatient.patientName}</strong>
-          <small>
-            {selectedPatient.hospitalNumber} · {selectedPatient.speciality || "Speciality not set"}
-            {selectedPatient.procedure ? ` · ${selectedPatient.procedure}` : ""}
-          </small>
-        </div>
-      )}
-
-      {patients.length > 0 && (
-        <div className="patient-card-grid">
-          {filteredPatients.map((patient) => (
-            <button
-              key={patient.id}
-              type="button"
-              className={
-                selectedPatient?.id === patient.id
-                  ? "patient-card selected"
-                  : "patient-card"
-              }
-              onClick={() => selectPatient(patient)}
-            >
-              <strong>{patient.patientName}</strong>
-              <span>{device?.locationName || "Location"} · {patient.hospitalNumber}</span>
-              <small>{patient.speciality || "Speciality not set"}</small>
-              <small>{patient.procedure || "Procedure not set"}</small>
-              <em>{patient.listDate || "-"}</em>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {patients.length > 0 && filteredPatients.length === 0 && (
-        <p style={{ fontWeight: "bold" }}>
-          No patients match this search.
-        </p>
-      )}
+      <PatientListPanel
+        device={device}
+        today={today}
+        patients={patients}
+        filteredPatients={filteredPatients}
+        selectedPatient={selectedPatient}
+        patientListTitle={patientListTitle}
+        patientSpecialities={patientSpecialities}
+        patientSearch={patientSearch}
+        patientMessage={patientMessage}
+        newPatient={newPatient}
+        onArchiveTodayPatientList={archiveTodayPatientList}
+        onAddPatient={addPatient}
+        onDownloadSamplePatientList={downloadSamplePatientList}
+        onPatientSearchChange={setPatientSearch}
+        onSelectPatient={selectPatient}
+        onUpdateNewPatient={updateNewPatient}
+        onUploadPatientList={uploadPatientList}
+      />
 
       {balance < REORDER_LEVEL && (
         <p style={{ color: "red", fontWeight: "bold" }}>
@@ -1283,385 +662,220 @@ function DrugRegister({ drug, device, onClose }) {
         </p>
       )}
 
-      <section className="drug-request-status-panel">
-        <div>
-          <strong>Pharmacy requests for {drug.name}</strong>
-          <span>
-            {openDrugRequests.length > 0
-              ? `${openDrugRequests.length} pending/approved request${openDrugRequests.length === 1 ? "" : "s"}`
-              : "No pending or approved request for this drug"}
-          </span>
+      <StockBatchPanel drug={drug} device={device} data={batchData} onRefresh={loadTransactions}/>
+      <StockCustodyPanel drug={drug} device={device} onRefresh={loadTransactions}/>
+      <PharmacyStockPanel
+        device={device}
+        onSaved={async()=>{await loadTransactions();await loadLocationPharmacyRequests();}}
+        balance={balance}
+        drug={drug}
+        openDrugRequests={openDrugRequests}
+      />
+
+      <section className="ipad-entry-panel" ref={patientEntryRef}>
+        <div className="ipad-entry-title">
+          <span className="eyebrow">Patient administration</span>
+          <h3>Patient Drug Register Entry</h3>
         </div>
 
-        {openDrugRequests.length > 0 && (
-          <div className="drug-request-status-list">
-            {openDrugRequests.map((request) => (
-              <article key={request.id}>
-                <strong>{request.requisitionNumber}</strong>
-                <span>{request.status}</span>
-                <small>
-                  {request.quantityRequested} ampoules ·{" "}
-                  {request.createdAt
-                    ? new Date(request.createdAt).toLocaleString()
-                    : "-"}
-                </small>
-              </article>
-            ))}
-          </div>
+        {selectedPatient && (
+          <p className="selected-patient-inline">
+            Using {selectedPatient.patientName} for this entry. Complete the drug
+            details below, then verify with two different authorised staff.
+          </p>
+        )}
+
+        <div className="ipad-field-grid two-column">
+          <input
+            name="patientName"
+            placeholder="Patient name"
+            value={form.patientName}
+            onChange={updateForm}
+          />
+
+          <input
+            name="hospitalNumber"
+            placeholder="Hospital number / MRN / NHS No."
+            value={form.hospitalNumber}
+            onChange={updateForm}
+          />
+        </div>
+      </section>
+
+      <section className="ipad-entry-panel">
+        <div className="ipad-entry-title">
+          <span className="eyebrow">Stock used</span>
+          <h3>Stock Used For Patient</h3>
+        </div>
+
+        <label>Batch physically used
+          <select value={batchId} onChange={e=>setBatchId(e.target.value)} required aria-label="Batch physically used">
+            <option value="">Select batch and expiry</option>
+            {batchData.batches.filter(b=>b.quantity>0).map(b=><option key={b.id} value={b.id} disabled={b.expiryDate<today||(b.availableQuantity??b.quantity)<=0}>{b.batchNumber} · expires {b.expiryDate} · {b.availableQuantity??b.quantity} available{b.expiryDate<today?' · EXPIRED':''}</option>)}
+          </select>
+        </label>
+        <p>Use a separate signed entry for each physical batch.</p>
+        <div className="ipad-field-grid three-column">
+          <input value={`Previous balance: ${balance} ampoules`} disabled />
+
+          <input
+            type="number" min="1" step="1"
+            name="ampoulesUsed"
+            placeholder="Ampoules opened / used"
+            value={form.ampoulesUsed}
+            onChange={updateForm}
+          />
+
+          <input value={`New balance: ${patientNewBalance()} ampoules`} disabled />
+        </div>
+
+        {patientNewBalance() < REORDER_LEVEL && (
+          <p className="ipad-alert-message">
+            Reorder required from pharmacy
+          </p>
         )}
       </section>
 
-      <button
-        type="button"
-        onClick={() => setShowPharmacyRequest(!showPharmacyRequest)}
-      >
-        {showPharmacyRequest ? "Hide Pharmacy Request" : "📩 Request Pharmacy Stock"}
-      </button>
+      <section className="ipad-entry-panel">
+        <div className="ipad-entry-title">
+          <span className="eyebrow">Dose check</span>
+          <h3>Dose Given / Wasted</h3>
+        </div>
 
-      {showPharmacyRequest && (
-        <>
-          <h3>📩 Pharmacy Stock Request</h3>
+        <div className="ipad-dose-summary">
+          <input value={`Amount per ampoule: ${amountPerAmpoule()} ${getDoseUnit()}`} disabled />
+          <input value={`Opened ampoules total: ${totalAvailableFromOpenedAmpoules()} ${getDoseUnit()}`} disabled />
+        </div>
 
-          <input value={`Current balance: ${balance} ampoules`} disabled />
-
+        <div className="ipad-field-grid four-column">
           <input
-            type="number"
-            name="quantityRequested"
-            placeholder="Quantity requested from pharmacy"
-            value={pharmacyRequestForm.quantityRequested}
-            onChange={updatePharmacyRequestForm}
+            type="number" min="0" step="any"
+            name="amountAdministered"
+            placeholder="Amount administered"
+            value={form.amountAdministered}
+            onChange={updateForm}
           />
 
           <select
-            name="reason"
-            value={pharmacyRequestForm.reason}
-            onChange={updatePharmacyRequestForm}
+            name="administeredUnit"
+            value={getDoseUnit()}
+            aria-label="Administered dose unit" disabled
           >
-            <option>Routine top up</option>
-            <option>Low stock</option>
-            <option>Weekend / Bank Holiday cover</option>
-            <option>High theatre activity</option>
-            <option>Emergency request</option>
-            <option>Other</option>
+            <option>mcg</option>
+            <option>mg</option>
+            <option>ml</option>
           </select>
 
-          <h4>Authorised Staff Verification</h4>
-
           <input
-            name="username"
-            placeholder="Authorised staff username"
-            value={pharmacyRequestLogin.username}
-            onChange={updatePharmacyRequestLogin}
+            type="number" min="0" step="any"
+            name="amountWasted"
+            placeholder="Amount wasted"
+            value={form.amountWasted}
+            onChange={updateForm}
           />
 
-          <input
-            type="password"
-            name="password"
-            placeholder="Authorised staff password"
-            value={pharmacyRequestLogin.password}
-            onChange={updatePharmacyRequestLogin}
-          />
+          <select
+            name="wastedUnit"
+            value={getDoseUnit()}
+            aria-label="Wastage unit" disabled
+          >
+            <option>mcg</option>
+            <option>mg</option>
+            <option>ml</option>
+          </select>
+        </div>
 
-          <button type="button" onClick={verifyPharmacyRequestUser}>
-            Verify Authorised Staff
-          </button>
+        <div className="ipad-dose-summary">
+          <input value={`Administered + wasted: ${totalAccountedFor()} ${getDoseUnit()}`} disabled />
+          <input value={`Discrepancy: ${discrepancyAmount()} ${getDoseUnit()}`} disabled />
+        </div>
 
-          {pharmacyRequestUser && (
-            <p style={{ color: "green", fontWeight: "bold" }}>
-              ✓ {pharmacyRequestUser.fullName || pharmacyRequestUser.username} verified
-            </p>
-          )}
+        {form.ampoulesUsed && (
+          <p className={isDoseBalanced() ? "ipad-ok-message" : "ipad-alert-message"}>
+            {isDoseBalanced()
+              ? "Dose fully accounted for"
+              : "Administered + wasted does not match opened ampoule amount"}
+          </p>
+        )}
+      </section>
 
-          <button type="button" onClick={sendPharmacyRequest}>
-            Sign & Create Pharmacy Request
-          </button>
+      <section className="ipad-entry-panel">
+        <div className="ipad-entry-title">
+          <span className="eyebrow">Two-person verification</span>
+          <h3>Staff Signatures</h3>
+        </div>
 
-          {pharmacyRequestMessage && (
-            <p
-              style={{
-                fontWeight: "bold",
-                color: pharmacyRequestMessage.includes("✓") ? "green" : "red",
-              }}
-            >
-              {pharmacyRequestMessage}
-            </p>
-          )}
+        <div className="ipad-signature-grid">
+          <div>
+            <h4>Administered By</h4>
+            <input
+              name="username"
+              placeholder="Administering staff username"
+              value={adminForm.username}
+              onChange={updateAdminForm}
+            />
 
-          <hr />
-        </>
-      )}
+            <input
+              name="password"
+              type="password"
+              placeholder="Administering staff password"
+              value={adminForm.password}
+              onChange={updateAdminForm}
+            />
 
-      <button
-        type="button"
-        onClick={() => setShowSupplyForm(!showSupplyForm)}
-      >
-        {showSupplyForm ? "Hide Pharmacy Stock Supply" : "📦 Receive Pharmacy Stock"}
-      </button>
+            <button type="button" onClick={verifyAdministeredBy}>
+              Verify Administered By
+            </button>
 
-      {showSupplyForm && (
-        <>
-          <h3>📦 Pharmacy Stock Supply</h3>
+            {administeredUser && (
+              <p className="ipad-ok-message">
+                Administered by verified: {administeredUser.fullName} ({administeredUser.role})
+              </p>
+            )}
+          </div>
 
-          <input value={`Current balance: ${balance} ampoules`} disabled />
+          <div>
+            <h4>Second Checker</h4>
+            <input
+              name="username"
+              placeholder="Checker username"
+              value={checkerForm.username}
+              onChange={updateCheckerForm}
+            />
 
-          <input
-            type="number"
-            name="ampoulesReceived"
-            placeholder="Ampoules received from pharmacy"
-            value={supplyForm.ampoulesReceived}
-            onChange={updateSupplyForm}
-          />
+            <input
+              name="password"
+              type="password"
+              placeholder="Checker password"
+              value={checkerForm.password}
+              onChange={updateCheckerForm}
+            />
 
-          <input value={`Balance after supply: ${supplyNewBalance()} ampoules`} disabled />
+            <button type="button" onClick={verifySecondChecker}>
+              Verify Second Checker
+            </button>
 
-          <input
-            name="requisitionNumber"
-            placeholder="Requisition number from pharmacy"
-            value={supplyForm.requisitionNumber}
-            onChange={updateSupplyForm}
-          />
+            {checkerUser && (
+              <p className="ipad-ok-message">
+                Second checker verified: {checkerUser.fullName} ({checkerUser.role})
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
 
-          <button type="button" onClick={verifySupplyRequisition}>
-            Verify Requisition Number
-          </button>
+      <section className="ipad-entry-panel ipad-save-panel">
+        <input
+          name="notes"
+          placeholder="Notes"
+          value={form.notes}
+          onChange={updateForm}
+        />
 
-          {verifiedRequisition && (
-            <p style={{ color: "green", fontWeight: "bold" }}>
-              ✓ Requisition matched: {verifiedRequisition.requisitionNumber}
-            </p>
-          )}
-
-          <h4>Received By Verification</h4>
-
-          <input
-            name="username"
-            placeholder="Receiving staff username"
-            value={supplyReceivedLogin.username}
-            onChange={updateSupplyReceivedLogin}
-          />
-
-          <input
-            type="password"
-            name="password"
-            placeholder="Receiving staff password"
-            value={supplyReceivedLogin.password}
-            onChange={updateSupplyReceivedLogin}
-          />
-
-          <button type="button" onClick={verifySupplyReceivedBy}>
-            Verify Received By
-          </button>
-
-          {supplyReceivedUser && (
-            <p style={{ color: "green", fontWeight: "bold" }}>
-              ✓ Received by verified: {supplyReceivedUser.fullName || supplyReceivedUser.username}
-            </p>
-          )}
-
-          <h4>Checked By Verification</h4>
-
-          <input
-            name="username"
-            placeholder="Checking staff username"
-            value={supplyCheckerLogin.username}
-            onChange={updateSupplyCheckerLogin}
-          />
-
-          <input
-            type="password"
-            name="password"
-            placeholder="Checking staff password"
-            value={supplyCheckerLogin.password}
-            onChange={updateSupplyCheckerLogin}
-          />
-
-          <button type="button" onClick={verifySupplyChecker}>
-            Verify Checked By
-          </button>
-
-          {supplyCheckerUser && (
-            <p style={{ color: "green", fontWeight: "bold" }}>
-              ✓ Checked by verified: {supplyCheckerUser.fullName || supplyCheckerUser.username}
-            </p>
-          )}
-
-          {supplyMessage && (
-            <p
-              style={{
-                color: supplyMessage.includes("✓") ? "green" : "red",
-                fontWeight: "bold",
-              }}
-            >
-              {supplyMessage}
-            </p>
-          )}
-
-          <button type="button" onClick={saveSupplyEntry}>
-            ➕ Add Pharmacy Supply
-          </button>
-
-          <hr />
-        </>
-      )}
-
-      <h3 ref={patientEntryRef}>👤 Patient Drug Register Entry</h3>
-
-      {selectedPatient && (
-        <p className="selected-patient-inline">
-          Using {selectedPatient.patientName} for this entry. Complete the drug
-          details below, then verify with two different authorised staff.
-        </p>
-      )}
-
-      <input
-        name="patientName"
-        placeholder="Patient name"
-        value={form.patientName}
-        onChange={updateForm}
-      />
-
-      <input
-        name="hospitalNumber"
-        placeholder="Hospital number / MRN / NHS No."
-        value={form.hospitalNumber}
-        onChange={updateForm}
-      />
-
-      <h3>Stock Used For Patient</h3>
-
-      <input value={`Previous balance: ${balance} ampoules`} disabled />
-
-      <input
-        name="ampoulesUsed"
-        placeholder="Ampoules opened / used"
-        value={form.ampoulesUsed}
-        onChange={updateForm}
-      />
-
-      <input value={`New balance: ${patientNewBalance()} ampoules`} disabled />
-
-      {patientNewBalance() < REORDER_LEVEL && (
-        <p style={{ color: "red", fontWeight: "bold" }}>
-          ⚠️ Reorder required from pharmacy
-        </p>
-      )}
-
-      <h3>Dose Reconciliation</h3>
-
-      <input value={`Amount per ampoule: ${amountPerAmpoule()} ${getDoseUnit()}`} disabled />
-      <input value={`Opened ampoules total: ${totalAvailableFromOpenedAmpoules()} ${getDoseUnit()}`} disabled />
-
-      <h3>Dose Given / Wasted</h3>
-
-      <input
-        name="amountAdministered"
-        placeholder="Amount administered"
-        value={form.amountAdministered}
-        onChange={updateForm}
-      />
-
-      <select
-        name="administeredUnit"
-        value={form.administeredUnit}
-        onChange={updateForm}
-      >
-        <option>mcg</option>
-        <option>mg</option>
-        <option>ml</option>
-      </select>
-
-      <input
-        name="amountWasted"
-        placeholder="Amount wasted"
-        value={form.amountWasted}
-        onChange={updateForm}
-      />
-
-      <select
-        name="wastedUnit"
-        value={form.wastedUnit}
-        onChange={updateForm}
-      >
-        <option>mcg</option>
-        <option>mg</option>
-        <option>ml</option>
-      </select>
-
-      <input value={`Administered + wasted: ${totalAccountedFor()} ${getDoseUnit()}`} disabled />
-      <input value={`Discrepancy: ${discrepancyAmount()} ${getDoseUnit()}`} disabled />
-
-      {form.ampoulesUsed && (
-        <p style={{ color: isDoseBalanced() ? "green" : "red", fontWeight: "bold" }}>
-          {isDoseBalanced()
-            ? "✓ Dose fully accounted for"
-            : "⚠️ Administered + wasted does not match opened ampoule amount"}
-        </p>
-      )}
-
-      <h3>Administered By Verification</h3>
-
-      <input
-        name="username"
-        placeholder="Administering staff username"
-        value={adminForm.username}
-        onChange={updateAdminForm}
-      />
-
-      <input
-        name="password"
-        type="password"
-        placeholder="Administering staff password"
-        value={adminForm.password}
-        onChange={updateAdminForm}
-      />
-
-      <button type="button" onClick={verifyAdministeredBy}>
-        Verify Administered By
-      </button>
-
-      {administeredUser && (
-        <p style={{ color: "green", fontWeight: "bold" }}>
-          ✓ Administered by verified: {administeredUser.fullName} ({administeredUser.role})
-        </p>
-      )}
-
-      <h3>Second Checker Verification</h3>
-
-      <input
-        name="username"
-        placeholder="Checker username"
-        value={checkerForm.username}
-        onChange={updateCheckerForm}
-      />
-
-      <input
-        name="password"
-        type="password"
-        placeholder="Checker password"
-        value={checkerForm.password}
-        onChange={updateCheckerForm}
-      />
-
-      <button type="button" onClick={verifySecondChecker}>
-        Verify Second Checker
-      </button>
-
-      {checkerUser && (
-        <p style={{ color: "green", fontWeight: "bold" }}>
-          ✓ Second checker verified: {checkerUser.fullName} ({checkerUser.role})
-        </p>
-      )}
-
-      <input
-        name="notes"
-        placeholder="Notes"
-        value={form.notes}
-        onChange={updateForm}
-      />
-
-      <button type="button" onClick={savePatientEntry}>
-        💾 Save Patient Entry
-      </button>
+        <button type="button" className="ipad-save-entry-btn" onClick={savePatientEntry}>
+          Save Patient Entry
+        </button>
+      </section>
 
       <h3>Register Entries</h3>
 
@@ -1676,7 +890,7 @@ function DrugRegister({ drug, device, onClose }) {
             <th>Used</th>
             <th>Given</th>
             <th>Waste</th>
-            <th>Balance After</th>
+            <th>Balance After</th><th>Batch / expiry</th>
             <th>Staff</th>
             <th>Staff Signature</th>
             <th>Witness</th>
@@ -1688,6 +902,7 @@ function DrugRegister({ drug, device, onClose }) {
         <tbody>
           {transactions.map((entry) => {
             const isCorrection = entry.transactionType === "CORRECTION";
+            const isCustody=Boolean(entry.custodyCaseId);
             const hasCorrection = Number(entry.correctionCount || 0) > 0;
 
             const isSupply =
@@ -1699,7 +914,7 @@ function DrugRegister({ drug, device, onClose }) {
               <tr key={entry.id}>
                 <td>{entry.createdAt ? new Date(entry.createdAt).toLocaleString() : ""}</td>
                 <td>
-                  {isCorrection ? "CORRECTION" : isSupply ? "Pharmacy Supply" : "Patient Use"}
+                  {isCorrection ? "CORRECTION" : isCustody ? (entry.transactionType==='STOCK_RETURN'?'Stock return':'Stock destruction') : isSupply ? "Pharmacy Supply" : "Patient Use"}
                   {hasCorrection && (
                     <>
                       <br />
@@ -1725,9 +940,9 @@ function DrugRegister({ drug, device, onClose }) {
                     : entry.ampoulesSupplied}
                 </td>
                 <td>{isCorrection ? "-" : entry.ampoulesUsed}</td>
-                <td>{isCorrection ? "-" : `${entry.amountAdministered || ""}${entry.administeredUnit || ""}`}</td>
-                <td>{isCorrection ? "-" : `${entry.amountWasted || ""}${entry.wastedUnit || ""}`}</td>
-                <td>{entry.stockBalanceAfter}</td>
+                <td>{isCorrection || isCustody ? "-" : `${entry.amountAdministered || ""}${entry.administeredUnit || ""}`}</td>
+                <td>{isCorrection || isCustody ? "-" : `${entry.amountWasted || ""}${entry.wastedUnit || ""}`}</td>
+                <td>{entry.stockBalanceAfter}</td><td>{entry.batchNumber || "Not recorded"}<br/>{entry.expiryDate || ""}</td>
                 <td>{entry.administeredByName}</td>
                 <td>{entry.administeredSignature || "-"}</td>
                 <td>{entry.witnessName}</td>
